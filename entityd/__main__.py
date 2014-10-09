@@ -2,6 +2,7 @@ import argparse
 import logging
 import sys
 
+import entityd.mesend
 import entityd.version
 
 
@@ -36,6 +37,8 @@ def main(argv=None):
     logging.basicConfig(stream=sys.stdout, level=args.log_level)
     log = logging.getLogger()
     log.info(args)
+    sender = entityd.mesend.MonitoredEntitySender(args.dest)
+    sender.send(b'hi there')
 
 
 if __name__ == '__main__':

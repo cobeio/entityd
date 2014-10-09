@@ -1,0 +1,17 @@
+syntax: glob
+
+# Global patterns
+*.pyc
+*.pyo
+*~
+
+# Directories
+build/
+dist/
+.cache/
+.tox/
+*.egg-info/
+
+# Files
+.python-version
+MANIFEST

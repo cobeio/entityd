@@ -1,0 +1,5 @@
+Abilisoft Entity Monitoring Agent
+=================================
+
+A deamon which monitors entities on a host system and streams them to
+modeld.

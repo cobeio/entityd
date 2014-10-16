@@ -13,5 +13,6 @@ dist/
 *.egg-info/
 
 # Files
+.dir-locals.el
 .python-version
 MANIFEST

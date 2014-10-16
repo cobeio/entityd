@@ -41,5 +41,22 @@ def main(argv=None):
     sender.send(b'hi there')
 
 
+class Config:
+    """The main configration instance."""
+
+    def addentity(self, name, plugin):
+        """Register a plugin as providing a Monitored Entity.
+
+        The given plugin needs to provide a number of hooks.  The
+        plugin must already be registered.
+
+        XXX Consider registering the plugin now if it isn't already
+            but a few hooks might not be called and some ordering
+            might not be possible.  Verifying all this is more work so
+            keep it simple for now.
+
+        """
+
+
 if __name__ == '__main__':
     main()

@@ -1,62 +1,57 @@
-import argparse
+import functools
+import importlib
 import logging
 import sys
 
-import entityd.mesend
+import entityd.hookspec
+import entityd.pm
 import entityd.version
 
 
-def parse_cmdline(argv=None):
-    parser = argparse.ArgumentParser(
-        prog='entityd',
-        description='Entity Monitoring Agent',
-    )
-    parser.add_argument(
-        '--version',
-        action='version',
-        version='%(prog)s {}'.format(entityd.version.__version__),
-    )
-    parser.add_argument(
-        '-l', '--log-level',
-        metavar='N',
-        default=logging.INFO,
-        type=int,
-        help='log verbosity (0-100): 10=DEBUG, 20=INFO, 30=WARNING, 40=ERROR, 50=CRITICAL',
-    )
-    parser.add_argument(
-        '--dest',                         # XXX Choose better name
-        default='tcp://127.0.0.1:25010',  # XXX Should not have a default
-        type=str,
-        help='ZeroMQ address of modeld destination',
-    )
-    return parser.parse_args(argv)
+#: These plugins are always loaded first and in order, they are all
+#: imported from the "entityd.{plugin}" namespace.
+BUILTIN_PLUGIN_NAMES = ['core']
+
+
+log = logging.getLogger('bootstrap')
 
 
 def main(argv=None):
-    args = parse_cmdline(argv)
-    logging.basicConfig(stream=sys.stdout, level=args.log_level)
-    log = logging.getLogger()
-    log.info(args)
-    sender = entityd.mesend.MonitoredEntitySender(args.dest)
-    sender.send(b'hi there')
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+    pluginmanager = entityd.pm.PluginManager(entityd.hookspec)
+    register_cb = functools.partial(plugin_registered_cb, pluginmanager)
+    pluginmanager.register_callback = register_cb
+    for name in BUILTIN_PLUGIN_NAMES:
+        modname = 'entityd.{}'.format(name)
+        try:
+            plugin = importlib.import_module(modname)
+        except Exception:
+            log.exception('Failed to import plugin: {}'.format(modname))
+            continue
+        try:
+            pluginmanager.register(plugin)
+        except Exception:
+            log.exception('Failed to register plugin: {}'.format(modname))
+    return pluginmanager.hooks.entityd_main(
+        pluginmanager=pluginmanager,
+        argv=argv,
+    )
 
 
-class Config:
-    """The main configration instance."""
+def plugin_registered_cb(pluginmanager, plugin):
+    """Callback used by the PluginManager when a new plugin is registered.
 
-    def addentity(self, name, plugin):
-        """Register a plugin as providing a Monitored Entity.
+    This simply calls the "entityd_plugin_registered" hook.
 
-        The given plugin needs to provide a number of hooks.  The
-        plugin must already be registered.
-
-        XXX Consider registering the plugin now if it isn't already
-            but a few hooks might not be called and some ordering
-            might not be possible.  Verifying all this is more work so
-            keep it simple for now.
-
-        """
+    """
+    try:
+        pluginmanager.hooks.entityd_plugin_registered(
+            pluginmanager=pluginmanager,
+            name=plugin.name,
+        )
+    except Exception:
+        log.exception('Failed to call entityd_plugin_registered hook:')
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

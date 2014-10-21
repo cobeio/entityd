@@ -1,10 +1,21 @@
 """Hook specifications for entityd plugins."""
 
 
-import entityd
+import entityd.pm
 
 
-@entityd.hookdef
+@entityd.pm.hookdef(firstresult=True)
+def entityd_main(pluginmanager, argv):
+    """Invoke the main program.
+
+    This hook is responsible for driving all other hooks.
+
+    Return the exit code: 0 for success, 1 or greater for failure.
+
+    """
+
+
+@entityd.pm.hookdef
 def entityd_plugin_registered(pluginmanager, name):
     """Called when a plugin is registerd.
 
@@ -14,7 +25,7 @@ def entityd_plugin_registered(pluginmanager, name):
     """
 
 
-@entityd.hookdef
+@entityd.pm.hookdef
 def entityd_namespace():
     """Return dict of objects to be bound in the entityd namespace.
 
@@ -22,7 +33,7 @@ def entityd_namespace():
     """
 
 
-@entityd.hookdef
+@entityd.pm.hookdef
 def entityd_addoption(parser):
     """Register argparse options.
 
@@ -31,12 +42,12 @@ def entityd_addoption(parser):
     """
 
 
-@entityd.hookdef(firstresult=True)
+@entityd.pm.hookdef(firstresult=True)
 def entityd_cmdline_parse(pluginmanager, args):
     """Return initialised config object after parsing the arguments"""
 
 
-@entityd.hookdef
+@entityd.pm.hookdef
 def entityd_configure(config):
     """Perform extra configuration.
 
@@ -48,21 +59,17 @@ def entityd_configure(config):
     """
 
 
-@entityd.hookdef(firstresult=True)
-def entityd_main(config):
-    """Invoke the main program.
-
-    Return the exit code: 0 for success, 1 or greater for failure.
-
-    """
+@entityd.pm.hookdef(firstresult=True)
+def entityd_mainloop(config):
+    """Implement the mainloop of the application."""
 
 
-@entityd.hookdef
+@entityd.pm.hookdef
 def entityd_unconfigure(config):
     """Perform cleanup after entityd_main() as exited"""
 
 
-@entityd.hookdef
+@entityd.pm.hookdef
 def entityd_find_entity(name, attrs=None):
     """Return an iterator of Monitored Entities.
 

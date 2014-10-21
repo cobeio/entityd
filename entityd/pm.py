@@ -82,6 +82,7 @@ class PluginManager:
         self._hookrelay = HookRelay(hookspec)
         self.hooks = self._hookrelay.hooks
         self._plugin_count = itertools.count()
+        self._register_cb = None
 
     def register(self, plugin, name=None):
         """Register a new plugin.
@@ -105,10 +106,29 @@ class PluginManager:
             raise ValueError('Plugin already registered: {}'.format(name))
         self._hookrelay.add_plugin(plugin)
         self._plugins[name] = plugin
+        if self._register_cb:
+            self._register_cb(plugin)
 
     def unregister(self, plugin):
         # Plugin-or-name-or-obj
         pass
+
+    @property
+    def register_callback(self):
+        """Callback which will be called when a plugin is registered.
+
+        Assign a callable to this which will be called with a single
+        argument which is the Plugin instance of the newly registered
+        plugin.
+
+        Assign None to disable.
+
+        """
+        return self._register_cb
+
+    @register_callback.setter
+    def register_callback(self, cb):
+        self._register_cb = cb
 
     def isregistered(self, plugin):
         # plugin-or-name
@@ -177,9 +197,12 @@ class HookImpl:
             coll.add(obj)
         elif isinstance(obj, collections.Sequence):
             coll.update(obj)
+        elif obj is None:
+            pass
         else:
             raise TypeError('Invalid type for "before" argument '
-                            'to @hookimpl for {!r}'.format(self.routine))
+                            'to @hookimpl for {!r} in {}'.format(
+                                self.routine, self.routine.__module__))
         return coll
 
     def argnames(self):
@@ -210,7 +233,7 @@ class HookRelay:
 
         """
         added = False
-        for name, routine in vars(hookspec):
+        for name, routine in vars(hookspec).items():
             if hasattr(routine, 'pm_hookdef'):
                 assert name == routine.pm_hookdef['name']
                 if hasattr(self.hooks, name):
@@ -232,7 +255,7 @@ class HookRelay:
         :param: plugin: A Plugin instance
 
         """
-        for hookname, routine in vars(plugin.obj):
+        for hookname, routine in vars(plugin.obj).items():
             if not hasattr(routine, 'pm_hookimpl'):
                 continue
             assert hookname == routine.pm_hookimpl['name']
@@ -253,6 +276,10 @@ class HookCaller:
     This represent a hook callable which implements a multicall
     interface to hook implementations for a certain hook definition.
 
+    Attributes:
+
+    :name: The name of the hook.
+
     """
     # Private attributes:
     #
@@ -268,6 +295,11 @@ class HookCaller:
         self._hookdef = hookdef
         self._hook_groups = tuple()
         self._hooks = tuple()
+        argnames = inspect.getargspec(hookdef).args
+        if inspect.ismethod(hookdef):
+            del argnames[0]
+        self._argnames = argnames
+        self.name = hookdef.pm_hookdef['name']
 
     @property
     def firstresult(self):
@@ -290,8 +322,7 @@ class HookCaller:
                 group.sort(key=lambda h: h.plugin.index)
                 self._hooks = self._flatten_groups(self._hook_groups)
                 return
-        groups = self._hook_groups.copy()
-        groups.append([hookimpl])
+        groups = self._hook_groups + ([hookimpl],)
         for groups_order in itertools.permutations(groups):
             if self._check_order(groups_order):
                 self._hook_groups = groups_order
@@ -328,6 +359,14 @@ class HookCaller:
         pass
 
     def __call__(self, **kwargs):
+        missing_args = set(self._argnames) - set(kwargs.keys())
+        if missing_args:
+            raise TypeError('{!r} call has missing args: {}'
+                            .format(self, ' '.join(missing_args)))
+        extra_args = set(kwargs.keys()) - set(self._argnames)
+        if extra_args:
+            raise TypeError('{!r} call has extra args: {}'
+                            .format(self, ' '.join(extra_args)))
         results = []
         for hook in self._hooks:
             args = [kwargs[argname] for argname in hook.argnames()]
@@ -340,3 +379,7 @@ class HookCaller:
             return results
         else:
             return None
+
+    def __repr__(self):
+        args = ', '.join(self._argnames)
+        return '<HookCaller {}({})>'.format(self.name, args)

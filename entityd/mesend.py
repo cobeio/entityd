@@ -15,12 +15,12 @@ import entityd.pm
 @entityd.pm.hookimpl
 def entityd_plugin_registered(pluginmanager, name):
     if name == 'entityd.mesend':
-        sender = ManagedEntitySender()
+        sender = MonitoredEntitySender()
         pluginmanager.register(sender,
-                               name='entityd.mesend.ManagedEntitySender')
+                               name='entityd.mesend.MonitoredEntitySender')
 
 
-class ManagedEntitySender:
+class MonitoredEntitySender:
 
     def __init__(self):
         self.context = None

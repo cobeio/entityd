@@ -34,6 +34,14 @@ def entityd_namespace():
     """
 
 
+@entityd.pm.hookdef(firstresult=True)
+def entityd_cmdline_parse(pluginmanager, argv):
+    """Return initialised config object after parsing the arguments.
+
+    This hook is responsible for calling the entityd_addoption hook.
+    """
+
+
 @entityd.pm.hookdef
 def entityd_addoption(parser):
     """Register argparse options.
@@ -41,11 +49,6 @@ def entityd_addoption(parser):
     The parser is a argparse.ArgumentParser instance.
 
     """
-
-
-@entityd.pm.hookdef(firstresult=True)
-def entityd_cmdline_parse(pluginmanager, argv):
-    """Return initialised config object after parsing the arguments."""
 
 
 @entityd.pm.hookdef

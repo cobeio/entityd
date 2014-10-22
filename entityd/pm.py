@@ -153,11 +153,45 @@ class PluginManager:
             self._tracer_cb(msg)
 
     def isregistered(self, plugin):
-        # Plugin-or-name-or-obj
-        pass
+        """Return True if the matching plugin is registed.
 
-    def getplugin(self, name):
-        pass
+        :param plugin: Can be either a Plugin instance, plugin name or
+           an object.
+
+        Return False if no such plugin is registered.
+
+        """
+        try:
+            self.getplugin(plugin)
+        except LookupError:
+            return False
+        else:
+            return True
+
+    def getplugin(self, plugin):
+        """Return the matching Plugin instance.
+
+        :param plugin: Can be either a Plugin instance, plugin name or
+           an object.
+
+        Raises LookupError if the plugin is not registered.
+
+        """
+        err = LookupError('Plugin not registered: {}'.format(plugin))
+        if isinstance(plugin, Plugin):
+            if plugin not in self._plugins.values():
+                raise err
+            return plugin
+        elif isinstance(plugin, str):
+            if plugin not in self._plugins:
+                raise err
+            return self._plugins[plugin]
+        else:
+            for box in self._plugins.values():
+                if plugin is box.obj:
+                    return box
+            else:
+                raise err
 
     def addhooks(self, hookspec):
         self._hookrelay.addhooks(hookspec)
@@ -346,6 +380,10 @@ class HookCaller:
         if hookimpl in self._hooks:
             raise ValueError('Hook implementation already registered: {!r}'
                              .format(hookimpl))
+        unknown_args = set(hookimpl.argnames()) - set(self._argnames)
+        if unknown_args:
+            raise TypeError('Hook {} accepts unknown arguments: {}'
+                            .format(hookimpl, ', '.join(unknown_args)))
         for group in self._hook_groups:
             if (hookimpl.before == group[0].before and
                     hookimpl.after == group[0].after):

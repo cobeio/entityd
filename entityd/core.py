@@ -9,13 +9,13 @@ import entityd.version
 def entityd_main(pluginmanager, argv):
     config = pluginmanager.hooks.entityd_cmdline_parse(
         pluginmanager=pluginmanager, argv=argv)
-    # XXX call some more hooks
-    try:
-        pluginmanager.hooks.entityd_mainloop(config=config)
-    except Exception:
-        raise                   # XXX return 1
-    else:
-        return 0
+    pluginmanager.hooks.entityd_configure(config=config)
+    session = Session(config)
+    pluginmanager.hooks.entityd_sessionstart(session=session, config=config)
+    pluginmanager.hooks.entityd_mainloop(session=session, config=config)
+    pluginmanager.hooks.entityd_sessionfinish(session=session, config=config)
+    pluginmanager.hooks.entityd_unconfigure(config=config)
+    return 0
 
 
 @entityd.pm.hookimpl
@@ -52,7 +52,7 @@ def entityd_addoption(parser):
 
 
 @entityd.pm.hookimpl
-def entityd_mainloop(config):
+def entityd_mainloop(session, config):
     print(config.args)
 
 

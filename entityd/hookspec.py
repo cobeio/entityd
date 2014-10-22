@@ -31,6 +31,9 @@ def entityd_namespace():
     """Return dict of objects to be bound in the entityd namespace.
 
     This hook is called before command line options are parsed.
+
+    XXX Not yet implemented.
+
     """
 
 
@@ -74,7 +77,7 @@ def entityd_sessionstart(session, config):
 
 
 @entityd.pm.hookdef(firstresult=True)
-def entityd_mainloop(config):
+def entityd_mainloop(session, config):
     """Implement the mainloop of the application."""
 
 

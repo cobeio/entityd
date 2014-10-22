@@ -1,4 +1,4 @@
-"""Monitored Entity Sender
+"""Example Monitored Entity sender.
 
 This plugin implements the sending of Monitored Entities to the modeld
 destination.
@@ -44,7 +44,7 @@ class MonitoredEntitySender:
 
     @entityd.pm.hookimpl
     def entityd_sessionfinish(self, session):
-        self.context.close()
+        self.context.term()
         self.context = None
         self.session = None
         self.config = None

@@ -1,5 +1,6 @@
 import argparse
 import logging
+import time
 
 import entityd.pm
 import entityd.version
@@ -10,10 +11,10 @@ def entityd_main(pluginmanager, argv):
     config = pluginmanager.hooks.entityd_cmdline_parse(
         pluginmanager=pluginmanager, argv=argv)
     pluginmanager.hooks.entityd_configure(config=config)
-    session = Session(config)
-    pluginmanager.hooks.entityd_sessionstart(session=session, config=config)
-    pluginmanager.hooks.entityd_mainloop(session=session, config=config)
-    pluginmanager.hooks.entityd_sessionfinish(session=session, config=config)
+    session = MonitorSession(pluginmanager, config)
+    pluginmanager.hooks.entityd_sessionstart(session=session)
+    pluginmanager.hooks.entityd_mainloop(session=session)
+    pluginmanager.hooks.entityd_sessionfinish(session=session)
     pluginmanager.hooks.entityd_unconfigure(config=config)
     return 0
 
@@ -26,7 +27,7 @@ def entityd_cmdline_parse(pluginmanager, argv):
     )
     pluginmanager.hooks.entityd_addoption(parser=parser)
     args = parser.parse_args(argv)
-    return Config(args)
+    return Config(pluginmanager, args)
 
 
 @entityd.pm.hookimpl
@@ -52,15 +53,29 @@ def entityd_addoption(parser):
 
 
 @entityd.pm.hookimpl
-def entityd_mainloop(session, config):
-    print(config.args)
+def entityd_mainloop(session):
+    try:
+        session.run()
+    except KeyboardInterrupt:
+        pass
 
 
 class Config:
-    """The main configration instance."""
+    """The main configration instance.
 
-    def __init__(self, args):
-        self.args = args        # XXX
+    Attributes:
+
+    :pluginmanager: The PluginManager instance.
+    :args: The argparse Namespace from parsing the command line.
+    :entities: Dict of Monitored Entity names mapped to the plugin
+       providing them.
+
+    """
+
+    def __init__(self, pluginmanager, args):
+        self.args = args
+        self.pluginmanager = pluginmanager
+        self.entities = dict()
 
     def addentity(self, name, plugin):
         """Register a plugin as providing a Monitored Entity.
@@ -70,22 +85,65 @@ class Config:
         in the entityd_configure() hook of the plugin providing the
         entity.
 
+        :param name: The name of the Monitored Entity.
+
+        :param plugin: The plugin providing the Monitored Entity.
+           This can be a plugin name, the plugin object or the
+           entityd.pm.Plugin instance.
+
+        :raises KeyError: If the Monitored Entity already exists a
+           KeyError is raised.
+
         XXX Consider registering the plugin now if it isn't already
             but a few hooks might not be called and some ordering
             might not be possible.  Verifying all this is more work so
             keep it simple for now.
 
         """
+        if name in self.entities:
+            raise KeyError(
+                'Monitored Entity already registered: {}'.format(name))
+        plugin = self.pluginmanager.getplugin(plugin)
+        self.entities[name] = plugin
 
 
-class Session:
+class MonitorSession:
     """A monitoring session.
 
     Attributes:
 
     :config: The Config instance.
+    :pluginmanager: The PluginManager instance.
+
+    XXX This is currently way to simplistic, monitoring in this way
+        would result in resources spikes etc.  It may also be that the
+        actual monitoring activity should be moved to it's own plugin.
 
     """
 
-    def __init__(self, config):
+    def __init__(self, pluginmanager, config):
         self.config = config
+        self.pluginmanager = pluginmanager
+
+    def run(self):
+        """Run the monitoring session.
+
+        This will block until .shutdown() is called or SIGTERM is
+        received (aka KeyboardInterrupt is raised).
+
+        """
+        while True:
+            self.collect_entities()
+            time.sleep(60)
+
+    def shutdown(self):
+        pass
+
+    def collect_entities(self):
+        """Collect and send all Monitored Entities."""
+        for metype in self.config.entities:
+            result, = self.pluginmanager.hooks.entityd_find_entity(name=metype,
+                                                                   attrs=None)
+            for entity in result:
+                self.pluginmanager.hooks.entityd_send_entity(session=self,
+                                                             entity=entity)

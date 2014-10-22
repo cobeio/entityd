@@ -67,7 +67,7 @@ def entityd_configure(config):
 
 
 @entityd.pm.hookdef
-def entityd_sessionstart(session, config):
+def entityd_sessionstart(session):
     """A monitoring session has been created.
 
     This hook is called after entityd is configured and a Session has
@@ -77,12 +77,12 @@ def entityd_sessionstart(session, config):
 
 
 @entityd.pm.hookdef(firstresult=True)
-def entityd_mainloop(session, config):
+def entityd_mainloop(session):
     """Implement the mainloop of the application."""
 
 
 @entityd.pm.hookdef
-def entityd_sessionfinish(session, config):
+def entityd_sessionfinish(session):
     """A monitoring session has been finished.
 
     This hook is called when the Session instance is about to be
@@ -114,5 +114,5 @@ def entityd_find_entity(name, attrs=None):
 
 
 @entityd.pm.hookdef
-def entityd_send_entity(config, session, entity):
+def entityd_send_entity(session, entity):
     """Send a Monitored Entity to a modeld destination."""

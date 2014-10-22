@@ -51,6 +51,8 @@ class MonitoredEntitySender:
 
     @entityd.pm.hookimpl
     def entityd_send_entity(self, entity):
+        print('sending:', entity)
+        return
         sock = self.context.socket(zmq.REQ)
         try:
             sock.connect(self.config.dest)

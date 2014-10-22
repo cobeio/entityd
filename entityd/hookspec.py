@@ -20,7 +20,8 @@ def entityd_plugin_registered(pluginmanager, name):
     """Called when a plugin is registerd.
 
     The primary usecase is to allow plugins to add new hooks via
-    pluginmanager.addhooks(module).
+    pluginmanager.addhooks(module) or to register new plugins before
+    any other hooks are called.
 
     """
 
@@ -43,8 +44,8 @@ def entityd_addoption(parser):
 
 
 @entityd.pm.hookdef(firstresult=True)
-def entityd_cmdline_parse(pluginmanager, args):
-    """Return initialised config object after parsing the arguments"""
+def entityd_cmdline_parse(pluginmanager, argv):
+    """Return initialised config object after parsing the arguments."""
 
 
 @entityd.pm.hookdef
@@ -59,14 +60,34 @@ def entityd_configure(config):
     """
 
 
+@entityd.pm.hookdef
+def entityd_sessionstart(session, config):
+    """A monitoring session has been created.
+
+    This hook is called after entityd is configured and a Session has
+    been instantiated.
+
+    """
+
+
 @entityd.pm.hookdef(firstresult=True)
 def entityd_mainloop(config):
     """Implement the mainloop of the application."""
 
 
 @entityd.pm.hookdef
+def entityd_sessionfinish(session, config):
+    """A monitoring session has been finished.
+
+    This hook is called when the Session instance is about to be
+    destroyed.
+
+    """
+
+
+@entityd.pm.hookdef
 def entityd_unconfigure(config):
-    """Perform cleanup after entityd_main() as exited"""
+    """Perform cleanup after entityd_mainloop() as exited."""
 
 
 @entityd.pm.hookdef
@@ -84,3 +105,8 @@ def entityd_find_entity(name, attrs=None):
     iterator.
 
     """
+
+
+@entityd.pm.hookdef
+def entityd_send_entity(config, session, entity):
+    """Send a Monitored Entity to a modeld destination."""

@@ -131,7 +131,7 @@ class PluginManager:
         self._register_cb = cb
 
     def isregistered(self, plugin):
-        # plugin-or-name
+        # Plugin-or-name-or-obj
         pass
 
     def getplugin(self, name):

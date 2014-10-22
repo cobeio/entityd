@@ -12,44 +12,12 @@ import zmq
 import entityd.pm
 
 
-# @entityd.pm.hookimpl
-# def entityd_addoption(parser):
-#     parser.add_argument(
-#         '--dest',                         # XXX choose a better name
-#         default='tcp://127.0.0.1:25010',  # XXX should not have a default
-#         type=str,
-#         help='ZeroMQ address of modeld destination.',
-#     )
-
-
-# @entityd.pm.hookimpl
-# def entityd_sessionstart(session):
-#     session.mesend_zmq_context = zmq.Context()
-
-
-# @entityd.pm.hookimpl
-# def entityd_sessionfinish(session):
-#     session.mesend_zmq_context.close()
-
-
-# @entityd.pm.hookimpl
-# def entityd_send_entity(session, config, entity):
-#     zmqcontext = session.mesend_zmq_context
-#     sock = zmqcontext.socket(zmq.REQ)
-#     try:
-#         sock.connect(config.dest)
-#         sock.send_multipart([struct.pack('!I', 1), entity])
-#         ack = sock.recv_multipart()
-#         print(ack)
-#     finally:
-#         sock.close()
-
-
 @entityd.pm.hookimpl
 def entityd_plugin_registered(pluginmanager, name):
     if name == 'entityd.mesend':
         sender = ManagedEntitySender()
-        pluginmanager.register(sender, name='ManagedEntitySender')
+        pluginmanager.register(sender,
+                               name='entityd.mesend.ManagedEntitySender')
 
 
 class ManagedEntitySender:

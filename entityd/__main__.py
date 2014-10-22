@@ -18,7 +18,10 @@ log = logging.getLogger('bootstrap')
 
 def main(argv=None):
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-    pluginmanager = entityd.pm.PluginManager(entityd.hookspec)
+    pluginmanager = entityd.pm.PluginManager()
+    if argv and '--trace' in argv:
+        pluginmanager.tracer_cb = trace
+    pluginmanager.addhooks(entityd.hookspec)
     register_cb = functools.partial(plugin_registered_cb, pluginmanager)
     pluginmanager.register_callback = register_cb
     for name in BUILTIN_PLUGIN_NAMES:
@@ -53,5 +56,9 @@ def plugin_registered_cb(pluginmanager, plugin):
         log.exception('Failed to call entityd_plugin_registered hook:')
 
 
+def trace(msg):
+    print('TRACE: {}'.format(msg))
+
+
 if __name__ == '__main__':
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

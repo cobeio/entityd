@@ -44,6 +44,11 @@ def entityd_addoption(parser):
         help=('log verbosity (0-100): 10=DEBUG, '
               '20=INFO, 30=WARNING, 40=ERROR, 50=CRITICAL'),
     )
+    parser.add_argument(
+        '--trace',
+        action='store_true',
+        help='Trace the plugin manager actions',
+    )
 
 
 @entityd.pm.hookimpl

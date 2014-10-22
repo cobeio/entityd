@@ -79,10 +79,11 @@ class PluginManager:
 
     def __init__(self, hookspec=None):
         self._plugins = {}
-        self._hookrelay = HookRelay(hookspec)
-        self.hooks = self._hookrelay.hooks
         self._plugin_count = itertools.count()
         self._register_cb = None
+        self._tracer_cb = None
+        self._hookrelay = HookRelay(self._trace, hookspec)
+        self.hooks = self._hookrelay.hooks
 
     def register(self, plugin, name=None):
         """Register a new plugin.
@@ -102,6 +103,7 @@ class PluginManager:
             except AttributeError:
                 raise ValueError('Missing plugin name')
         plugin = Plugin(plugin, name, index)
+        self._trace('Registring plugin: {}'.format(plugin))
         if self.isregistered(plugin):
             raise ValueError('Plugin already registered: {}'.format(name))
         self._hookrelay.add_plugin(plugin)
@@ -129,6 +131,26 @@ class PluginManager:
     @register_callback.setter
     def register_callback(self, cb):
         self._register_cb = cb
+
+    @property
+    def tracer_cb(self):
+        """Callback to trace the plugin manager and hook invocations.
+
+        Assign a callable to this which will be called with a log
+        message every time the plugin manager does something notable,
+        like e.g. when a hook is invoked etc.
+
+        """
+        return self._tracer_cb
+
+    @tracer_cb.setter
+    def tracer_cb(self, cb):
+        self._tracer_cb = cb
+
+    def _trace(self, msg):
+        """Log a message about what the plugin manager is doing."""
+        if self._tracer_cb:
+            self._tracer_cb(msg)
 
     def isregistered(self, plugin):
         # Plugin-or-name-or-obj
@@ -160,6 +182,9 @@ class Plugin:
         self.name = name
         self.index = index
 
+    def __repr__(self):
+        return '<Plugin {}>'.format(self.name)
+
 
 class HookImpl:
     """A plugin hook implementation
@@ -173,8 +198,6 @@ class HookImpl:
     :routine: The actual function or method object.
     :plugin: The Plugin instance this hook belongs too.
     :name: The hook name.
-    :first: Value from @hookimpl decorator, boolean.
-    :last: Value from @hookimpl decorator, boolean.
     :before: Value from @hookimpl decorator, set.
     :after: Value from @hookimpl decorator, set.
 
@@ -187,6 +210,7 @@ class HookImpl:
         assert isinstance(plugin, Plugin)
         self.routine = routine
         self.plugin = plugin
+        self.name = routine.pm_hookimpl['name']
         self.before = self._castset(routine.pm_hookimpl['before'])
         self.after = self._castset(routine.pm_hookimpl['after'])
 
@@ -217,11 +241,15 @@ class HookImpl:
         self._argnames = names
         return names
 
+    def __repr__(self):
+        return '<HookImpl {}:{}>'.format(self.plugin.name, self.name)
+
 
 class HookRelay:
 
-    def __init__(self, hookspec=None):
+    def __init__(self, trace, hookspec=None):
         self.hooks = types.SimpleNamespace()
+        self._trace = trace
         if hookspec:
             self.addhooks(hookspec)
 
@@ -233,14 +261,15 @@ class HookRelay:
 
         """
         added = False
-        for name, routine in vars(hookspec).items():
+        for name, routine in inspect.getmembers(hookspec):
             if hasattr(routine, 'pm_hookdef'):
                 assert name == routine.pm_hookdef['name']
                 if hasattr(self.hooks, name):
                     raise ValueError('Hook already exists for name: {}'
                                      .format(name))
-                setattr(self.hooks, name, HookCaller(routine))
+                setattr(self.hooks, name, HookCaller(routine, self._trace))
                 added = True
+                self._trace('Added hookdef {} from {}'.format(name, hookspec))
         if not added:
             raise ValueError('No new hooks found in {!r}'.format(hookspec))
 
@@ -255,14 +284,15 @@ class HookRelay:
         :param: plugin: A Plugin instance
 
         """
-        for hookname, routine in vars(plugin.obj).items():
+        for hookname, routine in inspect.getmembers(plugin.obj):
             if not hasattr(routine, 'pm_hookimpl'):
                 continue
             assert hookname == routine.pm_hookimpl['name']
             try:
                 hook = getattr(self.hooks, hookname)
             except AttributeError:
-                raise ValueError('Found unknown hook: {}'.format(hookname))
+                raise ValueError('Found unknown hook in {}: {}'
+                                 .format(plugin, hookname))
             hookimpl = HookImpl(routine, plugin)
             hook.addimpl(hookimpl)
 
@@ -291,8 +321,9 @@ class HookCaller:
     #
     # :_hooks: Tuple of all the hooks in call order.
 
-    def __init__(self, hookdef):
+    def __init__(self, hookdef, trace):
         self._hookdef = hookdef
+        self._trace = trace
         self._hook_groups = tuple()
         self._hooks = tuple()
         argnames = inspect.getargspec(hookdef).args
@@ -330,6 +361,7 @@ class HookCaller:
                 break
         else:
             raise ValueError('Impossible to sort')
+        self._trace('Added hook: {}'.format(hookimpl, hookimpl))
 
     @staticmethod
     def _flatten_groups(groups):
@@ -370,6 +402,7 @@ class HookCaller:
         results = []
         for hook in self._hooks:
             args = [kwargs[argname] for argname in hook.argnames()]
+            self._trace('Calling hook: {}'.format(hook))
             res = hook.routine(*args)
             if res is not None:
                 if self.firstresult:

@@ -17,7 +17,7 @@ def entityd_main(pluginmanager, argv):
 
 @entityd.pm.hookdef
 def entityd_plugin_registered(pluginmanager, name):
-    """Called when a plugin is registerd.
+    """Called when a plugin is registered.
 
     The primary usecase is to allow plugins to add new hooks via
     pluginmanager.addhooks(module) or to register new plugins before

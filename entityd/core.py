@@ -61,7 +61,7 @@ def entityd_mainloop(session):
 
 
 class Config:
-    """The main configration instance.
+    """The main configuration instance.
 
     Attributes:
 

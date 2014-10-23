@@ -7,6 +7,7 @@ destination.
 
 import struct
 
+import msgpack
 import zmq
 
 import entityd.pm
@@ -50,13 +51,13 @@ class MonitoredEntitySender:
         self.config = None
 
     @entityd.pm.hookimpl
-    def entityd_send_entity(self, entity):
+    def entityd_send_entity(self, session, entity):
         print('sending:', entity)
-        return
         sock = self.context.socket(zmq.REQ)
         try:
-            sock.connect(self.config.dest)
-            sock.send_multipart([struct.pack('!I', 1), entity])
+            sock.connect(session.config.args.dest)
+            sock.send_multipart([struct.pack('!I', 1),
+                                 msgpack.packb(entity, use_bin_type=True)])
             ack = sock.recv_multipart()
             print(ack)
         finally:

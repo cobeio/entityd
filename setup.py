@@ -21,5 +21,5 @@ setup(
     classifiers=[
         'Development Status :: 3 - Alpha',
     ],
-    keywords='topology performance availablility monitoring',
+    keywords='topology performance availability monitoring',
 )

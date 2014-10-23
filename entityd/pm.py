@@ -39,7 +39,7 @@ def hookimpl(*func, before=None, after=None):
     """Declare a function or method as a hook implementionation.
 
     If the func argument is given then it must be a callable and this
-    function is a decorator wich marsk the callable as a hook
+    function is a decorator which marks the callable as a hook
     implementation.  Otherwise it must be called with keyword
     arguments only and this function will return a decorator to mark a
     callable as a hook implementation, but with details.
@@ -103,7 +103,7 @@ class PluginManager:
             except AttributeError:
                 raise ValueError('Missing plugin name')
         plugin = Plugin(plugin, name, index)
-        self._trace('Registring plugin: {}'.format(plugin))
+        self._trace('Registering plugin: {}'.format(plugin))
         if self.isregistered(plugin):
             raise ValueError('Plugin already registered: {}'.format(name))
         self._hookrelay.add_plugin(plugin)
@@ -153,7 +153,7 @@ class PluginManager:
             self._tracer_cb(msg)
 
     def isregistered(self, plugin):
-        """Return True if the matching plugin is registed.
+        """Return True if the matching plugin is registered.
 
         :param plugin: Can be either a Plugin instance, plugin name or
            an object.

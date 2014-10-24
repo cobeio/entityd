@@ -1,4 +1,4 @@
-"""Example plugin providing the Host Monitored Entity."""
+"""Plugin providing the Host Monitored Entity."""
 import socket
 import time
 import uuid
@@ -23,12 +23,12 @@ def entityd_find_entity(name, attrs):
         return hosts()
 
 
-def _get_uuid(fqdn):
+def get_uuid(fqdn):
     """Get a uuid for fqdn if one exists, else generate one
 
     XXX: Persistent uuids will come when the storage plugin is made
 
-    :param fqdn
+    :param fqdn: Fully qualified domain name of the host
     """
     return uuid.uuid4().hex
 
@@ -36,12 +36,12 @@ def _get_uuid(fqdn):
 def hosts():
     """Generator of Host MEs"""
     fqdn = socket.getfqdn()
-    uptime = syskit.uptime().timestamp()
+    uptime = int(syskit.uptime())
 
     yield {
         'type': 'Host',
-        'uuid': _get_uuid(fqdn),
-        'created_timestamp': time.time(),
+        'uuid': get_uuid(fqdn),
+        'timestamp': time.time(),
         'attrs': {
             'fqdn': fqdn,
             'uptime': {

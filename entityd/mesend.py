@@ -1,4 +1,4 @@
-"""Example Monitored Entity sender.
+"""Monitored Entity sender.
 
 This plugin implements the sending of Monitored Entities to the modeld
 destination.
@@ -27,6 +27,7 @@ class MonitoredEntitySender:
         self.context = None
         self.session = None
         self.config = None
+        self.packed_protocol_version = struct.pack('!I', 1)
 
     @entityd.pm.hookimpl
     def entityd_addoption(self, parser):
@@ -56,7 +57,7 @@ class MonitoredEntitySender:
         sock = self.context.socket(zmq.REQ)
         try:
             sock.connect(session.config.args.dest)
-            sock.send_multipart([struct.pack('!I', 1),
+            sock.send_multipart([self.packed_protocol_version,
                                  msgpack.packb(entity, use_bin_type=True)])
             ack = sock.recv_multipart()
             print(ack)

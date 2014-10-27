@@ -100,17 +100,35 @@ class ProcessEntity:
         processes = (p for p in processes if p[1])
         extra_info = (syskit.Process(pid) for (pid, command) in processes)
 
+        active_processes = {
+            self.get_uuid(pid, e.start_time.timestamp()):
+                {
+                    'type': 'Process',
+                    'timestamp': time.time(),
+                    'uuid': self.get_uuid(pid, e.start_time.timestamp()),
+                    'attrs': {
+                        'binary': path,
+                        'pid': pid,
+                        'starttime': e.start_time.timestamp(),
+                    },
+                    'relations': self.get_relations(pid)
+
+                } for ((pid, path), e) in zip(processes, extra_info)
+        }
+
+        previously_active_uuids = set(self.active_processes.keys())
+        active_uuids = set(active_processes.keys())
+        deleted_uuids = previously_active_uuids - active_uuids
+        logging.debug("{} deleted processes".format(len(deleted_uuids)))
+
+        yield from active_processes.items()
         yield from (
             {
                 'type': 'Process',
                 'timestamp': time.time(),
-                'uuid': self.get_uuid(pid, e.start_time.timestamp()),
-                'attrs': {
-                    'binary': path,
-                    'pid': pid,
-                    'starttime': e.start_time.timestamp(),
-                },
-                'relations': self.get_relations(pid)
-
-            } for ((pid, path), e) in zip(processes, extra_info)
+                'uuid': uuid,
+                'delete': True
+            } for uuid in deleted_uuids
         )
+
+        self.active_processes = active_processes

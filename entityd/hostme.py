@@ -20,7 +20,7 @@ def entityd_plugin_registered(pluginmanager, name):
 class HostEntity:
 
     def __init__(self):
-        self.known_hosts = {}
+        self.known_uuids = {}
         self.session = None
 
     @entityd.pm.hookimpl
@@ -45,10 +45,10 @@ class HostEntity:
 
         :param fqdn: Fully qualified domain name of the host
         """
-        key = 'entityd.hostme' + fqdn
-        if key in self.known_hosts:
+        key = 'entityd.hostme:{}'.format(fqdn)
+        if key in self.known_uuids:
             logging.debug("Retrieved known host uuid from in memory store.")
-            return self.known_hosts[key]
+            return self.known_uuids[key]
 
         value = self.session.pluginmanager.hooks.entityd_storage_get(key=key)
         if not value:
@@ -60,7 +60,7 @@ class HostEntity:
         else:
             logging.debug("Retrieved known host uuid {} from sqlite store.")
 
-        self.known_hosts[key] = value
+        self.known_uuids[key] = value
         return value
 
     def hosts(self):

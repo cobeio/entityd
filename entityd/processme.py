@@ -28,12 +28,12 @@ class ProcessEntity:
 
     @entityd.pm.hookimpl
     def entityd_configure(self, config):
-        """Register the Host Monitored Entity."""
+        """Register the Process Monitored Entity."""
         config.addentity('Process', 'entityd.processme.ProcessEntity')
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs):
-        """Return an iterator of "Host" Monitored Entities."""
+        """Return an iterator of "Process" Monitored Entities."""
         if name == 'Process':
             if attrs is not None:
                 raise LookupError('Attribute based filtering not supported')
@@ -93,7 +93,7 @@ class ProcessEntity:
         return relations
 
     def processes(self):
-        """Generator of Host MEs"""
+        """Generator of Process MEs"""
         processes = syskit.procs()
 
         # Filter out processes without a binary path attached
@@ -121,7 +121,7 @@ class ProcessEntity:
         deleted_uuids = previously_active_uuids - active_uuids
         logging.debug("{} deleted processes".format(len(deleted_uuids)))
 
-        yield from active_processes.items()
+        yield from active_processes.values()
         yield from (
             {
                 'type': 'Process',

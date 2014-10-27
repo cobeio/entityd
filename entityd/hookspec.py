@@ -116,18 +116,3 @@ def entityd_find_entity(name, attrs=None):
 @entityd.pm.hookdef
 def entityd_send_entity(session, entity):
     """Send a Monitored Entity to a modeld destination."""
-
-
-@entityd.pm.hookdef(firstresult=True)
-def entityd_storage_put(key, value):
-    """Persist this key -> value mapping"""
-
-
-@entityd.pm.hookdef(firstresult=True)
-def entityd_storage_get(key):
-    """Retrieve the value for ``key``"""
-
-
-@entityd.pm.hookdef(firstresult=True)
-def entityd_storage_delete(key):
-    """Delete the mapping for ``key``"""

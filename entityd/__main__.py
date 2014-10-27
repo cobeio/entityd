@@ -10,7 +10,7 @@ import entityd.version
 
 #: These plugins are always loaded first and in order, they are all
 #: imported from the "entityd.{plugin}" namespace.
-BUILTIN_PLUGIN_NAMES = ['core', 'mesend', 'hostme', 'storage']
+BUILTIN_PLUGIN_NAMES = ['core', 'mesend', 'hostme']
 
 
 log = logging.getLogger('bootstrap')

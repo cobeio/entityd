@@ -36,7 +36,7 @@ def hookdef(*func, firstresult=False):
 
 
 def hookimpl(*func, before=None, after=None):
-    """Declare a function or method as a hook implementionation.
+    """Declare a function or method as a hook implementation.
 
     If the func argument is given then it must be a callable and this
     function is a decorator which marks the callable as a hook
@@ -312,7 +312,7 @@ class HookRelay:
 
         The plugin can be a module or a class and they will be scanned
         for routines marked as hooks using the @hookimpl decorator.
-        Any hooks found will be registed and part of the next hook
+        Any hooks found will be registered and part of the next hook
         call.
 
         :param: plugin: A Plugin instance

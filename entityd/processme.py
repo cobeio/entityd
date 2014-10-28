@@ -15,7 +15,6 @@ def entityd_plugin_registered(pluginmanager, name):
         pluginmanager.register(gen,
                                name='entityd.processme.ProcessEntity')
 
-
 class ProcessEntity:
     def __init__(self):
         self.active_processes = {}

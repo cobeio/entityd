@@ -12,12 +12,18 @@ def test_generate_host_me():
 
 @entityd.pm.hookimpl
 def entityd_mainloop(session):
-    entities, = session.pluginmanager.hooks.entityd_find_entity(
+    (entity,), = session.pluginmanager.hooks.entityd_find_entity(
         name='Host', attrs=None)
-    for entity in entities:
-        assert entity['type'] == 'Host'
-        assert 'uuid' in entity
-        assert 'timestamp' in entity
 
-        assert 'uptime' in entity['attrs']
-        assert 'fqdn' in entity['attrs']
+    assert entity['type'] == 'Host'
+    assert 'uuid' in entity
+    assert 'timestamp' in entity
+
+    assert 'uptime' in entity['attrs']
+    assert 'fqdn' in entity['attrs']
+
+    # test uuids remains the same
+    (entity2,), = session.pluginmanager.hooks.entityd_find_entity(
+        name='Host', attrs=None)
+
+    assert entity['uuid'] == entity2['uuid']

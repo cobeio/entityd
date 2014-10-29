@@ -15,6 +15,7 @@ def entityd_plugin_registered(pluginmanager, name):
         pluginmanager.register(gen,
                                name='entityd.processme.ProcessEntity')
 
+
 class ProcessEntity:
     def __init__(self):
         self.active_processes = {}
@@ -100,19 +101,18 @@ class ProcessEntity:
         extra_info = (syskit.Process(pid) for (pid, command) in processes)
 
         active_processes = {
-            self.get_uuid(pid, e.start_time.timestamp()):
-                {
-                    'type': 'Process',
-                    'timestamp': time.time(),
-                    'uuid': self.get_uuid(pid, e.start_time.timestamp()),
-                    'attrs': {
-                        'binary': path,
-                        'pid': pid,
-                        'starttime': e.start_time.timestamp(),
-                    },
-                    'relations': self.get_relations(pid)
+            self.get_uuid(pid, e.start_time.timestamp()): {
+                'type': 'Process',
+                'timestamp': time.time(),
+                'uuid': self.get_uuid(pid, e.start_time.timestamp()),
+                'attrs': {
+                    'binary': path,
+                    'pid': pid,
+                    'starttime': e.start_time.timestamp(),
+                },
+                'relations': self.get_relations(pid)
 
-                } for ((pid, path), e) in zip(processes, extra_info)
+            } for ((pid, path), e) in zip(processes, extra_info)
         }
 
         previously_active_uuids = set(self.active_processes.keys())

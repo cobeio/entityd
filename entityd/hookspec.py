@@ -100,8 +100,8 @@ def entityd_unconfigure(config):
 def entityd_find_entity(name, attrs=None):
     """Return an iterator of Monitored Entities.
 
-    If the plugin does not provide the named ME type it should raise a
-    LookupError.
+    If there are no entities matching the provided name or attributes
+    then either ``None`` or an empty iterator is returned.
 
     If ``attrs`` is given it must be a dictionary of attributes which
     should match.  This is a primitive way of filtering the Monitored
@@ -119,15 +119,15 @@ def entityd_send_entity(session, entity):
 
 
 @entityd.pm.hookdef(firstresult=True)
-def entityd_storage_put(key, value):
-    """Persist this key -> value mapping"""
+def entityd_kvstore_put(key, value):
+    """Persist this key -> value mapping."""
 
 
 @entityd.pm.hookdef(firstresult=True)
-def entityd_storage_get(key):
-    """Retrieve the value for ``key``"""
+def entityd_kvstore_get(key):
+    """Retrieve the value for ``key``."""
 
 
 @entityd.pm.hookdef(firstresult=True)
-def entityd_storage_delete(key):
-    """Delete the mapping for ``key``"""
+def entityd_kvstore_delete(key):
+    """Delete the mapping for ``key``."""

@@ -28,7 +28,7 @@ def entityd_cmdline_parse(pluginmanager, argv):
     pluginmanager.hooks.entityd_addoption(parser=parser)
     args, unknown = parser.parse_known_args(argv)
     if unknown:
-        logging.info("Ignoring unknown arguments {}".format(unknown))
+        logging.warning("Ignoring unknown arguments {}".format(unknown))
     return Config(pluginmanager, args)
 
 
@@ -135,7 +135,9 @@ class MonitorSession:
 
         """
         while True:
+            t = time.time()
             self.collect_entities()
+            print("Took {}".format(time.time() - t))
             time.sleep(60)
 
     def shutdown(self):

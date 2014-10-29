@@ -33,13 +33,13 @@ def test_get_uuid():
     process_gen = entityd.processme.ProcessEntity()
     process_gen.session = unittest.mock.Mock()
     # Disable actual sqlite database persistence
-    process_gen.session.pluginmanager.hooks.entityd_storage_get.return_value\
+    process_gen.session.pluginmanager.hooks.entityd_kvstore_get.return_value\
         = None
     uuid = process_gen.get_uuid(123, 456.83373)
 
-    process_gen.session.pluginmanager.hooks.entityd_storage_get \
+    process_gen.session.pluginmanager.hooks.entityd_kvstore_get \
         .assert_called_once()
-    process_gen.session.pluginmanager.hooks.entityd_storage_put \
+    process_gen.session.pluginmanager.hooks.entityd_kvstore_put \
         .assert_called_once()
 
     assert uuid == process_gen.get_uuid(123, 456.83373)
@@ -52,7 +52,7 @@ def test_get_processes():
     process_gen = entityd.processme.ProcessEntity()
     process_gen.session = unittest.mock.Mock()
     # Disable actual sqlite database persistence
-    process_gen.session.pluginmanager.hooks.entityd_storage_get.return_value \
+    process_gen.session.pluginmanager.hooks.entityd_kvstore_get.return_value \
         = None
     process_gen.session.pluginmanager.hooks.entityd_find_entity.return_value \
         = ({'uuid': unittest.mock.sentinel.uuid},),

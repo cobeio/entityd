@@ -41,30 +41,25 @@ class HostEntity:
             return self.hosts()
 
     def get_uuid(self, fqdn):
-        """Get a uuid for fqdn if one exists, else generate one
+        """Get a uuid for fqdn if one exists, else generate one.
 
         :param fqdn: Fully qualified domain name of the host
         """
         key = 'entityd.hostme:{}'.format(fqdn)
         if key in self.known_uuids:
-            logging.debug("Retrieved known host uuid from in memory store.")
             return self.known_uuids[key]
 
-        value = self.session.pluginmanager.hooks.entityd_storage_get(key=key)
+        value = self.session.pluginmanager.hooks.entityd_kvstore_get(key=key)
         if not value:
-            logging.debug("No known uuid for host {}; creating one.".format(
-                fqdn))
             value = uuid.uuid4().hex
-            self.session.pluginmanager.hooks.entityd_storage_put(key=key,
+            self.session.pluginmanager.hooks.entityd_kvstore_put(key=key,
                                                                  value=value)
-        else:
-            logging.debug("Retrieved known host uuid {} from sqlite store.")
 
         self.known_uuids[key] = value
         return value
 
     def hosts(self):
-        """Generator of Host MEs"""
+        """Generator of Host MEs."""
         fqdn = socket.getfqdn()
         uptime = int(syskit.uptime())
 

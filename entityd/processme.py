@@ -40,26 +40,20 @@ class ProcessEntity:
             return self.processes()
 
     def get_uuid(self, pid, start_time):
-        """Get a uuid for this process if one exists, else generate one
+        """Get a uuid for this process if one exists, else generate one.
 
         :param pid: Process ID
         :param start_time: Start time of the process
         """
         key = 'entityd.processme:{}-{}'.format(pid, start_time)
         if key in self.known_uuids:
-            logging.debug("Retrieved known process uuid from in memory store.")
             return self.known_uuids[key]
 
-        value = self.session.pluginmanager.hooks.entityd_storage_get(key=key)
+        value = self.session.pluginmanager.hooks.entityd_kvstore_get(key=key)
         if not value:
-            logging.debug("No known uuid for process {}; creating one.".format(
-                pid))
             value = uuid.uuid4().hex
-            self.session.pluginmanager.hooks.entityd_storage_put(key=key,
+            self.session.pluginmanager.hooks.entityd_kvstore_put(key=key,
                                                                  value=value)
-        else:
-            logging.debug("Retrieved known process uuid {} from sqlite store.")
-
         self.known_uuids[key] = value
         return value
 
@@ -93,11 +87,9 @@ class ProcessEntity:
         return relations
 
     def processes(self):
-        """Generator of Process MEs"""
+        """Generator of Process MEs."""
         processes = syskit.procs()
 
-        # Filter out processes without a binary path attached
-        processes = (p for p in processes if p[1])
         extra_info = (syskit.Process(pid) for (pid, command) in processes)
 
         active_processes = {
@@ -118,7 +110,6 @@ class ProcessEntity:
         previously_active_uuids = set(self.active_processes.keys())
         active_uuids = set(active_processes.keys())
         deleted_uuids = previously_active_uuids - active_uuids
-        logging.debug("{} deleted processes".format(len(deleted_uuids)))
 
         yield from active_processes.values()
         yield from (

@@ -3,3 +3,4 @@ pyzmq
 
 # Dev requirements
 pytest
+pylint

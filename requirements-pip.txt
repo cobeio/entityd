@@ -3,4 +3,5 @@
 # Make sure pip is installed via conda (see requirements-conda.txt)
 
 # Dev requirements
-flake8
+-e .
+pytest-cov

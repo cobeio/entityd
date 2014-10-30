@@ -1,4 +1,3 @@
-import sys
 import unittest.mock
 
 import entityd.core
@@ -9,7 +8,8 @@ import entityd.processme
 
 def test_generate_process_me():
     entityd.core.entityd_mainloop = entityd_mainloop
-    entityd.__main__.main(sys.argv[1:])
+    args = []
+    entityd.__main__.main(args)
 
 
 @entityd.pm.hookimpl

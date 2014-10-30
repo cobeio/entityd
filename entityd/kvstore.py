@@ -1,5 +1,4 @@
 """Key-Value Storage plugin"""
-import logging
 import os
 import sqlite3
 

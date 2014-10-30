@@ -1,5 +1,3 @@
-import sys
-
 import entityd.core
 import entityd.__main__
 import entityd.pm
@@ -7,7 +5,8 @@ import entityd.pm
 
 def test_generate_host_me():
     entityd.core.entityd_mainloop = entityd_mainloop
-    entityd.__main__.main(sys.argv[1:])
+    args = []
+    entityd.__main__.main(args)
 
 
 @entityd.pm.hookimpl

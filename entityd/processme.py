@@ -1,5 +1,4 @@
 """Plugin providing the Process Monitored Entity."""
-import logging
 import time
 import uuid
 

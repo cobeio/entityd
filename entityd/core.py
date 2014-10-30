@@ -26,9 +26,7 @@ def entityd_cmdline_parse(pluginmanager, argv):
         description='Entity Monitoring Agent',
     )
     pluginmanager.hooks.entityd_addoption(parser=parser)
-    args, unknown = parser.parse_known_args(argv)
-    if unknown:
-        logging.warning("Ignoring unknown arguments {}".format(unknown))
+    args = parser.parse_args(argv)
     return Config(pluginmanager, args)
 
 

@@ -1,5 +1,3 @@
-import argparse
-import sys
 import unittest.mock
 import os
 
@@ -12,7 +10,7 @@ import entityd.kvstore
 
 
 @pytest.fixture()
-def kvstore(tmpdir):
+def kvstore():
     kvstore = entityd.kvstore.KVStore()
     if os.path.exists(kvstore.location):
         os.remove(kvstore.location)

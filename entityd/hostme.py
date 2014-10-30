@@ -1,5 +1,4 @@
 """Plugin providing the Host Monitored Entity."""
-import logging
 import socket
 import time
 import uuid

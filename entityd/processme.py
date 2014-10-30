@@ -20,6 +20,7 @@ class ProcessEntity:
         self.active_processes = {}
         self.known_uuids = {}
         self.session = None
+        self.host_uuid = None
 
     @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
@@ -51,9 +52,9 @@ class ProcessEntity:
         value = self.session.pluginmanager.hooks.entityd_kvstore_get(key=key)
         if not value:
             value = uuid.uuid4().hex
+            self.known_uuids[key] = value
             self.session.pluginmanager.hooks.entityd_kvstore_put(key=key,
                                                                  value=value)
-        self.known_uuids[key] = value
         return value
 
     def get_relations(self, pid, procs):
@@ -74,11 +75,12 @@ class ProcessEntity:
                 'type': 'me:Process',
                 'rel': 'parent'
             })
-        (host_me,), = self.session.pluginmanager.hooks.entityd_find_entity(
-            name='Host', attrs=None)
-        host_uuid = host_me['uuid']
+        if not self.host_uuid:
+            (host_me,), = self.session.pluginmanager.hooks.entityd_find_entity(
+                name='Host', attrs=None)
+            self.host_uuid = host_me['uuid']
         relations.append({
-            'uuid': host_uuid,
+            'uuid': self.host_uuid,
             'type': 'me:Host',
             'rel': 'parent'
         })
@@ -86,11 +88,7 @@ class ProcessEntity:
 
     def processes(self):
         """Generator of Process MEs."""
-
         procs = {pid: syskit.Process(pid) for pid, bin in syskit.procs()}
-        v = procs.values()
-        (host_me,), = self.session.pluginmanager.hooks.entityd_find_entity(
-            name='Host', attrs=None)
 
         active_processes = {
             self.get_uuid(proc.pid, proc.start_time.timestamp()): {

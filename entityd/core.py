@@ -133,9 +133,7 @@ class MonitorSession:
 
         """
         while True:
-            t = time.time()
             self.collect_entities()
-            print("Took {}".format(time.time() - t))
             time.sleep(60)
 
     def shutdown(self):

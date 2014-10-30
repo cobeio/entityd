@@ -8,11 +8,13 @@ syntax: glob
 # Directories
 build/
 dist/
+htmlcov/
 .cache/
 .tox/
 *.egg-info/
 
 # Files
+.coverage
 .dir-locals.el
 .python-version
 MANIFEST

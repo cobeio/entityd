@@ -5,4 +5,5 @@
 hg+https://bitbucket.org/flub/syskit
 
 # Dev requirements
-flake8
+-e .
+pytest-cov

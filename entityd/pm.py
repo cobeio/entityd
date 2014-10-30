@@ -5,9 +5,11 @@ import inspect
 import itertools
 import types
 
+import entityd.constraint
+
 
 def hookdef(*func, firstresult=False):
-    """Declare decorated function as a hook definition
+    """Declare decorated function as a hook definition.
 
     If the func argument is given then it must be a callable and this
     function is a decorator which marks the callable as a hook
@@ -28,7 +30,7 @@ def hookdef(*func, firstresult=False):
         func.pm_hookdef = detail
         return func
     else:
-        def _hookdef(func):
+        def _hookdef(func):     # pylint: disable=missing-docstring
             detail.update(name=func.__name__)
             func.pm_hookdef = detail
             return func
@@ -67,7 +69,7 @@ def hookimpl(*func, before=None, after=None):
         func.pm_hookimpl = detail
         return func
     else:
-        def _hookimpl(func):
+        def _hookimpl(func):    # pylint: disable=missing-docstring
             detail.update(name=func.__name__)
             func.pm_hookimpl = detail
             return func
@@ -75,9 +77,25 @@ def hookimpl(*func, before=None, after=None):
 
 
 class PluginManager:
-    """The plugin manager."""
+    """The plugin manager.
+
+    Attributes:
+
+    :hooks: This is the HookRelay.hooks namespace used to call hooks.
+       It is a namespace object with a HookCaller instance for each
+       registered hook which allows calling of a hook using:
+       ``pluginmanager.hooks.my_hook(param=val)``.
+
+    """
 
     def __init__(self, hookspec=None):
+        """Create a new PluginManager instance.
+
+        :param hookspec: If given this is passed to the HookRelay and
+           used to extract hook definitions.  Calling .addhooks()
+           achieves the same.
+
+        """
         self._plugins = {}
         self._plugin_count = itertools.count()
         self._register_cb = None
@@ -85,7 +103,7 @@ class PluginManager:
         self._hookrelay = HookRelay(self._trace, hookspec)
         self.hooks = self._hookrelay.hooks
 
-    def register(self, plugin, name=None):
+    def register(self, obj, name=None):
         """Register a new plugin.
 
         :param plugin: The object (module or class) which contains the
@@ -95,25 +113,35 @@ class PluginManager:
            this will try to use ``plugin.__name__`` if it exists,
            otherwise a ValueError is raised.
 
+        :returns: The created Plugin instance is returned.
+
         """
         index = next(self._plugin_count)
         if not name:
             try:
-                name = plugin.__name__
+                name = obj.__name__
             except AttributeError:
                 raise ValueError('Missing plugin name')
-        plugin = Plugin(plugin, name, index)
-        self._trace('Registering plugin: {}'.format(plugin))
+        plugin = Plugin(obj, name, index)
+        self._trace('Registring plugin: {}'.format(plugin))
         if self.isregistered(plugin):
             raise ValueError('Plugin already registered: {}'.format(name))
-        self._hookrelay.add_plugin(plugin)
+        self._hookrelay.addplugin(plugin)
         self._plugins[name] = plugin
         if self._register_cb:
             self._register_cb(plugin)
+        return plugin
 
     def unregister(self, plugin):
-        # Plugin-or-name-or-obj
-        pass
+        """Remove the given plugin.
+
+        :param plugin: Can be either a Plugin instance, plugin name or
+           an object.
+
+        """
+        plugin = self.getplugin(plugin)
+        self._plugins.pop(plugin.name)
+        self._hookrelay.remove_plugin(plugin)
 
     @property
     def register_callback(self):
@@ -130,6 +158,7 @@ class PluginManager:
 
     @register_callback.setter
     def register_callback(self, cb):
+        """Set the plugin registration callback."""
         self._register_cb = cb
 
     @property
@@ -145,6 +174,7 @@ class PluginManager:
 
     @tracer_cb.setter
     def tracer_cb(self, cb):
+        """Set the tracer callback."""
         self._tracer_cb = cb
 
     def _trace(self, msg):
@@ -179,7 +209,7 @@ class PluginManager:
         """
         err = LookupError('Plugin not registered: {}'.format(plugin))
         if isinstance(plugin, Plugin):
-            if plugin not in self._plugins.values():
+            if plugin.name not in self._plugins:
                 raise err
             return plugin
         elif isinstance(plugin, str):
@@ -190,10 +220,17 @@ class PluginManager:
             for box in self._plugins.values():
                 if plugin is box.obj:
                     return box
-            else:
-                raise err
+            raise err
 
     def addhooks(self, hookspec):
+        """Add new hook definitions.
+
+        :param hookspec: A module or class which is scanned for hook
+           definitions.  A hook is discovered only as a direct member
+           of the given object and must be marked up with the @hookdef
+           decorator.
+
+        """
         self._hookrelay.addhooks(hookspec)
 
 
@@ -212,6 +249,17 @@ class Plugin:
     """
 
     def __init__(self, obj, name, index):
+        """Create a new Plugin container.
+
+        :param obj: The object providing the plugin, a module or instance.
+
+        :param name: The name to refer to the plugin.
+
+        :param index: The relative index of this plugin, this is used
+           to order called hooks from different plugins if no other
+           ordering is implied.
+
+        """
         self.obj = obj
         self.name = name
         self.index = index
@@ -221,7 +269,7 @@ class Plugin:
 
 
 class HookImpl:
-    """A plugin hook implementation
+    """A plugin hook implementation.
 
     This is a container for a plugin hook, which itself is a routine
     (function or method).  It provides additional information on the
@@ -241,12 +289,21 @@ class HookImpl:
     """
 
     def __init__(self, routine, plugin):
+        """Create a new container for a hook implementation.
+
+        :param routine: The actual function or method implementing the
+           hook.
+
+        :param plugin: The Plugin instance providing this hook.
+
+        """
         assert isinstance(plugin, Plugin)
         self.routine = routine
         self.plugin = plugin
         self.name = routine.pm_hookimpl['name']
         self.before = self._castset(routine.pm_hookimpl['before'])
         self.after = self._castset(routine.pm_hookimpl['after'])
+        self._argnames = None
 
     def _castset(self, obj):
         """Cast @hookimpl's "before" and "after" values to a set."""
@@ -264,24 +321,51 @@ class HookImpl:
         return coll
 
     def argnames(self):
-        """Return the names of the hook arguments, in order"""
-        try:
-            return self._argnames
-        except AttributeError:
-            pass
-        names = inspect.getargspec(self.routine).args
-        if inspect.ismethod(self.routine):
-            del names[0]
-        self._argnames = names
-        return names
+        """Return the names of the hook arguments, in order."""
+        if self._argnames is None:
+            names = inspect.getargspec(self.routine).args
+            if inspect.ismethod(self.routine):
+                del names[0]
+            self._argnames = names
+        return self._argnames
 
     def __repr__(self):
         return '<HookImpl {}:{}>'.format(self.plugin.name, self.name)
 
 
 class HookRelay:
+    """Hook dispatcher.
+
+    This is where hookspecs and plugins are registered and tied
+    together.  For each hook definition found in the hookspecs a
+    HookCaller is attached to the .hooks attribute.  Any added plugin
+    which implements the hook will then get their hook implementation
+    added to this hook caller.  And thus calls from .hooks.my_hook()
+    are relayed to all the plugins implementing them.
+
+    Attributes:
+
+    :hooks: A simple namespace ojbect which will get HookCaller
+       instances assigned as attributes for each hook definition
+       registered by hookspecs.
+
+    """
 
     def __init__(self, trace, hookspec=None):
+        """Create a new hookrelay.
+
+        :param trace: Must be a callable which will be used to relay
+           simple messages about hooks being registered and called.
+           Use something like ``lambda msg: None`` to not trace
+           anything.
+
+        :param hookspec: A hookspec module, this is a module which has
+           functions decoratored using @hookdef to mark them as hook
+           definitions.  For each hook definition found a HookCaller
+           will be created and added to ``.hooks``.  See
+           ``.addhooks()`` which does the same.
+
+        """
         self.hooks = types.SimpleNamespace()
         self._trace = trace
         if hookspec:
@@ -307,7 +391,7 @@ class HookRelay:
         if not added:
             raise ValueError('No new hooks found in {!r}'.format(hookspec))
 
-    def add_plugin(self, plugin):
+    def addplugin(self, plugin):
         """Scan a plugin and register any hooks found.
 
         The plugin can be a module or a class and they will be scanned
@@ -327,106 +411,201 @@ class HookRelay:
             except AttributeError:
                 raise ValueError('Found unknown hook in {}: {}'
                                  .format(plugin, hookname))
-            hookimpl = HookImpl(routine, plugin)
-            hook.addimpl(hookimpl)
+            impl = HookImpl(routine, plugin)
+            hook.addimpl(impl)
 
-    def remove_plugin(self, plugin, name):
+    def remove_plugin(self, plugin):
+        """Remove hook implementations provided by the plugin."""
         pass
 
 
 class HookCaller:
-    """Callable to execute multiple routines as a hook
+    """Callable to execute multiple routines as a hook.
 
     This represent a hook callable which implements a multicall
     interface to hook implementations for a certain hook definition.
+
+    :param hookdef_func: the hook definition function.
+
+    :param trace: Function to handle simple trace messages.
 
     Attributes:
 
     :name: The name of the hook.
 
     """
+
     # Private attributes:
     #
     # :_hookdef: The @hookdef decorated routine this hookcaller
     #    implements.
     #
-    # :_hook_groups: Sorted tuple of lists of hooks.  Each list has
-    #    hooks with identical before and after values.
-    #
     # :_hooks: Tuple of all the hooks in call order.
 
-    def __init__(self, hookdef, trace):
-        self._hookdef = hookdef
+    def __init__(self, hookdef_func, trace):
+        self._hookdef = hookdef_func
         self._trace = trace
         self._hook_groups = tuple()
-        self._hooks = tuple()
-        argnames = inspect.getargspec(hookdef).args
-        if inspect.ismethod(hookdef):
+        self._hooks = []
+        argnames = inspect.getargspec(hookdef_func).args
+        if inspect.ismethod(hookdef_func):
             del argnames[0]
         self._argnames = argnames
-        self.name = hookdef.pm_hookdef['name']
+        self.name = hookdef_func.pm_hookdef['name']
 
     @property
     def firstresult(self):
+        """Whether the result from the first hook should be used.
+
+        Normally all hook implementations will be called and the
+        caller will receive a list of all results.  When this is True
+        however only the first hook returning a value, i.e. not
+        returning None, will be returned.
+
+        """
         return self._hookdef.pm_hookdef['firstresult']
 
-    def addimpl(self, hookimpl):
+    def addimpl(self, impl):
         """Add a hook implementation.
 
         :param hookimpl: A HookImpl instance.
 
         """
-        # XXX This brute-forces the sorting problem.
-        if hookimpl in self._hooks:
+        if impl in self._hooks:
             raise ValueError('Hook implementation already registered: {!r}'
-                             .format(hookimpl))
-        unknown_args = set(hookimpl.argnames()) - set(self._argnames)
+                             .format(impl))
+        unknown_args = set(impl.argnames()) - set(self._argnames)
         if unknown_args:
             raise TypeError('Hook {} accepts unknown arguments: {}'
-                            .format(hookimpl, ', '.join(unknown_args)))
-        for group in self._hook_groups:
-            if (hookimpl.before == group[0].before and
-                    hookimpl.after == group[0].after):
-                group.append(hookimpl)
-                group.sort(key=lambda h: h.plugin.index)
-                self._hooks = self._flatten_groups(self._hook_groups)
-                return
-        groups = self._hook_groups + ([hookimpl],)
-        for groups_order in itertools.permutations(groups):
-            if self._check_order(groups_order):
-                self._hook_groups = groups_order
-                self._hooks = self._flatten_groups(self._hook_groups)
-                break
-        else:
+                            .format(impl, ', '.join(unknown_args)))
+
+        # Sort the hooks by constraing checking.  The available hook
+        # positions are the variables, the available hooks are the
+        # domains.
+        all_positions = list(range(len(self._hooks) + 1))
+        all_hooks = list(self._hooks) + [impl]
+        ba_solutions = self._solve_before_after(all_positions, all_hooks)
+        if not ba_solutions:
             raise ValueError('Impossible to sort')
-        self._trace('Added hook: {}'.format(hookimpl, hookimpl))
+        index_solution = self._solve_index(ba_solutions)
+        pairs = sorted(index_solution.items(), key=lambda x: x[0])
+        self._hooks = [x[1] for x in pairs]
+        self._trace('Added hook: {}'.format(impl))
 
-    @staticmethod
-    def _flatten_groups(groups):
-        return tuple(itertools.chain.from_iterable(groups))
+    def _solve_before_after(self, positions, hooks):
+        """Solve the before/after contraints of the hooks.
 
-    @staticmethod
-    def _check_order(groups):
-        """Return True if the order of the hook groups satisfies constraints.
+        Sort the hooks by contraint checking on the before/after
+        properties.  The available positions in the final sorted list
+        are the variables while all hooks are the problem domain for
+        each variable.
 
-        This checks "before" and "after" constraints of the hook
-        groups' order.
+        :param positions: The available positions, integers.
 
-        Return a boolean.
+        :param hooks: The HookImpl instances of all hooks to sort.
+
+        :return: A list of possible solutions, each solution is a
+           mapping of a position to the hooks which can be in this
+           position.  Multiple hooks are still possible to be in one
+           position in which case the hook's plugin index needs to
+           sort them further, see ._solve_index().
 
         """
-        hooks = list(itertools.chain.from_iterable(groups))
-        for i, hook in enumerate(hooks):
-            before = set(h.plugin.name for h in hooks[:i])
-            after = set(h.plugin.name for h in hooks[i+1:])
-            if (hook.before.intersection(before) or
-                    hook.after.intersection(after)):
-                return False
-        else:
-            return True
+        problem = entityd.constraint.Problem()
+        problem.addVariables(positions, hooks)
+        problem.addConstraint(self._constraint_unique, positions)
+        problem.addConstraint(self._constraint_before_after, positions)
+        return problem.getSolutions()
 
-    def removeimpl(self, hookimpl):
-        pass
+    def _solve_index(self, solutions):
+        """Solve any remaining free hooks to be ordered by plugin index.
+
+        :param solutions: The possible solutions as returned by
+           ._solve_before_after().
+
+        :returns: The remaining solution, a dictionary of positions
+           mapped to hooks.
+
+        """
+        problem = entityd.constraint.Problem()
+
+        # Collect sets of possible hooks for each position.
+        pos_hooks_map = collections.defaultdict(set)
+        for solution in solutions:
+            for pos, hook in solution.items():
+                pos_hooks_map[pos].add(hook)
+
+        # Add these as variables and domains to the problem.  And map
+        # frozensets of the hooks to the positions they can occur in.
+        pos_bag = collections.defaultdict(set)
+        for pos, hooks in pos_hooks_map.items():
+            problem.addVariable(pos, list(hooks))
+            hooks = frozenset(hooks)
+            pos_bag[hooks].add(pos)
+
+        # Finally for each set of hooks create an ordering contraint.
+        for hooks, pos in pos_bag.items():
+            if len(pos) > 1:
+                pos = sorted(pos)
+                problem.addConstraint(self._constraint_unique, pos)
+                problem.addConstraint(self._constraint_index, pos)
+
+        return problem.getSolution()
+
+    @staticmethod
+    def _constraint_unique(*hooks):
+        """Unique constraint for the hook order problem.
+
+        :param hooks: The hooks, in the order of their proposed
+           positions.
+
+        :return: True if all hooks are unique, False otherwise.
+
+        """
+        return len(hooks) == len(set(hooks))
+
+    @staticmethod
+    def _constraint_before_after(*hooks):
+        """Before/after constraint for the hook order problem.
+
+        :param hooks: The hooks, in the order of their proposed
+           positions.
+
+        :return: True if all before and after constraints of the hooks
+           are statisfied, False otherwise.
+
+        """
+        for i, hook in enumerate(hooks):
+            preceding = set(h.plugin.name for h in hooks[:i])
+            following = set(h.plugin.name for h in hooks[i+1:])
+            if (hook.before.intersection(preceding) or
+                    hook.after.intersection(following)):
+                return False
+        return True
+
+    @staticmethod
+    def _constraint_index(*hooks):
+        """Plugin index order contraint for the hook order problem.
+
+        :param: hooks: The hooks in their proposed order.  The
+           absolute proposed positions of the hooks are unknown to
+           this constraint check, but relative ordering is all it
+           cares about.
+
+        :return: True if the hooks appear in plugin index order, False
+           otherwise.
+
+        """
+        return list(hooks) == sorted(hooks, key=lambda h: h.plugin.index)
+
+    def removeimpl(self, impl):
+        """Remove a hook implementation.
+
+        :param impl: HookImpl instance to remove.
+
+        :raises ValueError: When impl is not present.
+        """
+        self._hooks.remove(impl)
 
     def __call__(self, **kwargs):
         missing_args = set(self._argnames) - set(kwargs.keys())
@@ -441,7 +620,7 @@ class HookCaller:
         for hook in self._hooks:
             args = [kwargs[argname] for argname in hook.argnames()]
             self._trace('Calling hook: {}'.format(hook))
-            res = hook.routine(*args)
+            res = hook.routine(*args)  # pylint: disable=star-args
             if res is not None:
                 if self.firstresult:
                     return res

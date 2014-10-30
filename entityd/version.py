@@ -1,6 +1,8 @@
-"""Application version
+"""Application version.
 
-This is used to not duplicate the version number.  """
+This is used to not duplicate the version number.
+
+"""
 
 
 __version__ = '0.1.0'

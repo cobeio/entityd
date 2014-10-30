@@ -1,0 +1,5 @@
+[report]
+omit =
+     entityd/constraint.py
+     entityd/hookspec.py
+     entityd/version.py

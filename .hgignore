@@ -16,3 +16,4 @@ dist/
 .dir-locals.el
 .python-version
 MANIFEST
+entityd_kvstore.db

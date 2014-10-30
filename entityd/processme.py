@@ -57,7 +57,7 @@ class ProcessEntity:
         self.known_uuids[key] = value
         return value
 
-    def get_relations(self, pid):
+    def get_relations(self, pid, procs):
         """Get relations for ``pid``.
 
         Relations may include:
@@ -65,46 +65,47 @@ class ProcessEntity:
          - Parent process ME
         """
         relations = []
-        proc = syskit.Process(pid)
+        proc = procs[pid]
         ppid = proc.ppid
         if ppid:
-            pproc = syskit.Process(ppid)
+            pproc = procs[ppid]
             relations.append({
                 'uuid': self.get_uuid(ppid,
                                       pproc.start_time.timestamp()),
                 'type': 'me:Process',
                 'rel': 'parent'
             })
-        elif ppid == 0:
-            (host_me,), = self.session.pluginmanager.hooks.entityd_find_entity(
-                name='Host', attrs=None)
-            host_uuid = host_me['uuid']
-            relations.append({
-                'uuid': host_uuid,
-                'type': 'me:Host',
-                'rel': 'parent'
-            })
+        (host_me,), = self.session.pluginmanager.hooks.entityd_find_entity(
+            name='Host', attrs=None)
+        host_uuid = host_me['uuid']
+        relations.append({
+            'uuid': host_uuid,
+            'type': 'me:Host',
+            'rel': 'parent'
+        })
         return relations
 
     def processes(self):
         """Generator of Process MEs."""
-        processes = syskit.procs()
 
-        extra_info = (syskit.Process(pid) for (pid, command) in processes)
+        procs = {pid: syskit.Process(pid) for pid, bin in syskit.procs()}
+        v = procs.values()
+        (host_me,), = self.session.pluginmanager.hooks.entityd_find_entity(
+            name='Host', attrs=None)
 
         active_processes = {
-            self.get_uuid(pid, e.start_time.timestamp()): {
+            self.get_uuid(proc.pid, proc.start_time.timestamp()): {
                 'type': 'Process',
                 'timestamp': time.time(),
-                'uuid': self.get_uuid(pid, e.start_time.timestamp()),
+                'uuid': self.get_uuid(proc.pid, proc.start_time.timestamp()),
                 'attrs': {
-                    'binary': path,
-                    'pid': pid,
-                    'starttime': e.start_time.timestamp(),
+                    'binary': proc.name,
+                    'pid': proc.pid,
+                    'starttime': proc.start_time.timestamp(),
                 },
-                'relations': self.get_relations(pid)
+                'relations': self.get_relations(proc.pid, procs)
 
-            } for ((pid, path), e) in zip(processes, extra_info)
+            } for proc in procs.values()
         }
 
         previously_active_uuids = set(self.active_processes.keys())

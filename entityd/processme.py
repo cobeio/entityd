@@ -57,6 +57,14 @@ class ProcessEntity:
                                                                  value=value)
         return value
 
+    def forget_entity(self, pid, start_time):
+        key = 'entityd.processme:{}-{}'.format(pid, start_time)
+        try:
+            del self.known_uuids[key]
+        except KeyError:
+            pass
+        self.session.pluginmanager.hooks.entityd_kvstore_delete(key=key)
+
     def get_relations(self, pid, procs):
         """Get relations for ``pid``.
 
@@ -110,13 +118,16 @@ class ProcessEntity:
         deleted_uuids = previously_active_uuids - active_uuids
 
         yield from active_processes.values()
-        yield from (
-            {
+
+        for uuid in deleted_uuids:
+            proc = self.active_processes[uuid]
+            self.forget_entity(proc['attrs']['pid'],
+                               proc['attrs']['starttime'])
+            yield {
                 'type': 'Process',
                 'timestamp': time.time(),
                 'uuid': uuid,
                 'delete': True
-            } for uuid in deleted_uuids
-        )
+            }
 
         self.active_processes = active_processes

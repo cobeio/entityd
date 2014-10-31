@@ -123,7 +123,7 @@ class PluginManager:
             except AttributeError:
                 raise ValueError('Missing plugin name')
         plugin = Plugin(obj, name, index)
-        self._trace('Registring plugin: {}'.format(plugin))
+        self._trace('Registering plugin: {}'.format(plugin))
         if self.isregistered(plugin):
             raise ValueError('Plugin already registered: {}'.format(name))
         self._hookrelay.addplugin(plugin)

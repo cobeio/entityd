@@ -141,7 +141,7 @@ class PluginManager:
         """
         plugin = self.getplugin(plugin)
         self._plugins.pop(plugin.name)
-        self._hookrelay.remove_plugin(plugin)
+        self._hookrelay.removeplugin(plugin)
 
     @property
     def register_callback(self):
@@ -245,6 +245,7 @@ class Plugin:
     :obj: The actual plugin object.
     :index: The order in which this plugin was loaded.
     :name: The name of this plugin.
+    :hooks: A list of HookImpl instances this plugin provides.
 
     """
 
@@ -263,6 +264,12 @@ class Plugin:
         self.obj = obj
         self.name = name
         self.index = index
+        self.hooks = []
+        for hookname, routine in inspect.getmembers(obj):
+            if not hasattr(routine, 'pm_hookimpl'):
+                continue
+            assert hookname == routine.pm_hookimpl['name']
+            self.hooks.append(HookImpl(routine, self))
 
     def __repr__(self):
         return '<Plugin {}>'.format(self.name)
@@ -402,21 +409,23 @@ class HookRelay:
         :param: plugin: A Plugin instance
 
         """
-        for hookname, routine in inspect.getmembers(plugin.obj):
-            if not hasattr(routine, 'pm_hookimpl'):
-                continue
-            assert hookname == routine.pm_hookimpl['name']
+        for impl in plugin.hooks:
             try:
-                hook = getattr(self.hooks, hookname)
+                hook = getattr(self.hooks, impl.name)
             except AttributeError:
                 raise ValueError('Found unknown hook in {}: {}'
-                                 .format(plugin, hookname))
-            impl = HookImpl(routine, plugin)
+                                 .format(plugin, impl.name))
             hook.addimpl(impl)
 
-    def remove_plugin(self, plugin):
-        """Remove hook implementations provided by the plugin."""
-        pass
+    def removeplugin(self, plugin):
+        """Remove hook implementations provided by the plugin.
+
+        :param plugin: A Plugin instance.
+
+        """
+        for impl in plugin.hooks:
+            hook = getattr(self.hooks, impl.name)
+            hook.removeimpl(impl)
 
 
 class HookCaller:

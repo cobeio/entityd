@@ -234,8 +234,8 @@ class TestHookImpl:
             return param
         obj = types.ModuleType('myplugin')
         obj.my_hook = my_hook
-        plugin = entityd.pm.Plugin(obj, 'myplugin', 0)
         with pytest.raises(TypeError):
+            plugin = entityd.pm.Plugin(obj, 'myplugin', 0)
             entityd.pm.HookImpl(plugin.obj.my_hook, plugin)
 
     def test_argnames(self, plugin):
@@ -313,6 +313,13 @@ class TestHookRelay:
     def test_addplugin_unknown_hook(self, relay, plugin):
         with pytest.raises(ValueError):
             relay.addplugin(plugin)
+
+    def test_removeplugin(self, relay, hookspec, plugin):
+        relay.addhooks(hookspec)
+        relay.hooks.hook_a.removeimpl = pytest.Mock()
+        relay.removeplugin(plugin)
+        impl = plugin.hooks[0]
+        relay.hooks.hook_a.removeimpl.assert_called_once_with(impl)
 
 
 class TestHookCaller:

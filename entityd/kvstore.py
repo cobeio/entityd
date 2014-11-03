@@ -11,6 +11,7 @@ import entityd.pm
 
 @entityd.pm.hookimpl
 def entityd_plugin_registered(pluginmanager, name):
+    """Called to register the plugin"""
     if name == 'entityd.kvstore':
         service = KVStore()
         pluginmanager.register(service,
@@ -18,6 +19,11 @@ def entityd_plugin_registered(pluginmanager, name):
 
 
 class KVStore:
+    """Plugin to manage a key-value store.
+
+    Accessed via hooks. Will store data in a SQLite database in the
+    project top level directory.
+    """
     def __init__(self):
         self.conn = None
         # Until we have some common resources, store db in project dir.
@@ -27,6 +33,7 @@ class KVStore:
 
     @entityd.pm.hookimpl
     def entityd_sessionstart(self):
+        """Called when the monitoring session starts"""
         try:
             self.conn = sqlite3.connect(self.location)
         except sqlite3.OperationalError:
@@ -40,6 +47,7 @@ class KVStore:
 
     @entityd.pm.hookimpl
     def entityd_sessionfinish(self):
+        """Called when the monitoring session finishes"""
         self.conn.close()
         self.conn = None
 

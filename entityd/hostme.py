@@ -10,6 +10,7 @@ import entityd.pm
 
 @entityd.pm.hookimpl
 def entityd_plugin_registered(pluginmanager, name):
+    """Called to register the plugin"""
     if name == 'entityd.hostme':
         gen = HostEntity()
         pluginmanager.register(gen,
@@ -17,6 +18,7 @@ def entityd_plugin_registered(pluginmanager, name):
 
 
 class HostEntity:
+    """Plugin to generate Host MEs"""
 
     def __init__(self):
         self.known_uuids = {}
@@ -24,10 +26,12 @@ class HostEntity:
 
     @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
+        """Called when the monitoring session starts"""
         self.session = session
 
+    @staticmethod
     @entityd.pm.hookimpl
-    def entityd_configure(self, config):
+    def entityd_configure(config):
         """Register the Host Monitored Entity."""
         config.addentity('Host', 'entityd.hostme.HostEntity')
 

@@ -53,7 +53,17 @@ def test_get_processes():
     process_gen.session.pluginmanager.hooks.entityd_find_entity.return_value \
         = ({'uuid': unittest.mock.sentinel.uuid},),
 
-    entities = process_gen.entityd_find_entity(name='Process', attrs=None)
+    # Add a 'no longer running' process
+    process_gen.known_uuids['entityd.processme:99999-123456.78'] = 'abcdef'
+    process_gen.active_processes['abcdef'] = {
+        'type': 'Process',
+        'attrs': {
+            'pid': 99999,
+            'starttime': 123456.78
+        }
+    }
+    entities = list(process_gen.entityd_find_entity(name='Process',
+                                                    attrs=None))
     for entity in entities:
         assert entity['type'] == 'Process'
         assert 'uuid' in entity
@@ -62,8 +72,12 @@ def test_get_processes():
         assert 'relations' in entity or 'delete' in entity
         # Process can have multiple parents. Most processes will have a
         # parent process and the host.
-        for rel in entity['relations']:
-            assert rel['type'] in ['me:Host', 'me:Process']
-            assert rel['rel'] == 'parent'
-            if rel['type'] == 'me:Host':
-                assert rel['uuid'] == unittest.mock.sentinel.uuid
+        if 'delete' not in entity:
+            for rel in entity['relations']:
+                assert rel['type'] in ['me:Host', 'me:Process']
+                assert rel['rel'] == 'parent'
+                if rel['type'] == 'me:Host':
+                    assert rel['uuid'] == unittest.mock.sentinel.uuid
+
+    assert 'abcdef' not in process_gen.active_processes
+    assert 'entityd.processme:99999-123456.78' not in process_gen.known_uuids

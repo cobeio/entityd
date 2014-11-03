@@ -54,5 +54,3 @@ def test_kvstore_multiops(kvstore):
     kvstore.entityd_kvstore_deletemany('multi.key')
     vals = list(kvstore.entityd_kvstore_getmany('multi.key'))
     assert len(vals) == 0
-
-

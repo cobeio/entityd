@@ -9,6 +9,7 @@ import entityd.pm
 
 @entityd.pm.hookimpl
 def entityd_plugin_registered(pluginmanager, name):
+    """Called to register the plugin"""
     if name == 'entityd.processme':
         gen = ProcessEntity()
         pluginmanager.register(gen,
@@ -16,6 +17,8 @@ def entityd_plugin_registered(pluginmanager, name):
 
 
 class ProcessEntity:
+    """Plugin to generate Process MEs"""
+
     def __init__(self):
         self.active_processes = {}
         self.known_uuids = {}
@@ -24,10 +27,12 @@ class ProcessEntity:
 
     @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
+        """Called when the monitoring session starts"""
         self.session = session
 
+    @staticmethod
     @entityd.pm.hookimpl
-    def entityd_configure(self, config):
+    def entityd_configure(config):
         """Register the Process Monitored Entity."""
         config.addentity('Process', 'entityd.processme.ProcessEntity')
 
@@ -58,6 +63,7 @@ class ProcessEntity:
         return value
 
     def forget_entity(self, pid, start_time):
+        """Remove the cached version of this Process Entity"""
         key = 'entityd.processme:{}-{}'.format(pid, start_time)
         try:
             del self.known_uuids[key]
@@ -119,14 +125,14 @@ class ProcessEntity:
 
         yield from active_processes.values()
 
-        for uuid in deleted_uuids:
-            proc = self.active_processes[uuid]
+        for proc_uuid in deleted_uuids:
+            proc = self.active_processes[proc_uuid]
             self.forget_entity(proc['attrs']['pid'],
                                proc['attrs']['starttime'])
             yield {
                 'type': 'Process',
                 'timestamp': time.time(),
-                'uuid': uuid,
+                'uuid': proc_uuid,
                 'delete': True
             }
 

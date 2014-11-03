@@ -12,8 +12,7 @@ import entityd.kvstore
 @pytest.fixture()
 def kvstore():
     kvstore = entityd.kvstore.KVStore()
-    session = unittest.mock.Mock()
-    kvstore.entityd_sessionstart(session=session)
+    kvstore.entityd_sessionstart()
     kvstore.entityd_kvstore_delete((1, 2))
     return kvstore
 

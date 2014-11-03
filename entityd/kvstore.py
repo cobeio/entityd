@@ -1,4 +1,5 @@
 """Key-Value Storage plugin"""
+
 import os
 import sqlite3
 
@@ -18,8 +19,6 @@ def entityd_plugin_registered(pluginmanager, name):
 
 class KVStore:
     def __init__(self):
-        self.session = None
-        self.config = None
         self.conn = None
         # Until we have some common resources, store db in project dir.
         self.location = os.path.join(os.path.dirname(__file__),
@@ -27,10 +26,7 @@ class KVStore:
                                      'entityd_kvstore.db')
 
     @entityd.pm.hookimpl
-    def entityd_sessionstart(self, session):
-        self.session = session
-        self.config = session.config
-
+    def entityd_sessionstart(self):
         try:
             self.conn = sqlite3.connect(self.location)
         except sqlite3.OperationalError:
@@ -43,7 +39,7 @@ class KVStore:
         self.conn.commit()
 
     @entityd.pm.hookimpl
-    def entityd_sessionfinish(self, session):
+    def entityd_sessionfinish(self):
         self.conn.close()
         self.conn = None
 

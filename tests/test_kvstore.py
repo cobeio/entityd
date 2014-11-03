@@ -1,11 +1,5 @@
-import unittest.mock
-import os
-
 import pytest
 
-import entityd.core
-import entityd.__main__
-import entityd.pm
 import entityd.kvstore
 
 

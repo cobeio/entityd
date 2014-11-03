@@ -53,7 +53,7 @@ class HostEntity:
         value = self.session.pluginmanager.hooks.entityd_kvstore_get(key=key)
         if not value:
             value = uuid.uuid4().hex
-            self.session.pluginmanager.hooks.entityd_kvstore_put(key=key,
+            self.session.pluginmanager.hooks.entityd_kvstore_add(key=key,
                                                                  value=value)
         self.host_uuid = value
         return value

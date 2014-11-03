@@ -26,16 +26,32 @@ class ProcessEntity:
         self.session = None
         self.host_uuid = None
 
-    @entityd.pm.hookimpl
-    def entityd_sessionstart(self, session):
-        """Called when the monitoring session starts"""
-        self.session = session
-
     @staticmethod
     @entityd.pm.hookimpl
     def entityd_configure(config):
         """Register the Process Monitored Entity."""
         config.addentity('Process', 'entityd.processme.ProcessEntity')
+
+    @entityd.pm.hookimpl
+    def entityd_sessionstart(self, session):
+        """Called when the monitoring session starts"""
+        self.session = session
+        loaded_values = \
+            self.session.pluginmanager.hooks.entityd_kvstore_getmany(
+                key_begins_with='entityd.processme:'
+            )
+        self.known_uuids = loaded_values
+
+    @entityd.pm.hookimpl
+    def entityd_sessionfinish(self):
+        """Called when the monitoring session ends"""
+        self.session.pluginmanager.hooks.entityd_kvstore_deletemany(
+            key_begins_with='entityd.processme:'
+        )
+
+        self.session.pluginmanager.hooks.entityd_kvstore_addmany(
+            values=self.known_uuids
+        )
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs):
@@ -54,14 +70,10 @@ class ProcessEntity:
         key = 'entityd.processme:{}-{}'.format(pid, start_time)
         if key in self.known_uuids:
             return self.known_uuids[key]
-
-        value = self.session.pluginmanager.hooks.entityd_kvstore_get(key=key)
-        if not value:
+        else:
             value = uuid.uuid4().hex
             self.known_uuids[key] = value
-            self.session.pluginmanager.hooks.entityd_kvstore_put(key=key,
-                                                                 value=value)
-        return value
+            return value
 
     def forget_entity(self, pid, start_time):
         """Remove the cached version of this Process Entity"""
@@ -70,7 +82,6 @@ class ProcessEntity:
             del self.known_uuids[key]
         except KeyError:
             pass
-        self.session.pluginmanager.hooks.entityd_kvstore_delete(key=key)
 
     def get_relations(self, pid, procs):
         """Get relations for ``pid``.

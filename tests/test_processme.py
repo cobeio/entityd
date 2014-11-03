@@ -3,6 +3,28 @@ import unittest.mock
 import entityd.processme
 
 
+def test_sessionstart():
+    session = unittest.mock.Mock()
+    session.pluginmanager.hooks.entityd_kvstore_getmany.return_value = {
+        'entityd.processme:123-456.5': b'a00293e'}
+    process_gen = entityd.processme.ProcessEntity()
+    process_gen.entityd_sessionstart(session)
+    assert process_gen.known_uuids['entityd.processme:123-456.5'] == b'a00293e'
+
+
+def test_sessionend():
+    session = unittest.mock.Mock()
+    session.pluginmanager.hooks.entityd_kvstore_getmany.return_value = {}
+    process_gen = entityd.processme.ProcessEntity()
+    process_gen.entityd_sessionstart(session)
+    process_gen.known_uuids = {'entityd.processme:888-111.1': b'123456'}
+    process_gen.entityd_sessionfinish()
+    assert session.pluginmanager.hooks.entityd_kvstore_deletemany\
+        .called_once_with('entityd.processme:')
+    assert session.pluginmanager.hooks.entityd_kvstore_addmany\
+        .called_once_with(process_gen.known_uuids)
+
+
 def test_get_uuid():
     process_gen = entityd.processme.ProcessEntity()
     process_gen.session = unittest.mock.Mock()

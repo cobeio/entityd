@@ -32,8 +32,8 @@ class KVStore:
                                      'entityd_kvstore.db')
 
     @entityd.pm.hookimpl
-    def entityd_sessionstart(self):
-        """Called when the monitoring session starts"""
+    def entityd_configure(self):
+        """Called before the monitoring session starts"""
         try:
             self.conn = sqlite3.connect(self.location)
         except sqlite3.OperationalError:
@@ -46,35 +46,64 @@ class KVStore:
         self.conn.commit()
 
     @entityd.pm.hookimpl
-    def entityd_sessionfinish(self):
-        """Called when the monitoring session finishes"""
+    def entityd_unconfigure(self):
+        """Called after the monitoring session finishes"""
         self.conn.close()
         self.conn = None
 
     @entityd.pm.hookimpl
-    def entityd_kvstore_put(self, key, value):
+    def entityd_kvstore_add(self, key, value):
         """Persist this key -> value mapping."""
-        packed_key = msgpack.packb(key, use_bin_type=True)
         packed_value = msgpack.packb(value, use_bin_type=True)
-        self.conn.execute("""INSERT INTO entityd_kv_store VALUES (?, ?)""",
-                          (packed_key, packed_value))
+        self.conn.execute("""REPLACE INTO entityd_kv_store VALUES (?, ?)""",
+                          (key, packed_value))
+        self.conn.commit()
+
+    @entityd.pm.hookimpl
+    def entityd_kvstore_addmany(self, values):
+        """Persist the keys and values in ``values``
+
+        :param values: Dictionary of values to persist
+        """
+        insert_list = []
+        for key, value in values.items():
+            packed_value = msgpack.packb(value, use_bin_type=True)
+            insert_list.append((key, packed_value))
+        self.conn.executemany("""REPLACE INTO entityd_kv_store
+                                 VALUES (?,?)""", insert_list)
         self.conn.commit()
 
     @entityd.pm.hookimpl
     def entityd_kvstore_get(self, key):
         """Retrieve the value for ``key``."""
-        packed_key = msgpack.packb(key, use_bin_type=True)
         curs = self.conn.cursor()
         curs.execute("""SELECT value FROM entityd_kv_store WHERE key = ?""",
-                     (packed_key,))
+                     (key,))
         result = curs.fetchone()
         if result:
             return msgpack.unpackb(result[0], encoding='utf8')
 
     @entityd.pm.hookimpl
+    def entityd_kvstore_getmany(self, key_begins_with):
+        """Retrieve the value for ``key``."""
+        curs = self.conn.cursor()
+        curs.execute("""SELECT key, value FROM entityd_kv_store WHERE key LIKE
+        ?""",
+                     (key_begins_with + '%',))
+        result = curs.fetchall()
+
+        return {k: msgpack.unpackb(v, encoding='utf8') for k, v in result}
+
+    @entityd.pm.hookimpl
     def entityd_kvstore_delete(self, key):
         """Delete the mapping for ``key``."""
-        packed_key = msgpack.packb(key, use_bin_type=True)
         self.conn.execute("""DELETE FROM entityd_kv_store WHERE key = ?""",
-                          (packed_key,))
+                          (key,))
+        self.conn.commit()
+
+    @entityd.pm.hookimpl
+    def entityd_kvstore_deletemany(self, key_begins_with):
+        """Delete the mappings for pattern ``key_begins_with``."""
+        self.conn.execute("""DELETE FROM entityd_kv_store WHERE key LIKE ?""",
+                          (key_begins_with + '%',))
         self.conn.commit()

@@ -1,4 +1,5 @@
 """Plugin providing the Host Monitored Entity."""
+
 import socket
 import time
 import uuid
@@ -21,7 +22,7 @@ class HostEntity:
     """Plugin to generate Host MEs"""
 
     def __init__(self):
-        self.known_uuids = {}
+        self.host_uuid = None
         self.session = None
 
     @entityd.pm.hookimpl
@@ -43,22 +44,18 @@ class HostEntity:
                 raise LookupError('Attribute based filtering not supported')
             return self.hosts()
 
-    def get_uuid(self, fqdn):
-        """Get a uuid for fqdn if one exists, else generate one.
-
-        :param fqdn: Fully qualified domain name of the host
-        """
-        key = 'entityd.hostme:{}'.format(fqdn)
-        if key in self.known_uuids:
-            return self.known_uuids[key]
+    def get_uuid(self):
+        """Get a uuid for host"""
+        key = 'entityd.hostme'
+        if self.host_uuid:
+            return self.host_uuid
 
         value = self.session.pluginmanager.hooks.entityd_kvstore_get(key=key)
         if not value:
             value = uuid.uuid4().hex
             self.session.pluginmanager.hooks.entityd_kvstore_put(key=key,
                                                                  value=value)
-
-        self.known_uuids[key] = value
+        self.host_uuid = value
         return value
 
     def hosts(self):
@@ -68,7 +65,7 @@ class HostEntity:
 
         yield {
             'type': 'Host',
-            'uuid': self.get_uuid(fqdn),
+            'uuid': self.get_uuid(),
             'timestamp': time.time(),
             'attrs': {
                 'fqdn': fqdn,

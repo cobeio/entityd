@@ -1,2 +1,5 @@
 [MESSAGES CONTROL]
-disable = missing-docstring,no-init,no-member,protected-access,unnecessary-lambda
+disable = locally-disabled,missing-docstring,no-init,no-member,protected-access,unnecessary-lambda,no-self-use,too-few-public-methods,too-many-public-methods,too-many-arguments,invalid-name
+
+[BASIC]
+good-names = i,j,k,ex,Run,_,cb,foo,bar

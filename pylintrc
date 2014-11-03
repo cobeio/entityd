@@ -6,3 +6,6 @@ good-names = i,j,k,ex,Run,_,cb
 
 [REPORTS]
 reports = no
+
+[MASTER]
+ignore = constraint.py

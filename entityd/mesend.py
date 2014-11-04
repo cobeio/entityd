@@ -54,12 +54,10 @@ class MonitoredEntitySender:
     @entityd.pm.hookimpl
     def entityd_send_entity(self, session, entity):
         print('sending:', entity)
-        sock = self.context.socket(zmq.REQ)
+        sock = self.context.socket(zmq.PUSH)
         try:
             sock.connect(session.config.args.dest)
             sock.send_multipart([self.packed_protocol_version,
                                  msgpack.packb(entity, use_bin_type=True)])
-            ack = sock.recv_multipart()
-            print(ack)
         finally:
             sock.close()

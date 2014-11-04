@@ -1,10 +1,10 @@
-import unittest.mock
+import pytest
 
 import entityd.processme
 
 
 def test_sessionstart():
-    session = unittest.mock.Mock()
+    session = pytest.Mock()
     session.pluginmanager.hooks.entityd_kvstore_getmany.return_value = {
         'entityd.processme:123-456.5': b'a00293e'}
     process_gen = entityd.processme.ProcessEntity()
@@ -13,7 +13,7 @@ def test_sessionstart():
 
 
 def test_sessionend():
-    session = unittest.mock.Mock()
+    session = pytest.Mock()
     session.pluginmanager.hooks.entityd_kvstore_getmany.return_value = {}
     process_gen = entityd.processme.ProcessEntity()
     process_gen.entityd_sessionstart(session)
@@ -27,7 +27,7 @@ def test_sessionend():
 
 def test_get_uuid():
     process_gen = entityd.processme.ProcessEntity()
-    process_gen.session = unittest.mock.Mock()
+    process_gen.session = pytest.Mock()
     # Disable actual sqlite database persistence
     process_gen.session.pluginmanager.hooks.entityd_kvstore_get.return_value\
         = None
@@ -46,12 +46,12 @@ def test_get_uuid():
 
 def test_get_processes():
     process_gen = entityd.processme.ProcessEntity()
-    process_gen.session = unittest.mock.Mock()
+    process_gen.session = pytest.Mock()
     # Disable actual sqlite database persistence
     process_gen.session.pluginmanager.hooks.entityd_kvstore_get.return_value \
         = None
     process_gen.session.pluginmanager.hooks.entityd_find_entity.return_value \
-        = ({'uuid': unittest.mock.sentinel.uuid},),
+        = ({'uuid': 'abcdef0123456789'},),
 
     # Add a 'no longer running' process
     process_gen.known_uuids['entityd.processme:99999-123456.78'] = 'abcdef'
@@ -77,7 +77,7 @@ def test_get_processes():
                 assert rel['type'] in ['me:Host', 'me:Process']
                 assert rel['rel'] == 'parent'
                 if rel['type'] == 'me:Host':
-                    assert rel['uuid'] == unittest.mock.sentinel.uuid
+                    assert rel['uuid'] == 'abcdef0123456789'
 
     assert 'abcdef' not in process_gen.active_processes
     assert 'entityd.processme:99999-123456.78' not in process_gen.known_uuids

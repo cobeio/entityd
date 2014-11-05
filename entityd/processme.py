@@ -10,7 +10,7 @@ import entityd.pm
 
 @entityd.pm.hookimpl
 def entityd_plugin_registered(pluginmanager, name):
-    """Called to register the plugin"""
+    """Called to register the plugin."""
     if name == 'entityd.processme':
         gen = ProcessEntity()
         pluginmanager.register(gen,
@@ -18,7 +18,7 @@ def entityd_plugin_registered(pluginmanager, name):
 
 
 class ProcessEntity:
-    """Plugin to generate Process MEs"""
+    """Plugin to generate Process MEs."""
 
     def __init__(self):
         self.active_processes = {}
@@ -44,7 +44,7 @@ class ProcessEntity:
 
     @entityd.pm.hookimpl
     def entityd_sessionfinish(self):
-        """Called when the monitoring session ends"""
+        """Called when the monitoring session ends."""
         self.session.pluginmanager.hooks.entityd_kvstore_deletemany(
             key_begins_with='entityd.processme:'
         )
@@ -76,7 +76,7 @@ class ProcessEntity:
             return value
 
     def forget_entity(self, pid, start_time):
-        """Remove the cached version of this Process Entity"""
+        """Remove the cached version of this Process Entity."""
         key = 'entityd.processme:{}-{}'.format(pid, start_time)
         try:
             del self.known_uuids[key]

@@ -442,6 +442,12 @@ class HookCaller:
 
     :name: The name of the hook.
 
+    :firstresult: Whether the result from the first hook should be
+        used.  Normally all hook implementations will be called and
+        the caller will receive a list of all results.  When this is
+        True however only the first hook returning a value, i.e. not
+        returning None, will be returned.
+
     """
 
     # Private attributes:
@@ -449,30 +455,20 @@ class HookCaller:
     # :_hookdef: The @hookdef decorated routine this hookcaller
     #    implements.
     #
-    # :_hooks: Tuple of all the hooks in call order.
+    # :_hooks: List of all the hooks in call order.
+    #
+    # :_argnames: List of the argument names the hook accepts.
 
     def __init__(self, hookdef_func, trace):
         self._hookdef = hookdef_func
         self._trace = trace
-        self._hook_groups = tuple()
         self._hooks = []
         argnames = inspect.getargspec(hookdef_func).args
         if inspect.ismethod(hookdef_func):
             del argnames[0]
         self._argnames = argnames
         self.name = hookdef_func.pm_hookdef['name']
-
-    @property
-    def firstresult(self):
-        """Whether the result from the first hook should be used.
-
-        Normally all hook implementations will be called and the
-        caller will receive a list of all results.  When this is True
-        however only the first hook returning a value, i.e. not
-        returning None, will be returned.
-
-        """
-        return self._hookdef.pm_hookdef['firstresult']
+        self.firstresult = self._hookdef.pm_hookdef['firstresult']
 
     def addimpl(self, impl):
         """Add a hook implementation.

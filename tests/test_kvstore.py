@@ -22,13 +22,13 @@ def test_kvstore_ops(kvstore):
 
     value = [3, 4, '5']
     kvstore.entityd_kvstore_add(key, value)
-    assert kvstore.entityd_kvstore_get("key") == [3, 4, '5']
+    assert kvstore.entityd_kvstore_get(key) == [3, 4, '5']
 
     kvstore.entityd_kvstore_add(key, '55')
-    assert kvstore.entityd_kvstore_get("key") == '55'
+    assert kvstore.entityd_kvstore_get(key) == '55'
 
-    kvstore.entityd_kvstore_delete("key")
-    assert kvstore.entityd_kvstore_get("key") is None
+    kvstore.entityd_kvstore_delete(key)
+    assert kvstore.entityd_kvstore_get(key) is None
 
 
 def test_kvstore_multiops(kvstore):

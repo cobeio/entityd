@@ -87,9 +87,8 @@ class KVStore:
     def entityd_kvstore_getmany(self, key_begins_with):
         """Retrieve the value for ``key``."""
         curs = self.conn.cursor()
-        curs.execute("""SELECT key, value FROM entityd_kv_store WHERE key LIKE
-        ?""",
-                     (key_begins_with + '%',))
+        curs.execute("""SELECT key, value FROM entityd_kv_store
+                     WHERE key LIKE ?""", (key_begins_with + '%',))
         result = curs.fetchall()
 
         return {k: msgpack.unpackb(v, encoding='utf8') for k, v in result}

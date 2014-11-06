@@ -12,12 +12,6 @@ from entityd import core
 
 
 @pytest.fixture
-def pm():
-    """A PluginManager with the entityd hookspec."""
-    return entityd.pm.PluginManager(entityd.hookspec)
-
-
-@pytest.fixture
 def plugin(pm):
     """The entityd.pm.Plugin for entityd.core."""
     return pm.register(core)

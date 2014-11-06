@@ -3,5 +3,7 @@ cffi
 pyzmq
 
 # Dev requirements
+pip
 pytest
 pylint
+coverage

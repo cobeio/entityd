@@ -1,6 +1,18 @@
+"""Core entityd application plugin.
+
+This Module is the core entityd plugin which drives the entire
+application.  This means it provides the ``entityd_main()`` hook which
+drives the application by calling all other hooks.
+
+The ``entityd_main()`` hook itself is called by the entityd.__main__
+module which creates the plugin manager, registers the plugins and
+then runs the application by calling this hook.
+
+"""
+
 import argparse
 import logging
-import time
+import threading
 
 import entityd.pm
 import entityd.version
@@ -8,10 +20,11 @@ import entityd.version
 
 @entityd.pm.hookimpl
 def entityd_main(pluginmanager, argv):
+    """Run entityd."""
     config = pluginmanager.hooks.entityd_cmdline_parse(
         pluginmanager=pluginmanager, argv=argv)
     pluginmanager.hooks.entityd_configure(config=config)
-    session = MonitorSession(pluginmanager, config)
+    session = Session(pluginmanager, config)
     pluginmanager.hooks.entityd_sessionstart(session=session)
     pluginmanager.hooks.entityd_mainloop(session=session)
     pluginmanager.hooks.entityd_sessionfinish(session=session)
@@ -21,6 +34,10 @@ def entityd_main(pluginmanager, argv):
 
 @entityd.pm.hookimpl
 def entityd_cmdline_parse(pluginmanager, argv):
+    """Parse the command line arguments.
+
+    Returns an instantiated Config object.
+    """
     parser = argparse.ArgumentParser(
         prog='entityd',
         description='Entity Monitoring Agent',
@@ -32,6 +49,7 @@ def entityd_cmdline_parse(pluginmanager, argv):
 
 @entityd.pm.hookimpl
 def entityd_addoption(parser):
+    """Add command line options to the argparse parser."""
     parser.add_argument(
         '--version',
         action='version',
@@ -54,6 +72,7 @@ def entityd_addoption(parser):
 
 @entityd.pm.hookimpl
 def entityd_mainloop(session):
+    """Run the daemon mainloop."""
     try:
         session.run()
     except KeyboardInterrupt:
@@ -107,7 +126,7 @@ class Config:
         self.entities[name] = plugin
 
 
-class MonitorSession:
+class Session:
     """A monitoring session.
 
     Attributes:
@@ -124,6 +143,7 @@ class MonitorSession:
     def __init__(self, pluginmanager, config):
         self.config = config
         self.pluginmanager = pluginmanager
+        self._shutdown = threading.Event()
 
     def run(self):
         """Run the monitoring session.
@@ -131,13 +151,22 @@ class MonitorSession:
         This will block until .shutdown() is called or SIGTERM is
         received (aka KeyboardInterrupt is raised).
 
+        :raises KeyBoardInterrupt: When SIGTERM is received the
+           KeyBoardInterrupt is not caught and propagated up to the
+           caller.
+
         """
-        while True:
+        while not self._shutdown.is_set():
             self.collect_entities()
-            time.sleep(60)
+            self._shutdown.wait(60)
 
     def shutdown(self):
-        pass
+        """Signal the session to shutdown.
+
+        This does not wait until the shutdown has finished.
+
+        """
+        self._shutdown.set()
 
     def collect_entities(self):
         """Collect and send all Monitored Entities."""

@@ -172,7 +172,7 @@ class TestSession:
         session.collect_entities = pytest.Mock()
         thread = threading.Thread(target=session.run)
         thread.start()
-        t = time.time()
+        t = 0
         while not session.collect_entities.called:
             time.sleep(0.001)
             t += 0.001

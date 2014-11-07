@@ -25,6 +25,40 @@ def test_sessionend():
         .called_once_with(process_gen.known_uuids)
 
 
+def test_plugin_registered():
+    pm = pytest.Mock()
+    name = 'entityd.processme'
+    entityd.processme.entityd_plugin_registered(pm, name)
+    assert pm.register.called_once()
+    assert isinstance(pm.register.mock_calls[0][1][0],
+                      entityd.processme.ProcessEntity)
+    assert pm.register.mock_calls[0][2]['name'] == \
+        'entityd.processme.ProcessEntity'
+
+
+def test_configure():
+    config = pytest.Mock()
+    entityd.processme.ProcessEntity().entityd_configure(config)
+    assert config.addentity.called_once_with('Process',
+                                             'entityd.processme.ProcessEntity')
+
+
+def test_find_entity_with_attrs():
+    with pytest.raises(LookupError):
+        entityd.processme.ProcessEntity().entityd_find_entity('Process', {})
+
+
+def test_forget_entity():
+    pe = entityd.processme.ProcessEntity()
+    pe.known_uuids = {pe._cache_key(123, 123.123): 'uuid'}
+    pe.forget_entity(123, 123.123)
+    assert not pe.known_uuids
+
+
+def test_forget_non_existant_entity():
+    entityd.processme.ProcessEntity().forget_entity(123, 123.123)
+
+
 def test_get_uuid():
     process_gen = entityd.processme.ProcessEntity()
     process_gen.session = pytest.Mock()

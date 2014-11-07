@@ -10,10 +10,39 @@ def kvstore():
     return kvstore
 
 
+def test_plugin_registered():
+    pm = pytest.Mock()
+    name = 'entityd.kvstore'
+    entityd.kvstore.entityd_plugin_registered(pm, name)
+    assert pm.register.called_once()
+    assert isinstance(pm.register.mock_calls[0][1][0],
+                      entityd.kvstore.KVStore)
+    assert pm.register.mock_calls[0][2]['name'] == 'entityd.kvstore.KVStore'
+
+
+def test_configure():
+    config = pytest.Mock()
+    entityd.kvstore.KVStore().entityd_configure()
+    assert config.addentity.called_once_with('Host',
+                                             'entityd.hostme.HostEntity')
+
+
 def test_table_is_created(kvstore):
     conn = kvstore.conn
     curs = conn.cursor()
     curs.execute("SELECT * FROM entityd_kv_store")
+
+
+def test_fails_with_permission_error():
+    kvstore = entityd.kvstore.KVStore()
+    kvstore.location = '/not_allowed'
+    with pytest.raises(PermissionError):
+        kvstore.entityd_configure()
+
+
+def test_closed_on_unconfigure(kvstore):
+    kvstore.entityd_unconfigure()
+    assert kvstore.conn is None
 
 
 def test_kvstore_ops(kvstore):

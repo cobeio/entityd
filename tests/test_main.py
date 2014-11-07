@@ -67,6 +67,7 @@ def test_main_registererror(tmpdir, monkeypatch):
     monkeypatch.setattr(entityd.pm.PluginManager, 'register',
                         pytest.Mock(side_effect=Exception('oops')))
     main.main(argv=[], plugins=['plugin'])
+    assert entityd.pm.PluginManager.register.called
 
 
 def test_plugin_registered_cb(tmpdir, pm, monkeypatch):
@@ -90,6 +91,7 @@ def test_plugin_registered_cb_err(tmpdir, pm, monkeypatch):
     monkeypatch.setattr(pm, 'hooks', pytest.Mock())
     pm.hooks.entityd_plugin_registered.side_effect = Exception('oops')
     main.plugin_registered_cb(pm, plugin)
+    assert pm.hooks.entityd_plugin_registered.called
 
 
 def test_trace(capsys):

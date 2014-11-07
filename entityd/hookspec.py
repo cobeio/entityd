@@ -1,5 +1,7 @@
 """Hook specifications for entityd plugins."""
 
+# pylint: disable=unused-argument
+
 
 import entityd.pm
 

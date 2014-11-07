@@ -13,7 +13,7 @@ import zmq
 import entityd.pm
 
 
-log = logging.getLogger('sender')
+log = logging.getLogger(__name__)
 
 
 @entityd.pm.hookimpl
@@ -65,7 +65,11 @@ class MonitoredEntitySender:
 
     @entityd.pm.hookimpl
     def entityd_send_entity(self, session, entity):
-        """Send a Monitored Entity to a modeld destination."""
+        """Send a Monitored Entity to a modeld destination.
+
+        Uses zmq.DONTWAIT, so that buffers are emptied when full, rather than
+        blocking on send.
+        """
         if not self.socket:
             log.info("Creating new socket to {}".format(
                 session.config.args.dest))
@@ -74,13 +78,12 @@ class MonitoredEntitySender:
             self.socket.set(zmq.LINGER, 0)
             self.socket.connect(session.config.args.dest)
         try:
-            # zmq.DONTWAIT: exception when buffers are full, rather than block
             self.socket.send_multipart([self.packed_protocol_version,
                                         msgpack.packb(entity,
                                                       use_bin_type=True)],
                                        flags=zmq.DONTWAIT)
         except zmq.error.Again:
-            log.info("Could not send - message buffers are full")
-            log.info("Discarding buffer")
+            log.warning("Could not send, message buffers are full. "
+                        "Discarding buffer.")
             self.socket.close()
             self.socket = None

@@ -1,5 +1,6 @@
 import pytest
 
+import entityd.hookspec
 import entityd.kvstore
 
 
@@ -10,14 +11,11 @@ def kvstore():
     return kvstore
 
 
-def test_plugin_registered():
-    pm = pytest.Mock()
+def test_plugin_registered(pm):
+    pm.addhooks(entityd.hookspec)
     name = 'entityd.kvstore'
     entityd.kvstore.entityd_plugin_registered(pm, name)
-    assert pm.register.called_once()
-    assert isinstance(pm.register.mock_calls[0][1][0],
-                      entityd.kvstore.KVStore)
-    assert pm.register.mock_calls[0][2]['name'] == 'entityd.kvstore.KVStore'
+    assert pm.isregistered('entityd.kvstore.KVStore')
 
 
 def test_configure():

@@ -1,5 +1,6 @@
 import pytest
 
+import entityd.hookspec
 import entityd.processme
 
 
@@ -25,15 +26,11 @@ def test_sessionend():
         .called_once_with(process_gen.known_uuids)
 
 
-def test_plugin_registered():
-    pm = pytest.Mock()
+def test_plugin_registered(pm):
+    pm.addhooks(entityd.hookspec)
     name = 'entityd.processme'
     entityd.processme.entityd_plugin_registered(pm, name)
-    assert pm.register.called_once()
-    assert isinstance(pm.register.mock_calls[0][1][0],
-                      entityd.processme.ProcessEntity)
-    assert pm.register.mock_calls[0][2]['name'] == \
-        'entityd.processme.ProcessEntity'
+    assert pm.isregistered('entityd.processme.ProcessEntity')
 
 
 def test_configure():
@@ -56,6 +53,7 @@ def test_forget_entity():
 
 
 def test_forget_non_existant_entity():
+    # Should not raise an exception if a process is no longer there.
     entityd.processme.ProcessEntity().forget_entity(123, 123.123)
 
 

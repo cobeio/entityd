@@ -49,16 +49,6 @@ def test_hookimp_param():
 
 class TestPluginManager:
 
-    @pytest.fixture
-    def pm(self):
-        """An entityd.pm.PluginManager instance"""
-        @entityd.pm.hookdef
-        def my_hook(param):     # pylint: disable=unused-argument
-            pass
-        hookspec = types.ModuleType('hookspec')
-        hookspec.my_hook = my_hook
-        return entityd.pm.PluginManager(hookspec)
-
     @pytest.fixture(params=['module', 'class'])
     def plugin_obj(self, request):
         if request.param == 'module':

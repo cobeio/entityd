@@ -1,16 +1,14 @@
 import pytest
 
+import entityd.hookspec
 import entityd.hostme
 
 
-def test_plugin_registered():
-    pm = pytest.Mock()
+def test_plugin_registered(pm):
+    pm.addhooks(entityd.hookspec)
     name = 'entityd.hostme'
     entityd.hostme.entityd_plugin_registered(pm, name)
-    assert pm.register.called_once()
-    assert isinstance(pm.register.mock_calls[0][1][0],
-                      entityd.hostme.HostEntity)
-    assert pm.register.mock_calls[0][2]['name'] == 'entityd.hostme.HostEntity'
+    assert pm.isregistered('entityd.hostme.HostEntity')
 
 
 def test_configure():

@@ -19,3 +19,4 @@ htmlcov/
 .python-version
 MANIFEST
 entityd_kvstore.db
+coverage.xml

@@ -13,6 +13,7 @@ then runs the application by calling this hook.
 import argparse
 import logging
 import threading
+import types
 
 import entityd.pm
 import entityd.version
@@ -144,6 +145,7 @@ class Session:
         self.config = config
         self.pluginmanager = pluginmanager
         self._shutdown = threading.Event()
+        self.svc = types.SimpleNamespace()
 
     def run(self):
         """Run the monitoring session.
@@ -176,3 +178,24 @@ class Session:
             for entity in result:
                 self.pluginmanager.hooks.entityd_send_entity(session=self,
                                                              entity=entity)
+
+    def addservice(self, name, routine):
+        """Register a service provided by a plugin.
+
+        Services will be provided by the Session instance as
+        ``Session.svc.{name}`` callable.  Their main property is that
+        only one plugin can provide a given service, they are simply
+        callables and need to have unique names.
+
+        :param name: The name of the service.
+
+        :param routine: A callable which provides the service.
+
+        :raises KeyError: If a service is already registerd for the
+           given name.
+
+        """
+        if hasattr(self.svc, name):
+            raise KeyError('Service already registerd: {}'.format(name))
+        else:
+            setattr(self.svc, name, routine)

@@ -27,7 +27,6 @@ def test_sessionend():
 
 
 def test_plugin_registered(pm):
-    pm.addhooks(entityd.hookspec)
     name = 'entityd.processme'
     entityd.processme.entityd_plugin_registered(pm, name)
     assert pm.isregistered('entityd.processme.ProcessEntity')

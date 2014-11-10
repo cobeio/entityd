@@ -12,7 +12,6 @@ def kvstore():
 
 
 def test_plugin_registered(pm):
-    pm.addhooks(entityd.hookspec)
     name = 'entityd.kvstore'
     entityd.kvstore.entityd_plugin_registered(pm, name)
     assert pm.isregistered('entityd.kvstore.KVStore')

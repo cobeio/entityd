@@ -13,7 +13,7 @@ import invoke
 @invoke.task
 def pylint():
     """Invoke pylint on modules and test code."""
-    print_msg('Invoking pylint')
+    print(' Invoking pylint '.center(80, '+'))
     invoke.run('pylint entityd')
     invoke.run('cd tests; pylint *.py')
     invoke.run('setup.py')
@@ -23,7 +23,7 @@ def pylint():
 @invoke.task
 def pytest():
     """Run the entire test-suite."""
-    print_msg('Invoking py.test')
+    print(' Invoking py.test '.center(80, '+'))
     invoke.run('py.test -q --cov-report=xml tests')
     tree = etree.parse('coverage.xml')  # Probably should use sax.
     root = tree.getroot()
@@ -45,9 +45,3 @@ def check():
     pytest()
     if err:
         raise err
-
-
-def print_msg(msg, fill='+', width=80):
-    """Print a message surrounded by fill character."""
-    nchars = (width - (len(msg) + 2)) // 2
-    print('{0} {1} {0}'.format(fill*nchars, msg))

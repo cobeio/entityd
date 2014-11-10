@@ -83,7 +83,7 @@ class MonitoredEntitySender:
             self.socket.connect(self.session.config.args.dest)
         try:
             packed_entity = msgpack.packb(entity, use_bin_type=True)
-        except TypeError as e:
+        except TypeError:
             log.error("Cannot serialize entity {}".format(entity))
             return
         try:

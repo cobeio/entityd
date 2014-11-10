@@ -30,9 +30,12 @@ def test_table_is_created(kvstore):
     curs.execute("SELECT * FROM entityd_kv_store")
 
 
-def test_fails_with_permission_error():
+def test_fails_with_permission_error(tmpdir):
     kvstore = entityd.kvstore.KVStore()
-    kvstore.location = '/not_allowed'
+    location = tmpdir.join('notallowed')
+    location.ensure()
+    location.chmod(0)
+    kvstore.location = location.strpath
     with pytest.raises(PermissionError):
         kvstore.entityd_configure()
 

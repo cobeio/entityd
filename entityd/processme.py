@@ -63,6 +63,7 @@ class ProcessEntity:
 
     @staticmethod
     def _cache_key(pid, start_time):
+        """Get a standard cache key for a process entity"""
         return 'entityd.processme:{}-{}'.format(pid, start_time)
 
     def get_uuid(self, pid, start_time):

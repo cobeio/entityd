@@ -1,6 +1,5 @@
 """Local py.test plugin."""
 
-import types
 import unittest.mock
 
 import pytest
@@ -18,4 +17,3 @@ def pytest_namespace():
 def pm():
     """A PluginManager with the entityd hookspec."""
     return entityd.pm.PluginManager(entityd.hookspec)
-

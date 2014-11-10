@@ -5,6 +5,7 @@ import unittest.mock
 
 import pytest
 
+import entityd.hookspec
 import entityd.pm
 
 
@@ -15,12 +16,6 @@ def pytest_namespace():
 
 @pytest.fixture
 def pm():
-    """An entityd.pm.PluginManager instance"""
+    """A PluginManager with the entityd hookspec."""
+    return entityd.pm.PluginManager(entityd.hookspec)
 
-    @entityd.pm.hookdef
-    def my_hook(param):  # pylint: disable=unused-argument
-        pass
-
-    hookspec = types.ModuleType('hookspec')
-    hookspec.my_hook = my_hook
-    return entityd.pm.PluginManager(hookspec)

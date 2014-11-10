@@ -55,32 +55,40 @@ class MonitoredEntitySender:
 
     @entityd.pm.hookimpl
     def entityd_sessionfinish(self):
-        """Called when the monitoring session ends."""
+        """Called when the monitoring session ends.
+
+        Allows 500ms for any buffered messages to be sent.
+        """
         if self.socket:
-            self.socket.close(linger=1)
+            self.socket.close(linger=500)
         self.context.term()
         self.context = None
         self.session = None
         self.config = None
 
     @entityd.pm.hookimpl
-    def entityd_send_entity(self, session, entity):
+    def entityd_send_entity(self, entity):
         """Send a Monitored Entity to a modeld destination.
 
-        Uses zmq.DONTWAIT, so that buffers are emptied when full, rather than
-        blocking on send.
+        Uses zmq.DONTWAIT, so that an error is raised when the buffer is
+        full, rather than blocking on send.
+        Uses linger=0 and closes the socket in order to empty the buffers.
         """
         if not self.socket:
             log.info("Creating new socket to {}".format(
-                session.config.args.dest))
+                self.session.config.args.dest))
             self.socket = self.context.socket(zmq.PUSH)
             self.socket.set(zmq.SNDHWM, 500)
             self.socket.set(zmq.LINGER, 0)
-            self.socket.connect(session.config.args.dest)
+            self.socket.connect(self.session.config.args.dest)
+        try:
+            packed_entity = msgpack.packb(entity, use_bin_type=True)
+        except TypeError as e:
+            log.error("Cannot serialize entity {}".format(entity))
+            return
         try:
             self.socket.send_multipart([self.packed_protocol_version,
-                                        msgpack.packb(entity,
-                                                      use_bin_type=True)],
+                                        packed_entity],
                                        flags=zmq.DONTWAIT)
         except zmq.error.Again:
             log.warning("Could not send, message buffers are full. "

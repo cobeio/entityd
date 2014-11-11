@@ -5,6 +5,7 @@ import unittest.mock
 import pytest
 
 import entityd.hookspec
+import entityd.pm
 
 
 def pytest_namespace():

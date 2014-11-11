@@ -1,5 +1,6 @@
 import pytest
 
+import entityd.hookspec
 import entityd.processme
 
 
@@ -23,6 +24,36 @@ def test_sessionend():
         .called_once_with('entityd.processme:')
     assert session.pluginmanager.hooks.entityd_kvstore_addmany\
         .called_once_with(process_gen.known_uuids)
+
+
+def test_plugin_registered(pm):
+    name = 'entityd.processme'
+    entityd.processme.entityd_plugin_registered(pm, name)
+    assert pm.isregistered('entityd.processme.ProcessEntity')
+
+
+def test_configure():
+    config = pytest.Mock()
+    entityd.processme.ProcessEntity().entityd_configure(config)
+    assert config.addentity.called_once_with('Process',
+                                             'entityd.processme.ProcessEntity')
+
+
+def test_find_entity_with_attrs():
+    with pytest.raises(LookupError):
+        entityd.processme.ProcessEntity().entityd_find_entity('Process', {})
+
+
+def test_forget_entity():
+    pe = entityd.processme.ProcessEntity()
+    pe.known_uuids = {pe._cache_key(123, 123.123): 'uuid'}
+    pe.forget_entity(123, 123.123)
+    assert not pe.known_uuids
+
+
+def test_forget_non_existant_entity():
+    # Should not raise an exception if a process is no longer there.
+    entityd.processme.ProcessEntity().forget_entity(123, 123.123)
 
 
 def test_get_uuid():

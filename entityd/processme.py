@@ -34,7 +34,7 @@ class ProcessEntity:
 
     @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
-        """Called when the monitoring session starts"""
+        """Called when the monitoring session starts."""
         self.session = session
         loaded_values = \
             self.session.pluginmanager.hooks.entityd_kvstore_getmany(
@@ -63,7 +63,7 @@ class ProcessEntity:
 
     @staticmethod
     def _cache_key(pid, start_time):
-        """Get a standard cache key for a process entity"""
+        """Get a standard cache key for a process entity."""
         return 'entityd.processme:{}-{}'.format(pid, start_time)
 
     def get_uuid(self, pid, start_time):

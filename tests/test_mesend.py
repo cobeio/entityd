@@ -58,22 +58,22 @@ def test_send_entity(sender):
     assert sender.socket is not None
 
 
-def test_send_unserializable(sender):
+def test_send_unserializable(caplog, sender):
     entity = object()
-    entityd.mesend.log = pytest.Mock()
     sender.entityd_send_entity(entity)
-    assert entityd.mesend.log.error.called
+    errors = [rec for rec in caplog.records() if rec.levelname == 'ERROR']
+    assert len(errors) == 1
+    assert 'Cannot serialize entity' in errors[0].msg
 
 
-def test_buffers_full():
+def test_buffers_full(caplog):
     entity = {'uuid': 'abcdef'}
     sender = entityd.mesend.MonitoredEntitySender()
     socket = pytest.Mock()
     sender.socket = socket
     sender.socket.send_multipart = pytest.Mock(side_effect=zmq.error.Again)
-    entityd.mesend.log = pytest.Mock()
 
     sender.entityd_send_entity(entity)
     assert socket.close.called
-    assert entityd.mesend.log.warning.called
+    assert [rec for rec in caplog.records() if rec.levelname == 'WARNING']
     assert sender.socket is None

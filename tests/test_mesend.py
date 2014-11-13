@@ -40,7 +40,6 @@ def test_sessionstart():
     sender = entityd.mesend.MonitoredEntitySender()
     sender.entityd_sessionstart(session)
     assert sender.session == session
-    assert sender.config == session.config
     assert isinstance(sender.context, zmq.Context)
 
 

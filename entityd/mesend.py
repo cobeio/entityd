@@ -31,7 +31,6 @@ class MonitoredEntitySender:
     def __init__(self):
         self.context = None
         self.session = None
-        self.config = None
         self.packed_protocol_version = struct.pack('!I', 1)
         self.socket = None
 
@@ -51,7 +50,6 @@ class MonitoredEntitySender:
         """Called when the monitoring session starts"""
         self.context = zmq.Context()
         self.session = session
-        self.config = session.config
 
     @entityd.pm.hookimpl
     def entityd_sessionfinish(self):
@@ -64,7 +62,6 @@ class MonitoredEntitySender:
         self.context.term()
         self.context = None
         self.session = None
-        self.config = None
 
     @entityd.pm.hookimpl
     def entityd_send_entity(self, entity):

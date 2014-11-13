@@ -22,15 +22,16 @@ def test_plugin_registered(pm):
     assert pm.isregistered('entityd.mesend.MonitoredEntitySender')
 
 
-def test_addoption():
+def test_option_default():
     parser = argparse.ArgumentParser()
-
     entityd.mesend.MonitoredEntitySender().entityd_addoption(parser)
     args = parser.parse_args([])
-    # Check default
     assert args.dest == 'tcp://127.0.0.1:25010'
 
-    # Check non-default
+
+def test_addoption():
+    parser = argparse.ArgumentParser()
+    entityd.mesend.MonitoredEntitySender().entityd_addoption(parser)
     args = parser.parse_args(['--dest', 'tcp://192.168.0.1:7890'])
     assert args.dest == 'tcp://192.168.0.1:7890'
 

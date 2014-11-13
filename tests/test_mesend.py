@@ -1,5 +1,7 @@
 import argparse
+import struct
 
+import msgpack
 import pytest
 import zmq
 
@@ -9,11 +11,19 @@ import entityd.mesend
 @pytest.fixture
 def sender():
     session = pytest.Mock()
-    entity = {'uuid': 'abcdef'}
     sender = entityd.mesend.MonitoredEntitySender()
     sender.entityd_sessionstart(session)
     session.config.args.dest = 'tcp://127.0.0.1:25010'
     return sender
+
+
+@pytest.fixture
+def pull_socket(request):
+    context = zmq.Context()
+    sock = context.socket(zmq.PULL)
+    sock.bind('tcp://127.0.0.1:25010')
+    request.addfinalizer(sock.close)
+    return sock
 
 
 def test_plugin_registered(pm):
@@ -52,10 +62,15 @@ def test_sessionfinish():
     sender.socket.close.assert_called_once_with(linger=500)
 
 
-def test_send_entity(sender):
+def test_send_entity(sender, pull_socket):
     entity = {'uuid': 'abcdef'}
     sender.entityd_send_entity(entity)
     assert sender.socket is not None
+    protocol, message = pull_socket.recv_multipart()
+    protocol = struct.unpack('!I', protocol)[0]
+    assert protocol == 1
+    message = msgpack.unpackb(message, encoding='utf-8')
+    assert message['uuid'] == 'abcdef'
 
 
 def test_send_unserializable(caplog, sender):
@@ -66,14 +81,11 @@ def test_send_unserializable(caplog, sender):
     assert 'Cannot serialize entity' in errors[0].msg
 
 
-def test_buffers_full(caplog):
+def test_buffers_full(caplog, sender):
     entity = {'uuid': 'abcdef'}
-    sender = entityd.mesend.MonitoredEntitySender()
-    socket = pytest.Mock()
-    sender.socket = socket
-    sender.socket.send_multipart = pytest.Mock(side_effect=zmq.error.Again)
-
-    sender.entityd_send_entity(entity)
-    assert socket.close.called
-    assert [rec for rec in caplog.records() if rec.levelname == 'WARNING']
+    for _ in range(501):
+        sender.entityd_send_entity(entity)
+    assert [rec for rec in caplog.records() if
+            rec.levelname == 'WARNING' and
+            'Could not send, message buffers are full' in rec.msg]
     assert sender.socket is None

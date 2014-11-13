@@ -49,7 +49,7 @@ def test_sessionfinish():
     sender.entityd_sessionstart(pytest.Mock())
     sender.socket = pytest.Mock()
     sender.entityd_sessionfinish()
-    assert sender.socket.close.called_once_with(linger=500)
+    sender.socket.close.assert_called_once_with(linger=500)
 
 
 def test_send_entity(sender):

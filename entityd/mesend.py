@@ -73,7 +73,7 @@ class MonitoredEntitySender:
         Uses linger=0 and closes the socket in order to empty the buffers.
         """
         if not self.socket:
-            log.info("Creating new socket to {}".format(
+            log.debug("Creating new socket to {}".format(
                 self.session.config.args.dest))
             self.socket = self.context.socket(zmq.PUSH)
             self.socket.set(zmq.SNDHWM, 500)

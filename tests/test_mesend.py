@@ -66,8 +66,10 @@ def test_sessionfinish():
     sender = entityd.mesend.MonitoredEntitySender()
     sender.entityd_sessionstart(pytest.Mock())
     sender.socket = pytest.Mock()
+    context = sender.context
     sender.entityd_sessionfinish()
     sender.socket.close.assert_called_once_with(linger=500)
+    assert context.closed
 
 
 def test_send_entity(sender_receiver):

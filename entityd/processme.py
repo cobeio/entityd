@@ -58,6 +58,9 @@ class ProcessEntity:
         """Return an iterator of "Process" Monitored Entities."""
         if name == 'Process':
             if attrs is not None:
+                if 'pid' in attrs:
+                    print('Getting processes for pid {}'.format(pid))
+                    return self.processes(pids=[attrs['pid']])
                 raise LookupError('Attribute based filtering not supported')
             return self.processes()
 
@@ -112,9 +115,12 @@ class ProcessEntity:
         })
         return relations
 
-    def processes(self):
+    def processes(self, pids=None):
         """Generator of Process MEs."""
-        procs = {pid: syskit.Process(pid) for pid, bin in syskit.procs()}
+        if pids:
+            procs = {pid: syskit.Process(pid) for pid in pids}
+        else:
+            procs = {pid: syskit.Process(pid) for pid, bin in syskit.procs()}
 
         active_processes = {
             self.get_uuid(proc.pid, proc.start_time.timestamp()): {

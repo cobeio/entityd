@@ -18,12 +18,20 @@ def sender():
 
 
 @pytest.fixture
-def pull_socket(request):
+def sender_receiver(request):
+    """Get an ME Sender with a matched receiving socket with random port."""
     context = zmq.Context()
     sock = context.socket(zmq.PULL)
-    sock.bind('tcp://127.0.0.1:25010')
+    port_selected = sock.bind_to_random_port('tcp://127.0.0.1',
+                                             min_port=6001,
+                                             max_port=6100, max_tries=100)
     request.addfinalizer(sock.close)
-    return sock
+    session = pytest.Mock()
+    sender = entityd.mesend.MonitoredEntitySender()
+    sender.entityd_sessionstart(session)
+    session.config.args.dest = 'tcp://127.0.0.1:{}'.format(
+        port_selected)
+    return sender, sock
 
 
 def test_plugin_registered(pm):
@@ -62,11 +70,12 @@ def test_sessionfinish():
     sender.socket.close.assert_called_once_with(linger=500)
 
 
-def test_send_entity(sender, pull_socket):
+def test_send_entity(sender_receiver):
+    sender, receiver = sender_receiver
     entity = {'uuid': 'abcdef'}
     sender.entityd_send_entity(entity)
     assert sender.socket is not None
-    protocol, message = pull_socket.recv_multipart()
+    protocol, message = receiver.recv_multipart()
     protocol = struct.unpack('!I', protocol)[0]
     assert protocol == 1
     message = msgpack.unpackb(message, encoding='utf-8')

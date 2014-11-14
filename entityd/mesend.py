@@ -4,6 +4,7 @@ This plugin implements the sending of Monitored Entities to the modeld
 destination.
 
 """
+
 import logging
 import struct
 
@@ -26,7 +27,7 @@ def entityd_plugin_registered(pluginmanager, name):
 
 
 class MonitoredEntitySender:
-    """Plugin to send entities to modeld"""
+    """Plugin to send entities to modeld."""
 
     def __init__(self):
         self.context = None
@@ -37,7 +38,7 @@ class MonitoredEntitySender:
     @staticmethod
     @entityd.pm.hookimpl
     def entityd_addoption(parser):
-        """Add the required options to the command line"""
+        """Add the required options to the command line."""
         parser.add_argument(
             '--dest',                         # XXX choose a better name
             default='tcp://127.0.0.1:25010',  # XXX should not have a default
@@ -47,7 +48,7 @@ class MonitoredEntitySender:
 
     @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
-        """Called when the monitoring session starts"""
+        """Called when the monitoring session starts."""
         self.context = zmq.Context()
         self.session = session
 

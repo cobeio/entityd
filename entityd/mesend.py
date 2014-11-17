@@ -68,6 +68,9 @@ class MonitoredEntitySender:
     def entityd_send_entity(self, entity):
         """Send a Monitored Entity to a modeld destination.
 
+        If msgpack fails to serialize ``entity`` then a TypeError will
+        be raised.
+
         Uses zmq.DONTWAIT, so that an error is raised when the buffer is
         full, rather than blocking on send.
         Uses linger=0 and closes the socket in order to empty the buffers.
@@ -81,9 +84,9 @@ class MonitoredEntitySender:
             self.socket.connect(self.session.config.args.dest)
         try:
             packed_entity = msgpack.packb(entity, use_bin_type=True)
-        except TypeError:
+        except TypeError as err:
             log.error("Cannot serialize entity {}".format(entity))
-            return
+            raise err
         try:
             self.socket.send_multipart([self.packed_protocol_version,
                                         packed_entity],

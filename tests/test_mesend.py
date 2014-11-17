@@ -86,7 +86,8 @@ def test_send_entity(sender_receiver):
 
 def test_send_unserializable(caplog, sender):
     entity = object()
-    sender.entityd_send_entity(entity)
+    with pytest.raises(TypeError):
+        sender.entityd_send_entity(entity)
     errors = [rec for rec in caplog.records() if rec.levelname == 'ERROR']
     assert len(errors) == 1
     assert 'Cannot serialize entity' in errors[0].msg

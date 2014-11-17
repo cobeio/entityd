@@ -34,7 +34,7 @@ class ProcessEntity:
 
     @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
-        """Called when the monitoring session starts"""
+        """Called when the monitoring session starts."""
         self.session = session
         loaded_values = \
             self.session.pluginmanager.hooks.entityd_kvstore_getmany(
@@ -64,13 +64,18 @@ class ProcessEntity:
                 raise LookupError('Attribute based filtering not supported')
             return self.processes()
 
+    @staticmethod
+    def _cache_key(pid, start_time):
+        """Get a standard cache key for a process entity."""
+        return 'entityd.processme:{}-{}'.format(pid, start_time)
+
     def get_uuid(self, pid, start_time):
         """Get a uuid for this process if one exists, else generate one.
 
         :param pid: Process ID
         :param start_time: Start time of the process
         """
-        key = 'entityd.processme:{}-{}'.format(pid, start_time)
+        key = self._cache_key(pid, start_time)
         if key in self.known_uuids:
             return self.known_uuids[key]
         else:
@@ -80,7 +85,7 @@ class ProcessEntity:
 
     def forget_entity(self, pid, start_time):
         """Remove the cached version of this Process Entity."""
-        key = 'entityd.processme:{}-{}'.format(pid, start_time)
+        key = self._cache_key(pid, start_time)
         try:
             del self.known_uuids[key]
         except KeyError:

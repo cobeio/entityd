@@ -1,6 +1,32 @@
 import pytest
 
+import entityd.hookspec
 import entityd.hostme
+
+
+def test_plugin_registered(pm):
+    name = 'entityd.hostme'
+    entityd.hostme.entityd_plugin_registered(pm, name)
+    assert pm.isregistered('entityd.hostme.HostEntity')
+
+
+def test_configure():
+    config = pytest.Mock()
+    entityd.hostme.HostEntity().entityd_configure(config)
+    assert config.addentity.called_once_with('Host',
+                                             'entityd.hostme.HostEntity')
+
+
+def test_session_stored_on_start():
+    session = pytest.Mock()
+    he = entityd.hostme.HostEntity()
+    he.entityd_sessionstart(session)
+    assert he.session is session
+
+
+def test_find_entity_with_attrs():
+    with pytest.raises(LookupError):
+        entityd.hostme.HostEntity().entityd_find_entity('Host', {})
 
 
 def test_get_uuid():

@@ -40,7 +40,10 @@ class ProcessEntity:
             self.session.pluginmanager.hooks.entityd_kvstore_getmany(
                 key_begins_with='entityd.processme:'
             )
-        self.known_uuids = loaded_values
+        if loaded_values:
+            self.known_uuids = loaded_values
+        else:
+            self.known_uuids = {}
 
     @entityd.pm.hookimpl
     def entityd_sessionfinish(self):
@@ -59,7 +62,7 @@ class ProcessEntity:
         if name == 'Process':
             if attrs is not None:
                 if 'pid' in attrs:
-                    print('Getting processes for pid {}'.format(pid))
+                    print('Getting processes for pid {}'.format(attrs['pid']))
                     return self.processes(pids=[attrs['pid']])
                 raise LookupError('Attribute based filtering not supported')
             return self.processes()
@@ -76,7 +79,7 @@ class ProcessEntity:
         :param start_time: Start time of the process
         """
         key = self._cache_key(pid, start_time)
-        if key in self.known_uuids:
+        if self.known_uuids and key in self.known_uuids:
             return self.known_uuids[key]
         else:
             value = uuid.uuid4().hex
@@ -102,7 +105,10 @@ class ProcessEntity:
         proc = procs[pid]
         ppid = proc.ppid
         if ppid:
-            pproc = procs[ppid]
+            if ppid in procs:
+                pproc = procs[ppid]
+            else:
+                pproc = syskit.Process(ppid)
             relations.append({
                 'uuid': self.get_uuid(ppid,
                                       pproc.start_time.timestamp()),
@@ -110,14 +116,17 @@ class ProcessEntity:
                 'rel': 'parent'
             })
         if not self.host_uuid:
-            (host_me,), = self.session.pluginmanager.hooks.entityd_find_entity(
+            val = self.session.pluginmanager.hooks.entityd_find_entity(
                 name='Host', attrs=None)
-            self.host_uuid = host_me['uuid']
-        relations.append({
-            'uuid': self.host_uuid,
-            'type': 'me:Host',
-            'rel': 'parent'
-        })
+            if val:
+                (host_me,), = val
+                self.host_uuid = host_me['uuid']
+        if self.host_uuid:
+            relations.append({
+                'uuid': self.host_uuid,
+                'type': 'me:Host',
+                'rel': 'parent'
+            })
         return relations
 
     def processes(self, pids=None):

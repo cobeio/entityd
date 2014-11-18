@@ -1,6 +1,5 @@
 """Plugin providing the Endpoint Monitored Entity."""
 
-import os
 import uuid
 
 import syskit
@@ -32,26 +31,41 @@ class EndpointEntity:
                 raise LookupError('Attribute based filtering not supported')
             return self.endpoints()
 
-    def get_uuid(self):
+    @staticmethod
+    def get_uuid():
         """Get a uuid for endpoint."""
+
         value = uuid.uuid4().hex
         return value
 
     def endpoints(self):
-        processes = self.session.pluginmanager.hooks.entityd_find_entity(
+        """Generator of all endpoints."""
+        processes, = self.session.pluginmanager.hooks.entityd_find_entity(
             name='Process', attrs=None)
 
         for process in processes:
-            endpoints = syskit.Process(process['attrs']['pid']).connections
-            for conn in endpoints:
-                yield {
-                    'type': 'Endpoint',
-                    'uuid': self.get_uuid(),
-                    'attrs': {
-                        'local_addr': conn.laddr,
-                        'remote_addr': conn.raddr
-                    },
-                    'relations': [
-                        {}
-                    ]
-                }
+            yield from self.endpoints_for_process(process)
+
+    def endpoints_for_process(self, proc):
+        """Generator of endpoints for the provided process.
+
+        :param proc: Process Entity owning the connections to look for.
+                     Must have a uuid & pid
+        """
+        endpoints = syskit.Process(proc['attrs']['pid']).connections
+        for conn in endpoints:
+            yield {
+                'type': 'Endpoint',
+                'uuid': self.get_uuid(),
+                'attrs': {
+                    'local_addr': conn.laddr,
+                    'remote_addr': conn.raddr
+                },
+                'relations': [
+                    {
+                        'uuid': proc['uuid'],
+                        'type': 'me:Process',
+                        'rel': 'parent'
+                    }
+                ]
+            }

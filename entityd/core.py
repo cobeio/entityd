@@ -179,17 +179,19 @@ class Session:
                 self.pluginmanager.hooks.entityd_send_entity(session=self,
                                                              entity=entity)
 
-    def addservice(self, name, routine):
+    def addservice(self, name, obj):
         """Register a service provided by a plugin.
 
-        Services will be provided by the Session instance as
-        ``Session.svc.{name}`` callable.  Their main property is that
+        Services will be provided by the Session instance as then
+        ``Session.svc.{name}`` object.  Their main property is that
         only one plugin can provide a given service, they are simply
-        callables and need to have unique names.
+        objects and need to have unique names.  Normally a service
+        would be a direct callable or an instance with callable
+        methods.
 
         :param name: The name of the service.
 
-        :param routine: A callable which provides the service.
+        :param obj: An object which provides the service.
 
         :raises KeyError: If a service is already registerd for the
            given name.
@@ -198,4 +200,4 @@ class Session:
         if hasattr(self.svc, name):
             raise KeyError('Service already registerd: {}'.format(name))
         else:
-            setattr(self.svc, name, routine)
+            setattr(self.svc, name, obj)

@@ -82,16 +82,12 @@ class MonitoredEntitySender:
             self.socket.set(zmq.SNDHWM, 500)
             self.socket.set(zmq.LINGER, 0)
             self.socket.connect(self.session.config.args.dest)
-        try:
-            packed_entity = msgpack.packb(entity, use_bin_type=True)
-        except TypeError as err:
-            log.error("Cannot serialize entity {}".format(entity))
-            raise err
+        packed_entity = msgpack.packb(entity, use_bin_type=True)
         try:
             self.socket.send_multipart([self.packed_protocol_version,
                                         packed_entity],
                                        flags=zmq.DONTWAIT)
-        except zmq.error.Again:
+        except zmq.Again:
             log.warning("Could not send, message buffers are full. "
                         "Discarding buffer.")
             self.socket.close()

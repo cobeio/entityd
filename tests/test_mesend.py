@@ -22,10 +22,13 @@ def sender_receiver(request):
     """Get an ME Sender with a matched receiving socket with random port."""
     context = zmq.Context()
     sock = context.socket(zmq.PULL)
-    port_selected = sock.bind_to_random_port('tcp://127.0.0.1',
-                                             min_port=6001,
-                                             max_port=6100, max_tries=100)
-    request.addfinalizer(sock.close)
+    port_selected = sock.bind_to_random_port('tcp://127.0.0.1')
+
+    # Must call sock.close first, else context.term will block.
+    def term():
+        sock.close()
+        context.term()
+    request.addfinalizer(term)
     session = pytest.Mock()
     sender = entityd.mesend.MonitoredEntitySender()
     sender.entityd_sessionstart(session)
@@ -88,9 +91,6 @@ def test_send_unserializable(caplog, sender):
     entity = object()
     with pytest.raises(TypeError):
         sender.entityd_send_entity(entity)
-    errors = [rec for rec in caplog.records() if rec.levelname == 'ERROR']
-    assert len(errors) == 1
-    assert 'Cannot serialize entity' in errors[0].msg
 
 
 def test_buffers_full(caplog, sender):

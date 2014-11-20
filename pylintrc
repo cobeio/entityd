@@ -4,6 +4,7 @@ disable = locally-disabled,fixme,too-few-public-methods
 [BASIC]
 good-names = i,j,k,ex,Run,_,cb
 const-rgx = (([A-Z_][A-Z0-9_]*)|(__.*__)|(log))$
+bad-functions = filter,apply
 
 [REPORTS]
 reports = no

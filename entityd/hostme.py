@@ -46,15 +46,14 @@ class HostEntity:
 
     def get_uuid(self):
         """Get a uuid for host."""
-        key = 'entityd.hostme'
         if self.host_uuid:
             return self.host_uuid
-
-        value = self.session.pluginmanager.hooks.entityd_kvstore_get(key=key)
-        if not value:
+        key = 'entityd.hostme'
+        try:
+            value = self.session.svc.kvstore.get(key)
+        except KeyError:
             value = uuid.uuid4().hex
-            self.session.pluginmanager.hooks.entityd_kvstore_add(key=key,
-                                                                 value=value)
+            self.session.svc.kvstore.add(key, value)
         self.host_uuid = value
         return value
 
@@ -62,7 +61,6 @@ class HostEntity:
         """Generator of Host MEs."""
         fqdn = socket.getfqdn()
         uptime = int(syskit.uptime())
-
         yield {
             'type': 'Host',
             'uuid': self.get_uuid(),

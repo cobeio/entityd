@@ -118,36 +118,3 @@ def entityd_find_entity(name, attrs=None):
 @entityd.pm.hookdef
 def entityd_send_entity(session, entity):
     """Send a Monitored Entity to a modeld destination."""
-
-
-@entityd.pm.hookdef(firstresult=True)
-def entityd_kvstore_add(key, value):
-    """Persist this key -> value mapping."""
-
-
-@entityd.pm.hookdef(firstresult=True)
-def entityd_kvstore_addmany(values):
-    """Persist these mappings.
-
-    :param values: A dictionary of keys and values to store
-    """
-
-
-@entityd.pm.hookdef(firstresult=True)
-def entityd_kvstore_get(key):
-    """Retrieve the value for ``key``."""
-
-
-@entityd.pm.hookdef(firstresult=True)
-def entityd_kvstore_getmany(key_begins_with):
-    """Retrieve rows which start with ``key_begins_with``."""
-
-
-@entityd.pm.hookdef(firstresult=True)
-def entityd_kvstore_delete(key):
-    """Delete the mapping for ``key``."""
-
-
-@entityd.pm.hookdef(firstresult=True)
-def entityd_kvstore_deletemany(key_begins_with):
-    """Delete all mappings beginning with ``key_begins_with``."""

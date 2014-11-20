@@ -35,7 +35,7 @@ class ProcessEntity:
 
     @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
-        """Load known ProcessME UUIDs.."""
+        """Load known ProcessME UUIDs."""
         self.session = session
         self.known_uuids = session.svc.kvstore.getmany('entityd.processme:')
 

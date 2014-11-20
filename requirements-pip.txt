@@ -1,7 +1,7 @@
 # Requirements which need to be installed via pip.
 # Install using: pip install -r requirements-pip.txt
 # Make sure pip is installed via conda (see requirements-conda.txt)
-
+msgpack-python
 hg+https://bitbucket.org/flub/syskit
 
 # Dev requirements

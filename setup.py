@@ -14,12 +14,13 @@ setup(
     version=version,
     author='Abilisoft Ltd.',
     author_email='info@abilisoft.com',
-    license='',
+    license='Proprieary',
     url='http://abilisoft.com',
     description='Abilisoft Entity Monitoring Agent',
     packages=['entityd'],
     classifiers=[
         'Development Status :: 3 - Alpha',
+        'License :: Other/Proprietary License',
     ],
     keywords='topology performance availability monitoring',
 )

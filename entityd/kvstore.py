@@ -41,9 +41,9 @@ class KVStore:
     def __init__(self, dbpath):
         try:
             self._conn = sqlite3.connect(str(dbpath))
-        except sqlite3.OperationalError:
+        except sqlite3.OperationalError as err:
             raise PermissionError(
-                'Unable to write to database at {}.'.format(dbpath))
+                'Unable to write to database at {}.'.format(dbpath)) from err
         else:
             self._conn.execute("""\
                 CREATE TABLE IF NOT EXISTS entityd_kv_store

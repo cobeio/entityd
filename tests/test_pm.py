@@ -575,6 +575,19 @@ class TestHookCaller:
         caller._hooks = [impl_meth]
         assert caller(spam=42, ham=3) == [(42, 3)]
 
+    def test_call_exception(self, caller):
+        class MyException(Exception):
+            pass
+        class ThePlugin:
+            @entityd.pm.hookimpl
+            def my_hook(self):
+                raise MyException('oops')
+        plugin = entityd.pm.Plugin(ThePlugin(), 'theplugin', 0)
+        impl = entityd.pm.HookImpl(plugin.obj.my_hook, plugin)
+        caller.addimpl(impl)
+        with pytest.raises(MyException):
+            caller(spam=1, ham=2)
+
     def test_cls_hookspec(self, impl_spam):
         # This is a quite weird thing to support, probably not necessary.
         class HookSpec:

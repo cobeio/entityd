@@ -70,8 +70,9 @@ def test_entityd_main(pm, hookrec):
     class FooPlugin:
         entityd_main = core.entityd_main
 
+        @staticmethod
         @entityd.pm.hookimpl
-        def entityd_cmdline_parse(pluginmanager, argv):  # pylint: disable=E0213,W0613
+        def entityd_cmdline_parse(pluginmanager, argv):  # pylint: disable=unused-argument
             return config
 
     pm.register(FooPlugin)
@@ -202,3 +203,13 @@ class TestSession:
         session.collect_entities()
         calls = dict(hookrec.calls)
         assert 'entityd_send_entity' not in calls
+
+    def test_addservice(self, session):
+        session.addservice('list', list)
+        assert session.svc.list((0, 1)) == [0, 1]
+
+    def test_addservice_duplicate(self, session):
+        session.addservice('list', list)
+        with pytest.raises(KeyError):
+            session.addservice('list', tuple)
+        assert session.svc.list((0, 1)) == [0, 1]

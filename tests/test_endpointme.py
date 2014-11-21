@@ -7,7 +7,32 @@ import entityd.core
 
 import entityd.endpointme
 import entityd.hostme
+import entityd.kvstore
 import entityd.processme
+
+
+@pytest.fixture
+def config(pm):
+    """An entityd.core.Config instance."""
+    return entityd.core.Config(pm, [])
+
+
+@pytest.fixture
+def session(pm, config):
+    """An entityd.core.Session instance."""
+    return entityd.core.Session(pm, config)
+
+
+@pytest.fixture
+def kvstore(session):
+    """Return a kvstore instance registered to the session fixture.
+
+    This creates a KVStore and registers it to the ``session`` fixture.
+
+    """
+    kvstore = entityd.kvstore.KVStore(':memory:')
+    session.addservice('kvstore', kvstore)
+    return kvstore
 
 
 def test_endpoints_for_process(request):
@@ -42,11 +67,9 @@ def test_endpoints_for_process(request):
         pytest.fail("No endpoints found")
 
 
-def test_get_entities(request, pm):
+def test_get_entities(request, pm, session, kvstore):
     endpoint_gen = entityd.endpointme.EndpointEntity()
-    config = pm.hooks.entityd_cmdline_parse(
-        pluginmanager=pm, argv=[])
-    endpoint_gen.session = entityd.core.Session(pm, config)
+    endpoint_gen.session = session
 
     pm.register(entityd.processme.ProcessEntity(), name='entityd.processme')
     pm.hooks.entityd_plugin_registered(pluginmanager=pm,

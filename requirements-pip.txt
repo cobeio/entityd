@@ -6,5 +6,6 @@ hg+https://bitbucket.org/flub/syskit
 
 # Dev requirements
 -e .
+pytest-capturelog
 pytest-cov
 invoke

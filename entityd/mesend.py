@@ -4,6 +4,7 @@ This plugin implements the sending of Monitored Entities to the modeld
 destination.
 
 """
+
 import logging
 import struct
 
@@ -26,19 +27,18 @@ def entityd_plugin_registered(pluginmanager, name):
 
 
 class MonitoredEntitySender:
-    """Plugin to send entities to modeld"""
+    """Plugin to send entities to modeld."""
 
     def __init__(self):
         self.context = None
         self.session = None
-        self.config = None
         self.packed_protocol_version = struct.pack('!I', 1)
         self.socket = None
 
     @staticmethod
     @entityd.pm.hookimpl
     def entityd_addoption(parser):
-        """Add the required options to the command line"""
+        """Add the required options to the command line."""
         parser.add_argument(
             '--dest',                         # XXX choose a better name
             default='tcp://127.0.0.1:25010',  # XXX should not have a default
@@ -48,10 +48,9 @@ class MonitoredEntitySender:
 
     @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
-        """Called when the monitoring session starts"""
+        """Called when the monitoring session starts."""
         self.context = zmq.Context()
         self.session = session
-        self.config = session.config
 
     @entityd.pm.hookimpl
     def entityd_sessionfinish(self):
@@ -64,33 +63,31 @@ class MonitoredEntitySender:
         self.context.term()
         self.context = None
         self.session = None
-        self.config = None
 
     @entityd.pm.hookimpl
     def entityd_send_entity(self, entity):
         """Send a Monitored Entity to a modeld destination.
+
+        If msgpack fails to serialize ``entity`` then a TypeError will
+        be raised.
 
         Uses zmq.DONTWAIT, so that an error is raised when the buffer is
         full, rather than blocking on send.
         Uses linger=0 and closes the socket in order to empty the buffers.
         """
         if not self.socket:
-            log.info("Creating new socket to {}".format(
+            log.debug("Creating new socket to {}".format(
                 self.session.config.args.dest))
             self.socket = self.context.socket(zmq.PUSH)
             self.socket.set(zmq.SNDHWM, 500)
             self.socket.set(zmq.LINGER, 0)
             self.socket.connect(self.session.config.args.dest)
-        try:
-            packed_entity = msgpack.packb(entity, use_bin_type=True)
-        except TypeError:
-            log.error("Cannot serialize entity {}".format(entity))
-            return
+        packed_entity = msgpack.packb(entity, use_bin_type=True)
         try:
             self.socket.send_multipart([self.packed_protocol_version,
                                         packed_entity],
                                        flags=zmq.DONTWAIT)
-        except zmq.error.Again:
+        except zmq.Again:
             log.warning("Could not send, message buffers are full. "
                         "Discarding buffer.")
             self.socket.close()

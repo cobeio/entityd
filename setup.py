@@ -14,7 +14,7 @@ setup(
     version=version,
     author='Abilisoft Ltd.',
     author_email='info@abilisoft.com',
-    license='Proprieary',
+    license='Proprietary',
     url='http://abilisoft.com',
     description='Abilisoft Entity Monitoring Agent',
     packages=['entityd'],

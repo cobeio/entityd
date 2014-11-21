@@ -1,12 +1,12 @@
+import os
 import socket
 import uuid
-import os
 
 import pytest
-import entityd.core
+import syskit
 
+import entityd.core
 import entityd.endpointme
-import entityd.hostme
 import entityd.kvstore
 import entityd.processme
 
@@ -35,15 +35,117 @@ def kvstore(session):
     return kvstore
 
 
-def test_endpoints_for_process(request):
+@pytest.fixture
+def endpoint_gen(pm):
+    """A entityd.entityd.EndpointEntity instance.
+
+    The plugin will be registered with the PluginManager but no hooks
+    will have been called.
+
+    """
+    endpoint_gen = entityd.endpointme.EndpointEntity()
+    pm.register(endpoint_gen, 'entityd.endpointme.EndpointEntity')
+    return endpoint_gen
+
+
+@pytest.fixture
+def local_socket(request):
     # Connect a socket to look for
     local_ip = '127.0.0.1'
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     request.addfinalizer(s.close)
     s.bind((local_ip, 0))
-    _, socket_port = s.getsockname()
     s.listen(1)
+    return s
 
+
+@pytest.fixture
+def conn(local_socket):
+    return list(syskit.Process(os.getpid()).connections)[0]
+
+
+def test_plugin_registered(pm):
+    name = 'entityd.endpointme'
+    entityd.endpointme.entityd_plugin_registered(pm, name)
+    assert pm.isregistered('entityd.endpointme.EndpointEntity')
+
+
+def test_session_hooks_reload_proc(endpoint_gen, session, kvstore, conn):
+    # Create an entry in known_uuids
+    endpoint_gen.entityd_sessionstart(session)
+    key = endpoint_gen._cache_key(os.getpid(), conn.fd)
+    uuid = endpoint_gen.get_uuid(conn)
+    assert endpoint_gen.known_uuids[key] == uuid
+
+    # Persist that entry to the kvstore
+    endpoint_gen.entityd_sessionfinish()
+    assert kvstore.get(key) == uuid
+
+    # Reload this entry from the kvstore
+    endpoint_gen.known_uuids.clear()
+    endpoint_gen.entityd_sessionstart(session)
+    assert endpoint_gen.known_uuids[key] == uuid
+
+
+def test_sessionfinish_delete_uuids(endpoint_gen, session, kvstore, conn):
+    # Create an entry in known_uuids
+    endpoint_gen.entityd_sessionstart(session)
+    key = endpoint_gen._cache_key(conn.bound_pid, conn.fd)
+    uuid = endpoint_gen.get_uuid(conn)
+    assert endpoint_gen.known_uuids[key] == uuid
+
+    # Persist that entry to the kvstore
+    endpoint_gen.entityd_sessionfinish()
+    assert kvstore.get(key) == uuid
+
+    # Check that entry is deleted from the kvstore
+    endpoint_gen.known_uuids.clear()
+    endpoint_gen.entityd_sessionfinish()
+    with pytest.raises(KeyError):
+        kvstore.get(key)
+
+
+def test_configure(endpoint_gen, config):
+    endpoint_gen.entityd_configure(config)
+    assert config.entities['Endpoint'].obj is endpoint_gen
+
+
+def test_find_entity_with_attrs(endpoint_gen):
+    with pytest.raises(LookupError):
+        endpoint_gen.entityd_find_entity('Endpoint', {})
+
+
+def test_cache_key():
+    key = entityd.endpointme.EndpointEntity._cache_key(123, 456.7)
+    assert key.startswith('entityd.endpointme:')
+
+
+def test_cache_key_diff():
+    key0 = entityd.endpointme.EndpointEntity._cache_key(1, 456.7)
+    key1 = entityd.endpointme.EndpointEntity._cache_key(2, 456.7)
+    assert key0 != key1
+
+
+def test_forget_entity(endpoint_gen, conn):
+    # Insert an Endpoint into known_uuids
+    key = endpoint_gen._cache_key(conn.bound_pid, conn.fd)
+    endpoint_gen.get_uuid(conn)
+    assert key in endpoint_gen.known_uuids
+
+    # Check it is removed
+    endpoint_gen.forget_entity(conn.bound_pid, conn.fd)
+    assert key not in endpoint_gen.known_uuids
+
+
+def test_forget_non_existent_entity(endpoint_gen):
+    # Should not raise an exception if an endpoint is no longer there.
+    assert not endpoint_gen.known_uuids
+    endpoint_gen.forget_entity(123, 123.123)
+    assert not endpoint_gen.known_uuids
+
+
+def test_endpoints_for_process(local_socket):
+    _, socket_port = local_socket.getsockname()
     endpoint_plugin = entityd.endpointme.EndpointEntity()
     entities = endpoint_plugin.endpoints_for_process({
         'uuid': 123,
@@ -89,3 +191,16 @@ def test_get_entities(request, pm, session, kvstore):
 
     if endpoint is None:
         pytest.fail('No endpoints found')
+
+
+def test_get_uuid_new(endpoint_gen, conn):
+    uuid = endpoint_gen.get_uuid(conn)
+    assert uuid
+
+
+def test_get_uuid_reuse(endpoint_gen, local_socket):
+    conn0 = list(syskit.Process(os.getpid()).connections)[0]
+    uuid0 = endpoint_gen.get_uuid(conn0)
+    conn1 = list(syskit.Process(os.getpid()).connections)[0]
+    uuid1 = endpoint_gen.get_uuid(conn1)
+    assert uuid0 == uuid1

@@ -149,7 +149,7 @@ def test_forget_entity(procent):
     assert key not in procent.known_uuids
 
 
-def test_forget_non_existant_entity(procent):
+def test_forget_non_existent_entity(procent):
     # Should not raise an exception if a process is no longer there.
     assert not procent.known_uuids
     procent.forget_entity(123, 123.123)

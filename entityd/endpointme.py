@@ -26,7 +26,7 @@ class EndpointEntity:
     @staticmethod
     @entityd.pm.hookimpl
     def entityd_configure(config):
-        """Register the Process Monitored Entity."""
+        """Register the Endpoint Monitored Entity."""
         config.addentity('Endpoint', 'entityd.endpointme.EndpointEntity')
 
     @entityd.pm.hookimpl
@@ -34,8 +34,8 @@ class EndpointEntity:
         """Load up all the known endpoint UUIDs."""
         self.session = session
         loaded_values = \
-            self.session.pluginmanager.hooks.entityd_kvstore_getmany(
-                key_begins_with='entityd.endpointme:'
+            self.session.svc.kvstore.getmany(
+                prefix='entityd.endpointme:'
             )
         if loaded_values:
             self.known_uuids = loaded_values
@@ -45,12 +45,12 @@ class EndpointEntity:
     @entityd.pm.hookimpl
     def entityd_sessionfinish(self):
         """Store out all our known endpoint UUIDs."""
-        self.session.pluginmanager.hooks.entityd_kvstore_deletemany(
-            key_begins_with='entityd.endpointme:'
+        self.session.svc.kvstore.deletemany(
+            prefix='entityd.endpointme:'
         )
 
-        self.session.pluginmanager.hooks.entityd_kvstore_addmany(
-            values=self.known_uuids
+        self.session.svc.kvstore.addmany(
+            mapping=self.known_uuids
         )
 
     @entityd.pm.hookimpl
@@ -62,17 +62,16 @@ class EndpointEntity:
             return self.endpoints()
 
     @staticmethod
-    def _cache_key(fd):
-        """Get a standard cache key for a process entity."""
-        return 'entityd.endpointme:{}'.format(fd)
+    def _cache_key(pid, fd):
+        """Get a standard cache key for an Endpoint entity."""
+        return 'entityd.endpointme:{}-{}'.format(pid, fd)
 
-    def get_uuid(self, fd):
-        """Get a uuid for this process if one exists, else generate one.
+    def get_uuid(self, conn):
+        """Get a uuid for this endpoint if one exists, else generate one.
 
-        :param pid: Process ID
-        :param start_time: Start time of the process
+        :param fd: Endpoint fd
         """
-        key = self._cache_key(fd)
+        key = self._cache_key(conn.bound_pid, conn.fd)
         if self.known_uuids and key in self.known_uuids:
             return self.known_uuids[key]
         else:
@@ -80,10 +79,18 @@ class EndpointEntity:
             self.known_uuids[key] = value
             return value
 
+    def forget_entity(self, bound_pid, fd):
+        """Remove the cached version of this Endpoint Entity."""
+        key = self._cache_key(bound_pid, fd)
+        try:
+            del self.known_uuids[key]
+        except KeyError:
+            pass
+
     def endpoints(self):
         """Generator of all endpoints.
 
-        Yields all connections of active processes.
+        Yields all connections of all active processes.
         """
         processes, = self.session.pluginmanager.hooks.entityd_find_entity(
             name='Process', attrs=None)
@@ -96,14 +103,14 @@ class EndpointEntity:
     def endpoints_for_process(self, proc):
         """Generator of endpoints for the provided process.
 
-        :param proc: Process Entity owning the connections to look for.
+        :param proc: Process Entity (dict) owning the connections to look for.
                      Must have a uuid & pid
         """
         endpoints = syskit.Process(proc['attrs']['pid']).connections
         for conn in endpoints:
             yield {
                 'type': 'Endpoint',
-                'uuid': self.get_uuid(conn.fd),
+                'uuid': self.get_uuid(conn),
                 'attrs': {
                     'local_addr': conn.laddr,
                     'remote_addr': conn.raddr

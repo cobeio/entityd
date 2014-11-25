@@ -33,25 +33,13 @@ class EndpointEntity:
     def entityd_sessionstart(self, session):
         """Load up all the known endpoint UUIDs."""
         self.session = session
-        loaded_values = \
-            self.session.svc.kvstore.getmany(
-                prefix='entityd.endpointme:'
-            )
-        if loaded_values:
-            self.known_uuids = loaded_values
-        else:
-            self.known_uuids = {}
+        self.known_uuids = session.svc.kvstore.getmany('entityd.endpointme:')
 
     @entityd.pm.hookimpl
     def entityd_sessionfinish(self):
         """Store out all our known endpoint UUIDs."""
-        self.session.svc.kvstore.deletemany(
-            prefix='entityd.endpointme:'
-        )
-
-        self.session.svc.kvstore.addmany(
-            mapping=self.known_uuids
-        )
+        self.session.svc.kvstore.deletemany('entityd.endpointme:')
+        self.session.svc.kvstore.addmany(self.known_uuids)
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs):
@@ -63,13 +51,17 @@ class EndpointEntity:
 
     @staticmethod
     def _cache_key(pid, fd):
-        """Get a standard cache key for an Endpoint entity."""
+        """Get a standard cache key for an Endpoint entity.
+
+        :param pid: Process ID owning the Endpoint
+        :param fd: File descriptor of the Endpoint
+        """
         return 'entityd.endpointme:{}-{}'.format(pid, fd)
 
     def get_uuid(self, conn):
         """Get a uuid for this endpoint if one exists, else generate one.
 
-        :param fd: Endpoint fd
+        :param conn: a syskit.Connection
         """
         key = self._cache_key(conn.bound_pid, conn.fd)
         if self.known_uuids and key in self.known_uuids:

@@ -216,7 +216,7 @@ def test_processes(procent, proctable, monkeypatch, session, kvstore):  # pylint
     for me in gen:
         assert me['type'] == 'Process'
         assert me['uuid']
-        pids.append(me['attrs']['pid'])
+        pids.append(me['attrs']['pid']['value'])
     assert sorted(proctable.keys()) == sorted(pids)
 
 
@@ -229,7 +229,7 @@ def test_processes_deleted(procent, proctable, monkeypatch, session, kvstore):  
     # Extract the ME for the py.test process
     gen = procent.processes()
     for me in gen:
-        if me['attrs']['pid'] == os.getpid():
+        if me['attrs']['pid']['value'] == os.getpid():
             procme = me
 
     # Delete py.test process from process table and check deleted ME
@@ -237,7 +237,7 @@ def test_processes_deleted(procent, proctable, monkeypatch, session, kvstore):  
     gen = procent.processes()
     pprocme, delme = list(gen)
     assert pprocme['type'] == 'Process'
-    assert pprocme['attrs']['pid'] == os.getppid()
+    assert pprocme['attrs']['pid']['value'] == os.getppid()
     assert delme['type'] == 'Process'
     assert delme['delete'] is True
     assert delme['uuid'] == procme['uuid']

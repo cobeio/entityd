@@ -66,7 +66,9 @@ class HostEntity:
             'uuid': self.get_uuid(),
             'timestamp': time.time(),
             'attrs': {
-                'fqdn': fqdn,
+                'fqdn': {
+                    'value': fqdn,
+                },
                 'uptime': {
                     'value': uptime,
                     'type': "perf:counter"

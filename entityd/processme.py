@@ -130,8 +130,8 @@ class ProcessEntity:
         deleted_uuids = prev_uuids - active_uuids
         for proc_uuid in deleted_uuids:
             proc = prev_processes[proc_uuid]
-            self.forget_entity(proc['attrs']['pid'],
-                               proc['attrs']['starttime'])
+            self.forget_entity(proc['attrs']['pid']['value'],
+                               proc['attrs']['starttime']['value'])
             yield {
                 'type': 'Process',
                 'timestamp': time.time(),
@@ -168,9 +168,15 @@ class ProcessEntity:
             'timestamp': time.time(),
             'uuid': self.get_uuid(proc),
             'attrs': {
-                'binary': proc.name,
-                'pid': proc.pid,
-                'starttime': proc.start_time.timestamp(),
+                'binary': {
+                    'value': proc.name,
+                },
+                'pid': {
+                    'value': proc.pid,
+                },
+                'starttime': {
+                    'value': proc.start_time.timestamp(),
+                },
             },
             'relations': self.get_relations(proc.pid, proctable)
         }

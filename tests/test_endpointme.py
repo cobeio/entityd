@@ -144,15 +144,17 @@ def test_forget_non_existent_entity(endpoint_gen):
     assert not endpoint_gen.known_uuids
 
 
-def test_endpoints_for_process(local_socket):
+def test_endpoints_for_process(pm, session, kvstore, local_socket):
     _, socket_port = local_socket.getsockname()
+
+    pm.register(entityd.processme.ProcessEntity(), name='entityd.processme')
+    pm.hooks.entityd_plugin_registered(pluginmanager=pm,
+                                       name='entityd.processme')
+    pm.hooks.entityd_sessionstart(session=session)
+
     endpoint_plugin = entityd.endpointme.EndpointEntity()
-    entities = endpoint_plugin.endpoints_for_process({
-        'uuid': 123,
-        'attrs': {
-            'pid': os.getpid()
-        }
-    })
+    endpoint_plugin.entityd_sessionstart(session)
+    entities = endpoint_plugin.endpoints_for_process(os.getpid())
 
     endpoint = None
     for endpoint in entities:
@@ -187,7 +189,7 @@ def test_get_entities(request, pm, session, kvstore):
         assert uuid.UUID(hex=endpoint['uuid']).hex == endpoint['uuid']
         assert 'attrs' in endpoint
         assert 'local_addr' in endpoint['attrs']
-        assert 'relations' in endpoint and endpoint['relations']
+        assert 'relations' in endpoint
 
     if endpoint is None:
         pytest.fail('No endpoints found')

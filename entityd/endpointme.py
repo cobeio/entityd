@@ -9,8 +9,6 @@ import struct
 import sys
 import uuid
 
-import syskit
-
 import entityd.pm
 
 
@@ -158,11 +156,6 @@ def pids():
     return [int(x) for x in os.listdir('/proc') if x.isdigit()]
 
 
-def pid_exists(pid):
-    """Check For the existence of a unix pid."""
-    return _psposix.pid_exists(pid)
-
-
 # --- network
 
 class Connections:
@@ -175,6 +168,8 @@ class Connections:
     According to [1] it would be possible but not easily.
 
     [1] http://serverfault.com/a/417946
+
+    Heavily borrowing from psutil.
     """
 
     def __init__(self):
@@ -197,7 +192,12 @@ class Connections:
             "inet6": (tcp6, udp6),
         }
 
-    def get_proc_inodes(self, pid):
+    @staticmethod
+    def get_proc_inodes(pid):
+        """Gets all inodes for the given process.
+
+        :param pid: The process ID to find inodes for
+        """
         inodes = collections.defaultdict(list)
         for fd in os.listdir("/proc/%s/fd" % pid):
             try:
@@ -213,6 +213,7 @@ class Connections:
         return inodes
 
     def get_all_inodes(self):
+        """Gets all inodes for all processes."""
         inodes = {}
         for pid in pids():
             try:
@@ -231,7 +232,8 @@ class Connections:
                     raise
         return inodes
 
-    def decode_address(self, addr, family):
+    @staticmethod
+    def decode_address(addr, family):
         """Accept an "ip:port" address as displayed in /proc/net/*
         and convert it into a human readable form, like:
 
@@ -277,14 +279,21 @@ class Connections:
                     struct.pack('<4I', *struct.unpack('<4I', ip)))
         return (ip, port)
 
-    def process_inet(self, file, family, type_, inodes, filter_pid=None):
-        """Parse /proc/net/tcp* and /proc/net/udp* files."""
-        if file.endswith('6') and not os.path.exists(file):
+    def process_inet(self, path, family, type_, inodes, filter_pid=None): # pylint: disable=too-many-arguments
+        """Parse /proc/net/tcp* and /proc/net/udp* files.
+
+        :param path: path of the file to process
+        :param family: one of socket.AF_INET, socket.AF_INET6, socket.AF_UNIX
+        :param type_: socket.SOCK_STREAM, socket.SOCK_DGRAM, None
+        :param inodes: the dictionary output from ``get_*_inodes()``
+        :param filter_pid: A process ID to filter output
+        """
+        if path.endswith('6') and not os.path.exists(path):
             # IPv6 not supported
             return
-        f = open(file, 'rt')
-        f.readline()  # skip the first line
-        for line in f:
+        file = open(path, 'r')
+        file.readline()  # skip the first line
+        for line in file:
             _, laddr, raddr, status, _, _, _, _, _, inode = \
                 line.split()[:10]
             if inode in inodes:
@@ -307,13 +316,20 @@ class Connections:
                 laddr = self.decode_address(laddr, family)
                 raddr = self.decode_address(raddr, family)
                 yield (fd, family, type_, laddr, raddr, status, pid)
-        f.close()
+        file.close()
 
-    def process_unix(self, file, family, inodes, filter_pid=None):
-        """Parse /proc/net/unix files."""
-        f = open(file, 'rt')
-        f.readline()  # skip the first line
-        for line in f:
+    @staticmethod
+    def process_unix(path, family, inodes, filter_pid=None):
+        """Parse /proc/net/unix files.
+
+        :param path: path of the file to process
+        :param family: one of socket.AF_INET, socket.AF_INET6, socket.AF_UNIX
+        :param inodes: the dictionary output from ``get_*_inodes()``
+        :param filter_pid: Optional. Only return sockets owned by this process
+        """
+        file = open(path, 'r')
+        file.readline()  # skip the first line
+        for line in file:
             tokens = line.split()
             _, _, _, _, type_, _, inode = tokens[0:7]
             if inode in inodes:
@@ -334,9 +350,14 @@ class Connections:
                     raddr = None
                     status = 'NONE'
                     yield (fd, family, type_, path, raddr, status, pid)
-        f.close()
+        file.close()
 
     def retrieve(self, kind, pid=None):
+        """Fetch connections.
+
+        :param kind: The type of socket: AF_*
+        :param pid: Optional. Only return sockets owned by this process
+        """
         if kind not in self.tmap:
             raise ValueError("invalid %r kind argument; choose between %s"
                              % (kind, ', '.join([repr(x) for x in self.tmap])))
@@ -348,14 +369,14 @@ class Connections:
         else:
             inodes = self.get_all_inodes()
         ret = []
-        for f, family, type_ in self.tmap[kind]:
+        for fname, family, type_ in self.tmap[kind]:
             if family in (socket.AF_INET, socket.AF_INET6):
-                ls = self.process_inet(
-                    "/proc/net/%s" % f, family, type_, inodes, filter_pid=pid)
+                socks = self.process_inet("/proc/net/%s" % fname, family,
+                                          type_, inodes, filter_pid=pid)
             else:
-                ls = self.process_unix(
-                    "/proc/net/%s" % f, family, inodes, filter_pid=pid)
-            for fd, family, type_, laddr, raddr, status, bound_pid in ls:
+                socks = self.process_unix(
+                    "/proc/net/%s" % fname, family, inodes, filter_pid=pid)
+            for fd, family, type_, laddr, raddr, status, bound_pid in socks:
                 if pid:
                     conn = Connection(fd, family, type_, laddr, raddr,
                                       status, bound_pid)

@@ -50,7 +50,7 @@ def endpoint_gen(pm):
 
 @pytest.fixture
 def local_socket(request):
-    # Connect a socket to look for
+    """Create a connected socket which we can look for in the Endpoints"""
     local_ip = '127.0.0.1'
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     request.addfinalizer(s.close)
@@ -61,6 +61,7 @@ def local_socket(request):
 
 @pytest.fixture
 def conn(local_socket):
+    """Get the Connection object corresponding to local_socket"""
     return list(syskit.Process(os.getpid()).connections)[0]
 
 

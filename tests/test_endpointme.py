@@ -60,6 +60,23 @@ def local_socket(request):
 
 
 @pytest.fixture
+def remote_socket(request, local_socket):
+    """A socket connecting to local_socket"""
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    request.addfinalizer(s.close)
+    s.connect(local_socket.getsockname())
+    return s
+
+
+@pytest.fixture
+def unix_socket(request):
+    """A unix socket"""
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    request.addfinalizer(s.close)
+    return s
+
+
+@pytest.fixture
 def conn(local_socket):
     """Get the Connection object corresponding to local_socket"""
     return list(syskit.Process(os.getpid()).connections)[0]
@@ -145,31 +162,62 @@ def test_forget_non_existent_entity(endpoint_gen):
     assert not endpoint_gen.known_uuids
 
 
-def test_endpoints_for_process(pm, session, kvstore, local_socket):
-    _, socket_port = local_socket.getsockname()
+def test_endpoints_for_process(pm, session, kvstore, local_socket,
+                               remote_socket):
+    conn = local_socket.accept()
 
-    pm.register(entityd.processme.ProcessEntity(), name='entityd.processme')
+    pm.register(entityd.processme.ProcessEntity(),
+                name='entityd.processme')
+    endpoint_plugin = entityd.endpointme.EndpointEntity()
+    pm.register(endpoint_plugin, name='entityd.endpointme')
     pm.hooks.entityd_plugin_registered(pluginmanager=pm,
                                        name='entityd.processme')
+    pm.hooks.entityd_plugin_registered(pluginmanager=pm,
+                                       name='entityd.endpointme')
     pm.hooks.entityd_sessionstart(session=session)
 
-    endpoint_plugin = entityd.endpointme.EndpointEntity()
-    endpoint_plugin.entityd_sessionstart(session)
     entities = endpoint_plugin.endpoints_for_process(os.getpid())
-
-    endpoint = None
-    for endpoint in entities:
+    for count, endpoint in enumerate(entities, start=1):
         assert endpoint['type'] == 'Endpoint'
         assert 'uuid' in endpoint
         assert uuid.UUID(hex=endpoint['uuid']).hex == endpoint['uuid']
         assert 'attrs' in endpoint
         assert 'local_addr' in endpoint['attrs']
-        ip, port = endpoint['attrs']['local_addr']
-        assert ip == '127.0.0.1'
-        assert port == socket_port
 
-    if not endpoint:
-        pytest.fail("No endpoints found")
+        local_addr = endpoint['attrs']['local_addr']
+        remote_addr = endpoint['attrs']['remote_addr']
+        if local_addr == local_socket.getsockname():
+            # If it's the listening socket, we won't have a
+            # remote address here. If it's accepted socket, then we do.
+            if remote_addr:
+                assert remote_addr == remote_socket.getsockname()
+        elif local_addr == remote_socket.getsockname():
+            # This is the remote, connected socket
+            assert remote_addr == local_socket.getsockname()
+
+    assert count == 3
+
+
+def test_unix_socket(pm, session, kvstore, unix_socket):
+    pm.register(entityd.processme.ProcessEntity(),
+                name='entityd.processme')
+    endpoint_plugin = entityd.endpointme.EndpointEntity()
+    pm.register(endpoint_plugin, name='entityd.endpointme')
+    pm.hooks.entityd_plugin_registered(pluginmanager=pm,
+                                       name='entityd.processme')
+    pm.hooks.entityd_plugin_registered(pluginmanager=pm,
+                                       name='entityd.endpointme')
+    pm.hooks.entityd_sessionstart(session=session)
+
+    entities = endpoint_plugin.endpoints_for_process(os.getpid())
+    for count, endpoint in enumerate(entities, start=1):
+        assert endpoint['type'] == 'Endpoint'
+        assert 'uuid' in endpoint
+        assert uuid.UUID(hex=endpoint['uuid']).hex == endpoint['uuid']
+        assert 'attrs' in endpoint
+        assert 'local_addr' in endpoint['attrs']
+        print(endpoint)
+    assert count == 1
 
 
 def test_get_entities(pm, session, kvstore):

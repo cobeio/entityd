@@ -126,9 +126,10 @@ class EndpointEntity:
         """
         return self.endpoints(pid)
 
-#
-# Stuff from psutil
-#
+
+# Code for retrieving connections is from psutil, and slightly modified for
+# our codebase.
+# See https://github.com/giampaolo/psutil/blob/master/psutil/_pslinux.py
 
 
 TCP_STATUSES = {
@@ -156,8 +157,6 @@ def pids():
     return [int(x) for x in os.listdir('/proc') if x.isdigit()]
 
 
-# --- network
-
 class Connections:
     """A wrapper on top of /proc/net/* files, retrieving per-process
     and system-wide open connections (TCP, UDP, UNIX) similarly to
@@ -168,8 +167,6 @@ class Connections:
     According to [1] it would be possible but not easily.
 
     [1] http://serverfault.com/a/417946
-
-    Heavily borrowing from psutil.
     """
 
     def __init__(self):
@@ -324,7 +321,7 @@ class Connections:
 
         :param path: path of the file to process
         :param family: one of socket.AF_INET, socket.AF_INET6, socket.AF_UNIX
-        :param inodes: the dictionary output from ``get_*_inodes()``
+        :param inodes: the dictionary output from ``self.get_*_inodes()``
         :param filter_pid: Optional. Only return sockets owned by this process
         """
         file = open(path, 'r')
@@ -355,7 +352,7 @@ class Connections:
     def retrieve(self, kind, pid=None):
         """Fetch connections.
 
-        :param kind: The type of socket: AF_*
+        :param kind: The type of socket: socket.AF_*
         :param pid: Optional. Only return sockets owned by this process
         """
         if kind not in self.tmap:

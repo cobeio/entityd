@@ -171,7 +171,7 @@ def test_endpoints_for_process(pm, session, kvstore, local_socket):
         pytest.fail("No endpoints found")
 
 
-def test_get_entities(request, pm, session, kvstore):
+def test_get_entities(pm, session, kvstore):
     endpoint_gen = entityd.endpointme.EndpointEntity()
     endpoint_gen.session = session
 

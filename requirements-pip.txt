@@ -9,3 +9,4 @@ hg+https://bitbucket.org/flub/syskit
 pytest-capturelog
 pytest-cov
 invoke
+hg+https://bitbucket.org/abilisoft/pylint-abilisoft

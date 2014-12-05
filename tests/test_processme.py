@@ -109,9 +109,11 @@ def test_find_entity(procent, session, kvstore):  # pylint: disable=unused-argum
 
 def test_find_entity_with_pid(procent, session, kvstore):
     procent.entityd_sessionstart(session)
-    entities = procent.entityd_find_entity('Process', {'pid': os.getpid()})
+    pid = os.getpid()
+    entities = procent.entityd_find_entity('Process', {'pid': pid})
     proc = next(entities)
     assert proc['type'] == 'Process'
+    assert proc['attrs']['pid'] == pid
     assert proc['attrs']['starttime']
 
     with pytest.raises(StopIteration):
@@ -121,7 +123,6 @@ def test_find_entity_with_pid(procent, session, kvstore):
 def test_find_entity_with_unknown_attrs(procent):
     with pytest.raises(LookupError):
         procent.entityd_find_entity('Process', {'unknown': 1})
-
 
 
 def test_cache_key():

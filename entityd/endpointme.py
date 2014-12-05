@@ -63,7 +63,7 @@ class EndpointEntity:
         :param conn: a syskit.Connection
         """
         key = self._cache_key(conn.bound_pid, conn.fd)
-        if self.known_uuids and key in self.known_uuids:
+        if key in self.known_uuids:
             return self.known_uuids[key]
         else:
             value = uuid.uuid4().hex

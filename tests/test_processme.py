@@ -107,9 +107,22 @@ def test_find_entity(procent, session, kvstore):  # pylint: disable=unused-argum
     assert count
 
 
-def test_find_entity_with_attrs(procent):
+def test_find_entity_with_pid(procent, session, kvstore):
+    procent.entityd_sessionstart(session)
+    pid = os.getpid()
+    entities = procent.entityd_find_entity('Process', {'pid': pid})
+    proc = next(entities)
+    assert proc['type'] == 'Process'
+    assert proc['attrs']['pid'] == pid
+    assert proc['attrs']['starttime']
+
+    with pytest.raises(StopIteration):
+        next(entities)
+
+
+def test_find_entity_with_unknown_attrs(procent):
     with pytest.raises(LookupError):
-        procent.entityd_find_entity('Process', {})
+        procent.entityd_find_entity('Process', {'unknown': 1})
 
 
 def test_cache_key():
@@ -149,7 +162,7 @@ def test_forget_entity(procent):
     assert key not in procent.known_uuids
 
 
-def test_forget_non_existant_entity(procent):
+def test_forget_non_existent_entity(procent):
     # Should not raise an exception if a process is no longer there.
     assert not procent.known_uuids
     procent.forget_entity(123, 123.123)

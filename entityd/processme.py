@@ -50,7 +50,10 @@ class ProcessEntity:
         """Return an iterator of "Process" Monitored Entities."""
         if name == 'Process':
             if attrs is not None:
-                raise LookupError('Attribute based filtering not supported')
+                if 'pid' in attrs:
+                    return self.process(attrs['pid'])
+                raise LookupError('Attribute based filtering not supported '
+                                  'for attrs {}'.format(attrs))
             return self.processes()
 
     @staticmethod
@@ -114,6 +117,27 @@ class ProcessEntity:
                 'rel': 'parent'
             })
         return relations
+
+    def process(self, pid):
+        """Generate a single process ME for the process ID provided
+
+        :param pid: Process ID to return
+        """
+        proctable = {}
+        try:
+            proc = syskit.Process(pid)
+            proctable[pid] = proc
+        except syskit.NoSuchProcessError:
+            return
+
+        if proc.ppid:
+            try:
+                pproc = syskit.Process(proc.ppid)
+                proctable[proc.ppid] = pproc
+            except syskit.NoSuchProcessError:
+                pass
+
+        yield self.create_process_me(proctable, proc)
 
     def processes(self):
         """Generator of Process MEs."""

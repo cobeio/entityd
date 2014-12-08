@@ -193,11 +193,11 @@ class Session:
 
         :param obj: An object which provides the service.
 
-        :raises KeyError: If a service is already registerd for the
+        :raises KeyError: If a service is already registered for the
            given name.
 
         """
         if hasattr(self.svc, name):
-            raise KeyError('Service already registerd: {}'.format(name))
+            raise KeyError('Service already registered: {}'.format(name))
         else:
             setattr(self.svc, name, obj)

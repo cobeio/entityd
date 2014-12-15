@@ -109,3 +109,6 @@ class UpdateRelations:
         else:
             ueid = entity
         self._relations.add(ueid)
+
+    def __iter__(self):
+        return self._relations.__iter__()

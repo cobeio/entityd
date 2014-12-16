@@ -115,6 +115,7 @@ def test_find_entity_with_pid(procent, session, kvstore):
     assert proc.metype == 'Process'
     assert proc.attrs.getvalue('pid') == pid
     assert proc.attrs.getvalue('starttime')
+    assert proc.attrs.getvalue('ppid') == os.getppid()
 
     with pytest.raises(StopIteration):
         next(entities)

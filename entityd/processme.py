@@ -190,6 +190,7 @@ class ProcessEntity:
         update.attrs.set('pid', proc.pid, attrtype='id')
         update.attrs.set('starttime', proc.start_time.timestamp(),
                          attrtype='id')
+        update.attrs.set('ppid', proc.ppid)
         update.attrs.set('host', self.host_ueid, attrtype='id')
         for parent in self.get_parents(proc.pid, proctable):
             update.parents.add(parent)

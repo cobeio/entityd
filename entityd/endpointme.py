@@ -1,10 +1,23 @@
 """Plugin providing the Endpoint Monitored Entity."""
 
+import socket
 import uuid
 
 import entityd
 import entityd.connections
 import entityd.pm
+
+FAMILIES = {
+    socket.AF_INET: 'INET',
+    socket.AF_INET6: 'INET6',
+    socket.AF_UNIX: 'UNIX'
+}
+
+PROTOCOLS = {
+    socket.SOCK_STREAM: 'TCP',
+    socket.SOCK_DGRAM: 'UDP',
+    socket.SOCK_RAW: 'RAW'
+}
 
 
 @entityd.pm.hookimpl
@@ -87,7 +100,7 @@ class EndpointEntity:
         :param pid: Optional. Find only connections for this process.
         """
         connections = entityd.connections.Connections()
-        for conn in connections.retrieve('all', pid):
+        for conn in connections.retrieve('inet', pid):
             process = None
             if conn.bound_pid:
                 results = self.session.pluginmanager.hooks.entityd_find_entity(
@@ -99,8 +112,27 @@ class EndpointEntity:
                 continue
 
             update = entityd.EntityUpdate('Endpoint')
-            update.attrs.set('local_addr', conn.laddr)
-            update.attrs.set('remote_addr', conn.raddr)
+            update.attrs.set('addr', conn.laddr[0], attrtype='id')
+            update.attrs.set('port', conn.laddr[1], attrtype='id')
+
+            update.attrs.set('family', FAMILIES.get(conn.family),
+                             attrtype='id')
+            update.attrs.set('protocol', PROTOCOLS.get(conn.type),
+                             attrtype='id')
+            update.attrs.set('listening', conn.status == 'LISTEN')
+
+            if conn.raddr:
+                # Remote endpoint relation goes in parents and children
+                remote = entityd.EntityUpdate(metype='Endpoint')
+                remote.attrs.set('addr', conn.raddr[0], attrtype='id')
+                remote.attrs.set('port', conn.raddr[1], attrtype='id')
+                remote.attrs.set('family', update.attrs.getvalue('family'),
+                                 attrtype='id')
+                remote.attrs.set('protocol', update.attrs.getvalue('protocol'),
+                                 attrtype='id')
+                update.parents.add(remote.ueid)
+                update.children.add(remote.ueid)
+
             if process:
                 update.parents.add(process)
             yield update

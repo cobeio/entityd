@@ -180,23 +180,47 @@ def test_endpoints_for_process(pm, session, kvstore, local_socket,
     for count, endpoint in enumerate(entities, start=1):
         assert endpoint.metype == 'Endpoint'
         assert endpoint.ueid
-        assert endpoint.attrs.getvalue('local_addr')
-
-        local_addr = endpoint.attrs.getvalue('local_addr')
-        remote_addr = endpoint.attrs.getvalue('remote_addr')
-        if local_addr == local_socket.getsockname():
+        assert endpoint.attrs
+        assert endpoint.attrs.getvalue('family') == 'INET'
+        assert endpoint.attrs.getvalue('protocol') == 'TCP'
+        addr = endpoint.attrs.getvalue('addr')
+        port = endpoint.attrs.getvalue('port')
+        if (addr, port) == local_socket.getsockname():
             # If it's the listening socket, we won't have a
             # remote address here. If it's accepted socket, then we do.
-            if remote_addr:
-                assert remote_addr == remote_socket.getsockname()
-        elif local_addr == remote_socket.getsockname():
+            if len(list(endpoint.children)):
+                assert endpoint.attrs.getvalue('listening') is False
+                update = entityd.EntityUpdate('Endpoint')
+                update.attrs.set('addr', remote_socket.getsockname()[0],
+                                 attrtype='id')
+                update.attrs.set('port', remote_socket.getsockname()[1],
+                                 attrtype='id')
+                update.attrs.set('family', 'INET', attrtype='id')
+                update.attrs.set('protocol',
+                                 endpoint.attrs.getvalue('protocol'),
+                                 attrtype='id')
+                assert update.ueid in endpoint.children
+                assert update.ueid in endpoint.parents
+            else:
+                assert endpoint.attrs.getvalue('listening') is True
+        elif (addr, port) == remote_socket.getsockname():
             # This is the remote, connected socket
-            assert remote_addr == local_socket.getsockname()
-
+            assert endpoint.attrs.getvalue('listening') is False
+            update = entityd.EntityUpdate('Endpoint')
+            update.attrs.set('addr', local_socket.getsockname()[0],
+                             attrtype='id')
+            update.attrs.set('port', local_socket.getsockname()[1],
+                             attrtype='id')
+            update.attrs.set('family', 'INET', attrtype='id')
+            update.attrs.set('protocol', endpoint.attrs.getvalue('protocol'),
+                             attrtype='id')
+            assert update.ueid in endpoint.children
+            assert update.ueid in endpoint.parents
     assert count == 3
 
 
 def test_unix_socket(pm, session, kvstore, unix_socket):
+    """Unix sockets should not be returned"""
     pm.register(entityd.processme.ProcessEntity(),
                 name='entityd.processme')
     endpoint_plugin = entityd.endpointme.EndpointEntity()
@@ -208,10 +232,12 @@ def test_unix_socket(pm, session, kvstore, unix_socket):
     pm.hooks.entityd_sessionstart(session=session)
 
     entities = endpoint_plugin.endpoints_for_process(os.getpid())
-    for count, endpoint in enumerate(entities, start=1):
+    count = 0
+    for endpoint in entities:
+        count += 1
         assert endpoint.metype == 'Endpoint'
         assert endpoint.ueid
-    assert count == 1
+    assert count == 0
 
 
 def test_get_entities(pm, session, kvstore):
@@ -229,7 +255,10 @@ def test_get_entities(pm, session, kvstore):
     for endpoint in entities:
         assert endpoint.metype == 'Endpoint'
         assert endpoint.ueid
-        assert 'local_addr' in [k for k, v in endpoint.attrs.items()]
+        attrs = endpoint.attrs._attrs
+        for id_key in ['addr', 'port', 'family', 'protocol']:
+            assert id_key in attrs
+            assert attrs[id_key]['type'] == 'id'
 
     if endpoint is None:
         pytest.fail('No endpoints found')

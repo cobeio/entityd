@@ -55,37 +55,37 @@ def test_plugin_registered(pm):
 
 
 def test_session_hooks_reload_proc(procent, session, kvstore):
-    # Create an entry in known_uuids
+    # Create an entry in known_ueids
     proc = syskit.Process(os.getpid())
     procent.entityd_sessionstart(session)
     key = procent._cache_key(proc.pid, proc.start_time.timestamp())
-    uuid = procent.get_uuid(proc)
-    assert procent.known_uuids[key] == uuid
+    ueid = procent.get_ueid(proc)
+    assert procent.known_ueids[key] == ueid
 
     # Persist that entry to the kvstore
     procent.entityd_sessionfinish()
-    assert kvstore.get(key) == uuid
+    assert kvstore.get(key) == ueid
 
     # Reload this entry from the kvstore
-    procent.known_uuids.clear()
+    procent.known_ueids.clear()
     procent.entityd_sessionstart(session)
-    assert procent.known_uuids[key] == uuid
+    assert procent.known_ueids[key] == ueid
 
 
-def test_sessionfinish_delete_uuids(procent, session, kvstore):
-    # Create an entry in known_uuids
+def test_sessionfinish_delete_ueids(procent, session, kvstore):
+    # Create an entry in known_ueids
     proc = syskit.Process(os.getpid())
     procent.entityd_sessionstart(session)
     key = procent._cache_key(proc.pid, proc.start_time.timestamp())
-    uuid = procent.get_uuid(proc)
-    assert procent.known_uuids[key] == uuid
+    ueid = procent.get_ueid(proc)
+    assert procent.known_ueids[key] == ueid
 
     # Persist that entry to the kvstore
     procent.entityd_sessionfinish()
-    assert kvstore.get(key) == uuid
+    assert kvstore.get(key) == ueid
 
     # Check that entry is deleted from the kvstore
-    procent.known_uuids.clear()
+    procent.known_ueids.clear()
     procent.entityd_sessionfinish()
     with pytest.raises(KeyError):
         kvstore.get(key)
@@ -101,8 +101,8 @@ def test_find_entity(procent, session, kvstore):  # pylint: disable=unused-argum
     entities = procent.entityd_find_entity('Process', None)
     count = 0
     for entity in entities:
-        assert entity['type'] == 'Process'
-        assert entity['attrs']['starttime']
+        assert entity.metype == 'Process'
+        assert entity.attrs.getvalue('starttime')
         count += 1
     assert count
 
@@ -112,9 +112,9 @@ def test_find_entity_with_pid(procent, session, kvstore):
     pid = os.getpid()
     entities = procent.entityd_find_entity('Process', {'pid': pid})
     proc = next(entities)
-    assert proc['type'] == 'Process'
-    assert proc['attrs']['pid'] == pid
-    assert proc['attrs']['starttime']
+    assert proc.metype == 'Process'
+    assert proc.attrs.getvalue('pid') == pid
+    assert proc.attrs.getvalue('starttime')
 
     with pytest.raises(StopIteration):
         next(entities)
@@ -136,78 +136,78 @@ def test_cache_key_diff():
     assert key0 != key1
 
 
-def test_get_uuid_new(procent):
+def test_get_ueid_new(kvstore, session, procent):
+    procent.entityd_sessionstart(session)
     proc = syskit.Process(os.getpid())
-    uuid = procent.get_uuid(proc)
-    assert uuid
+    ueid = procent.get_ueid(proc)
+    assert ueid
 
 
-def test_get_uuid_reuse(procent):
+def test_get_ueid_reuse(kvstore, session, procent):
+    procent.entityd_sessionstart(session)
     proc0 = syskit.Process(os.getpid())
-    uuid0 = procent.get_uuid(proc0)
+    ueid0 = procent.get_ueid(proc0)
     proc1 = syskit.Process(os.getpid())
-    uuid1 = procent.get_uuid(proc1)
-    assert uuid0 == uuid1
+    ueid1 = procent.get_ueid(proc1)
+    assert ueid0 == ueid1
 
 
-def test_forget_entity(procent):
-    # Insert a process into known_uuids
+def test_forget_entity(kvstore, session, procent):
+    procent.entityd_sessionstart(session)
+    # Insert a process into known_ueids
     proc = syskit.Process(os.getpid())
     key = procent._cache_key(proc.pid, proc.start_time.timestamp())
-    procent.get_uuid(proc)
-    assert key in procent.known_uuids
+    procent.get_ueid(proc)
+    assert key in procent.known_ueids
 
     # Check it is removed
     procent.forget_entity(proc.pid, proc.start_time.timestamp())
-    assert key not in procent.known_uuids
+    assert key not in procent.known_ueids
 
 
 def test_forget_non_existent_entity(procent):
     # Should not raise an exception if a process is no longer there.
-    assert not procent.known_uuids
+    assert not procent.known_ueids
     procent.forget_entity(123, 123.123)
-    assert not procent.known_uuids
+    assert not procent.known_ueids
 
 
-def test_get_uuid():
+def test_get_ueid(session):
     procent = entityd.processme.ProcessEntity()
     procent.session = session
     proc = syskit.Process(os.getpid())
-    assert not procent.known_uuids
-    uuid = procent.get_uuid(proc)
-    proc_key = next(iter(procent.known_uuids.keys()))
-    assert uuid == procent.known_uuids[proc_key]
+    assert not procent.known_ueids
+    ueid = procent.get_ueid(proc)
+    proc_key = next(iter(procent.known_ueids.keys()))
+    assert ueid == procent.known_ueids[proc_key]
 
 
-def test_get_relations_nohost_noparent(session, kvstore, procent):  # pylint: disable=unused-argument
+def test_get_parents_nohost_noparent(session, kvstore, procent):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
     proc = syskit.Process(os.getpid())
-    rels = procent.get_relations(proc.pid, {proc.pid: proc})
+    rels = procent.get_parents(proc.pid, {proc.pid: proc})
     assert not rels
 
 
-def test_get_relations_nohost_parent(procent, session, kvstore):  # pylint: disable=unused-argument
+def test_get_parents_nohost_parent(procent, session, kvstore):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
     proc = syskit.Process(os.getpid())
     pproc = syskit.Process(os.getppid())
-    rels = procent.get_relations(proc.pid, {proc.pid: proc, pproc.pid: pproc})
+    rels = procent.get_parents(proc.pid, {proc.pid: proc, pproc.pid: pproc})
     parent, = rels
-    assert parent['uuid']
-    assert parent['type'] == 'me:Process'
-    assert parent['rel'] == 'parent'
+    assert type(parent) == bytes
 
 
-def test_get_relations_host_noparent(procent, session, kvstore, monkeypatch):  # pylint: disable=unused-argument
+def test_get_parents_host_noparent(procent, session, kvstore, monkeypatch):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
+    hostupdate = entityd.EntityUpdate('Host')
     monkeypatch.setattr(session.pluginmanager.hooks,
                         'entityd_find_entity',
-                        pytest.Mock(return_value=[[{'uuid': 'abcd'}]]))
+                        pytest.Mock(return_value=[[hostupdate]]))
     proc = syskit.Process(os.getpid())
-    rels = procent.get_relations(proc.pid, {proc.pid: proc})
+    rels = procent.get_parents(proc.pid, {proc.pid: proc})
     host, = rels
-    assert host['uuid'] == procent.host_uuid
-    assert host['type'] == 'me:Host'
-    assert host['rel'] == 'parent'
+    assert host == hostupdate.ueid
 
 
 @pytest.fixture
@@ -227,9 +227,9 @@ def test_processes(procent, proctable, monkeypatch, session, kvstore):  # pylint
     gen = procent.processes()
     pids = []
     for me in gen:
-        assert me['type'] == 'Process'
-        assert me['uuid']
-        pids.append(me['attrs']['pid']['value'])
+        assert me.metype == 'Process'
+        assert me.ueid
+        pids.append(me.attrs.getvalue('pid'))
     assert sorted(proctable.keys()) == sorted(pids)
 
 
@@ -242,22 +242,22 @@ def test_processes_deleted(procent, proctable, monkeypatch, session, kvstore):  
     # Extract the ME for the py.test process
     gen = procent.processes()
     for me in gen:
-        if me['attrs']['pid']['value'] == os.getpid():
+        if me.attrs.getvalue('pid') == os.getpid():
             procme = me
 
     # Delete py.test process from process table and check deleted ME
     del proctable[os.getpid()]
     gen = procent.processes()
     pprocme, delme = list(gen)
-    assert pprocme['type'] == 'Process'
-    assert pprocme['attrs']['pid']['value'] == os.getppid()
-    assert delme['type'] == 'Process'
-    assert delme['delete'] is True
-    assert delme['uuid'] == procme['uuid']
+    assert pprocme.metype == 'Process'
+    assert pprocme.attrs.getvalue('pid') == os.getppid()
+    assert delme.metype == 'Process'
+    assert delme.deleted is True
+    assert delme.ueid == procme.ueid
 
-    # Assert uuid is forgotten
-    assert pprocme['uuid'] in procent.known_uuids.values()
-    assert delme['uuid'] not in procent.known_uuids.values()
+    # Assert ueid is forgotten
+    assert pprocme.ueid in procent.known_ueids.values()
+    assert delme.ueid not in procent.known_ueids.values()
 
 
 def test_process_table():

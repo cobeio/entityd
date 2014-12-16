@@ -94,7 +94,7 @@ class EndpointEntity:
                 if results:
                     process = next(iter(results[0]))
 
-            if process and 'delete' in process and process['delete']:
+            if process and process.deleted:
                 continue
 
             yield {
@@ -106,7 +106,7 @@ class EndpointEntity:
                 },
                 'relations': [
                     {
-                        'uuid': process['uuid'],
+                        'uuid': process.ueid,
                         'type': 'me:Process',
                         'rel': 'parent'
                     } for process in [process] if process

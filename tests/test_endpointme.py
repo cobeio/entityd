@@ -1,6 +1,5 @@
 import os
 import socket
-import uuid
 
 import pytest
 import syskit
@@ -262,6 +261,27 @@ def test_get_entities(pm, session, kvstore):
 
     if endpoint is None:
         pytest.fail('No endpoints found')
+
+
+def test_get_deleted_entity(pm, session, kvstore, local_socket, conn):
+    endpoint_gen = entityd.endpointme.EndpointEntity()
+    endpoint_gen.session = session
+
+    pm.register(entityd.processme.ProcessEntity(), name='entityd.processme')
+    pm.hooks.entityd_plugin_registered(pluginmanager=pm,
+                                       name='entityd.processme')
+    pm.hooks.entityd_sessionstart(session=endpoint_gen.session)
+
+    # First, get the current mes, and check our local_socket is there.
+    previous_mes = list(endpoint_gen.entityd_find_entity(name='Endpoint',
+                                                         attrs=None))
+
+    local_socket.close()
+    # Now the socket is closed, we should get a 'delete' message
+    deleted_ueids = [me.ueid for me in
+                     endpoint_gen.entityd_find_entity(
+                         name='Endpoint', attrs=None) if me.deleted]
+    assert len(deleted_ueids)
 
 
 def test_get_uuid_new(endpoint_gen, conn):

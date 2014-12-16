@@ -34,6 +34,7 @@ class EndpointEntity:
 
     def __init__(self):
         self.known_uuids = {}
+        self.active_endpoints = {}
         self.session = None
 
     @staticmethod
@@ -99,6 +100,8 @@ class EndpointEntity:
 
         :param pid: Optional. Find only connections for this process.
         """
+        previous_endpoints = self.active_endpoints
+        self.active_endpoints = {}
         connections = entityd.connections.Connections()
         for conn in connections.retrieve('inet', pid):
             process = None
@@ -135,7 +138,16 @@ class EndpointEntity:
 
             if process:
                 update.parents.add(process)
+            self.active_endpoints[update.ueid] = update
             yield update
+
+            deleted_ueids = (set(previous_endpoints.keys()) -
+                             set(self.active_endpoints.keys()))
+
+            for endpoint_ueid in deleted_ueids:
+                update = previous_endpoints[endpoint_ueid]
+                update.delete()
+                yield update
 
     def endpoints_for_process(self, pid):
         """Generator of endpoints for the provided process.

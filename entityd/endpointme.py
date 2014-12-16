@@ -2,6 +2,7 @@
 
 import uuid
 
+import entityd
 import entityd.connections
 import entityd.pm
 
@@ -97,21 +98,12 @@ class EndpointEntity:
             if process and process.deleted:
                 continue
 
-            yield {
-                'type': 'Endpoint',
-                'uuid': self.get_uuid(conn),
-                'attrs': {
-                    'local_addr': conn.laddr,
-                    'remote_addr': conn.raddr
-                },
-                'relations': [
-                    {
-                        'uuid': process.ueid,
-                        'type': 'me:Process',
-                        'rel': 'parent'
-                    } for process in [process] if process
-                ]
-            }
+            update = entityd.EntityUpdate('Endpoint')
+            update.attrs.set('local_addr', conn.laddr)
+            update.attrs.set('remote_addr', conn.raddr)
+            if process:
+                update.parents.add(process)
+            yield update
 
     def endpoints_for_process(self, pid):
         """Generator of endpoints for the provided process.

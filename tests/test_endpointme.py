@@ -178,14 +178,12 @@ def test_endpoints_for_process(pm, session, kvstore, local_socket,
 
     entities = endpoint_plugin.endpoints_for_process(os.getpid())
     for count, endpoint in enumerate(entities, start=1):
-        assert endpoint['type'] == 'Endpoint'
-        assert 'uuid' in endpoint
-        assert uuid.UUID(hex=endpoint['uuid']).hex == endpoint['uuid']
-        assert 'attrs' in endpoint
-        assert 'local_addr' in endpoint['attrs']
+        assert endpoint.metype == 'Endpoint'
+        assert endpoint.ueid
+        assert endpoint.attrs.getvalue('local_addr')
 
-        local_addr = endpoint['attrs']['local_addr']
-        remote_addr = endpoint['attrs']['remote_addr']
+        local_addr = endpoint.attrs.getvalue('local_addr')
+        remote_addr = endpoint.attrs.getvalue('remote_addr')
         if local_addr == local_socket.getsockname():
             # If it's the listening socket, we won't have a
             # remote address here. If it's accepted socket, then we do.
@@ -211,12 +209,8 @@ def test_unix_socket(pm, session, kvstore, unix_socket):
 
     entities = endpoint_plugin.endpoints_for_process(os.getpid())
     for count, endpoint in enumerate(entities, start=1):
-        assert endpoint['type'] == 'Endpoint'
-        assert 'uuid' in endpoint
-        assert uuid.UUID(hex=endpoint['uuid']).hex == endpoint['uuid']
-        assert 'attrs' in endpoint
-        assert 'local_addr' in endpoint['attrs']
-        print(endpoint)
+        assert endpoint.metype == 'Endpoint'
+        assert endpoint.ueid
     assert count == 1
 
 
@@ -233,12 +227,9 @@ def test_get_entities(pm, session, kvstore):
 
     endpoint = None
     for endpoint in entities:
-        assert endpoint['type'] == 'Endpoint'
-        assert 'uuid' in endpoint
-        assert uuid.UUID(hex=endpoint['uuid']).hex == endpoint['uuid']
-        assert 'attrs' in endpoint
-        assert 'local_addr' in endpoint['attrs']
-        assert 'relations' in endpoint
+        assert endpoint.metype == 'Endpoint'
+        assert endpoint.ueid
+        assert 'local_addr' in [k for k, v in endpoint.attrs.items()]
 
     if endpoint is None:
         pytest.fail('No endpoints found')

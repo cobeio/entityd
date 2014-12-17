@@ -33,8 +33,7 @@ def test_get_uuid():
     host_gen = entityd.hostme.HostEntity()
     host_gen.session = pytest.Mock()
     # Disable actual sqlite database persistence
-    host_gen.session.pluginmanager.hooks.entityd_kvstore_get.return_value \
-        = None
+    host_gen.session.svc.kvstore.get.side_effect = KeyError
     uuid = host_gen.get_uuid()
 
     host_gen.session.pluginmanager.hooks.entityd_kvstore_get \

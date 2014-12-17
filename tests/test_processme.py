@@ -275,3 +275,40 @@ def test_process_table_vanished(monkeypatch):
                         pytest.Mock(return_value=[42]))
     pt = entityd.processme.ProcessEntity.process_table()
     assert not pt
+
+
+def test_specific_process_deleted(procent, session, kvstore, monkeypatch):
+    procent.entityd_sessionstart(session)
+    pid = os.getpid()
+
+    monkeypatch.setattr(syskit, 'Process',
+                        pytest.Mock(side_effect=syskit.NoSuchProcessError))
+    monkeypatch.setattr(syskit.Process, 'enumerate',
+                        pytest.Mock(return_value=[42]))
+    entities = procent.entityd_find_entity('Process', {'pid': pid})
+    with pytest.raises(StopIteration):
+        proc = next(entities)
+
+
+def test_specific_parent_deleted(procent, session, kvstore, monkeypatch):
+    procent.entityd_sessionstart(session)
+
+    def patch_syskit(pid):
+        monkeypatch.setattr(syskit, 'Process',
+                            pytest.Mock(side_effect=syskit.NoSuchProcessError))
+        proc = pytest.Mock()
+        proc.pid = pid
+        proc.ppid = os.getppid()
+        return proc
+
+    monkeypatch.setattr(syskit, 'Process', pytest.Mock(
+        side_effect=patch_syskit))
+
+    entities = procent.entityd_find_entity('Process', {'pid': os.getpid()})
+    proc = next(entities)
+    assert proc.attrs.getvalue('pid') == os.getpid()
+    # If the parent isn't present, we continue anyway, but it doesn't appear
+    #  in relations.
+    assert not proc.parents._relations
+    with pytest.raises(StopIteration):
+        proc = next(entities)

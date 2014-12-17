@@ -1,11 +1,15 @@
+"""Distutils build script for entityd."""
+
 import pathlib
 from distutils.core import setup
+
+# pylint: disable=invalid-name
 
 
 version_module = pathlib.Path(__file__).parent / 'entityd' / 'version.py'
 version_ns = {}
 with version_module.open() as fp:
-    exec(fp.read(), version_ns)
+    exec(fp.read(), version_ns)  # pylint: disable=exec-used
 version = version_ns['__version__']
 
 

@@ -16,7 +16,7 @@ def pylint():
     print(' Invoking pylint '.center(80, '+'))
     invoke.run('pylint entityd')
     invoke.run('cd tests; pylint *.py')
-    invoke.run('setup.py')
+    invoke.run('pylint setup.py')
     invoke.run('pylint tasks.py')
 
 

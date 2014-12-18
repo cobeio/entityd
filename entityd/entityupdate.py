@@ -1,5 +1,6 @@
 """An EntityUpdate contains the updated information for an Entity"""
 
+import collections
 import hashlib
 import time
 
@@ -9,7 +10,9 @@ class EntityUpdate:
 
     Attributes and relations can be added via the methods on
     EntityUpdate.attrs, EntityUpdate.parents and EntityUpdate.children.
+
     """
+
     def __init__(self, metype):
         self.metype = metype
         self.timestamp = time.time()
@@ -19,23 +22,29 @@ class EntityUpdate:
         self.deleted = False
 
     def delete(self):
-        """Mark this EntityUpdate as deleted"""
+        """Mark this EntityUpdate as deleted."""
         self.deleted = True
 
     @property
     def ueid(self):
         """Generate and return a UEID based on set attributes.
 
-        Attributes with type 'id' are used to create the ueid.
+        Only attributes with type 'id' are used to create the ueid.
+
+        All identifying attributes *must* be set before accessing the
+        ueid, otherwise it will be incorrect.
 
         """
-        attr_parts = ['{name}={value}'.format(name=key, value=attr['value'])
-                      for key, attr in self.attrs.items()
-                      if attr.get('type') == 'id']
+        attr_parts = ['{name}={value}'.format(name=attr.name, value=attr.value)
+                      for attr in self.attrs
+                      if attr.type == 'id']
         attr_parts.sort()
         strval = self.metype + '|' + '|'.join(attr_parts)
         hash_ = hashlib.sha1(strval.encode('utf-8'))
         return hash_.digest()
+
+
+UpdateAttr = collections.namedtuple('UpdateAttr', ['name', 'value', 'type'])
 
 
 class UpdateAttributes:
@@ -45,37 +54,49 @@ class UpdateAttributes:
     optional 'type' and 'deleted' fields.
 
     """
+
     def __init__(self):
         self._attrs = {}
+        self._deleted_attrs = set()
 
-    def items(self):
-        """Return (key, mapping) pairs for each known item"""
-        return self._attrs.items()
+    def __iter__(self):
+        return iter(self._attrs.values())
 
-    def set(self, key, value, attrtype=None):
+    def set(self, name, value, attrtype=None):
         """Set an attributes value and type.
 
-        :param key: The attribute to set.
+        :param name: The attribute to set.
         :param value: The value of the attribute.
         :param attrtype: Optional type for the attribute.
+
         """
-        self._attrs[key] = {'value': value}
-        if attrtype:
-            self._attrs[key]['type'] = attrtype
+        self._attrs[name] = UpdateAttr(name, value, attrtype)
 
-    def delete(self, key):
-        """Mark the given attribute as deleted."""
-        self._attrs[key]['deleted'] = True
+    def get(self, name):
+        """Get the UpdateAttr for this name."""
+        return self._attrs[name]
 
-    def getvalue(self, key):
-        """Get the value embedded in key"""
-        return self._attrs[key]['value']
+    def delete(self, name):
+        """Mark the named attribute as deleted."""
+        self._deleted_attrs.add(name)
+        try:
+            del self._attrs[name]
+        except KeyError:
+            pass
+
+    def deleted(self):
+        """Get all deleted attribute names."""
+        return self._deleted_attrs
 
 
 class UpdateRelations:
     """A set of UEIDs; either parent or child relations."""
+
     def __init__(self):
         self._relations = set()
+
+    def __iter__(self):
+        return self._relations.__iter__()
 
     def add(self, entity):
         """Add entity to the relations for this update.

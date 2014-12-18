@@ -22,19 +22,19 @@ def test_timestamp():
 
 
 def test_children(update):
-    assert not update.children._relations
+    assert not list(update.children)
     update.children.add('ueid')
-    assert 'ueid' in update.children._relations
+    assert 'ueid' in update.children
     update.children.add(update)
-    assert update.ueid in update.children._relations
+    assert update.ueid in update.children
 
 
 def test_parents(update):
-    assert not update.parents._relations
+    assert not list(update.parents)
     update.parents.add('ueid')
-    assert 'ueid' in update.parents._relations
+    assert 'ueid' in update.parents
     update.parents.add(update)
-    assert update.ueid in update.parents._relations
+    assert update.ueid in update.parents
 
 
 def test_delete(update):
@@ -55,7 +55,14 @@ def test_ueid():
 
 def test_attrs(update):
     update.attrs.set('key', 'value', 'type')
-    assert update.attrs.getvalue('key') == 'value'
-    assert update.attrs._attrs['key']['type'] == 'type'
+    assert update.attrs.get('key').value == 'value'
+    assert update.attrs.get('key').type == 'type'
     update.attrs.delete('key')
-    assert update.attrs._attrs['key']['deleted'] is True
+    with pytest.raises(KeyError):
+        update.attrs.get('key')
+    assert 'key' in update.attrs.deleted()
+
+
+def test_attr_delete_nonexistent(update):
+    update.attrs.delete('NA')
+    assert 'NA' in update.attrs.deleted()

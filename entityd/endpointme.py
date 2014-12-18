@@ -138,9 +138,11 @@ class EndpointEntity:
                 remote = entityd.EntityUpdate(metype='Endpoint')
                 remote.attrs.set('addr', conn.raddr[0], attrtype='id')
                 remote.attrs.set('port', conn.raddr[1], attrtype='id')
-                remote.attrs.set('family', update.attrs.getvalue('family'),
+                remote.attrs.set('family',
+                                 update.attrs.get('family').value,
                                  attrtype='id')
-                remote.attrs.set('protocol', update.attrs.getvalue('protocol'),
+                remote.attrs.set('protocol',
+                                 update.attrs.get('protocol').value,
                                  attrtype='id')
                 update.parents.add(remote.ueid)
                 update.children.add(remote.ueid)

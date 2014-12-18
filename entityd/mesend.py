@@ -116,8 +116,16 @@ class MonitoredEntitySender:
                 'type': entity.metype,
                 'ueid': entity.ueid,
                 'timestamp': entity.timestamp,
-                'attrs': dict(entity.attrs.items()),
+                'attrs': {},
                 'parents': list(entity.parents),
                 'children': list(entity.children)
             }
+            for attr in entity.attrs:
+                attr_dict = {'value': attr.value}
+                if attr.type:
+                    attr_dict['type'] = attr.type
+                data['attrs'][attr.name] = attr_dict
+            for del_attr in entity.attrs.deleted():
+                data['attrs'][del_attr] = {'deleted': True}
+
         return msgpack.packb(data, use_bin_type=True)

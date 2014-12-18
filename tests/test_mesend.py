@@ -92,7 +92,7 @@ def test_send_entity(sender_receiver, deleted):
     assert message.get('deleted', False) is deleted
 
 
-def test_send_unserializable(caplog, sender):
+def test_send_unserializable(sender):
     entity = object()
     with pytest.raises(TypeError):
         sender.entityd_send_entity(entity)
@@ -106,3 +106,21 @@ def test_buffers_full(caplog, sender):
             rec.levelname == 'WARNING' and
             'Could not send, message buffers are full' in rec.msg]
     assert sender.socket is None
+
+
+def test_attribute():
+    entity = entityd.EntityUpdate('Type')
+    entity.attrs.set('attr', 1, 'perf:counter')
+    encoded = entityd.mesend.MonitoredEntitySender.encode_entity(entity)
+    decoded = msgpack.unpackb(encoded, encoding='utf8')
+    assert decoded['attrs']['attr']['value'] == 1
+    assert decoded['attrs']['attr']['type'] == 'perf:counter'
+    assert 'deleted' not in decoded['attrs']['attr']
+
+
+def test_deleted_attribute():
+    entity = entityd.EntityUpdate('Type')
+    entity.attrs.delete('deleted')
+    encoded = entityd.mesend.MonitoredEntitySender.encode_entity(entity)
+    decoded = msgpack.unpackb(encoded, encoding='utf8')
+    assert decoded['attrs']['deleted']['deleted'] is True

@@ -154,10 +154,10 @@ class ProcessEntity:
         deleted_ueids = prev_ueids - active_ueids
         for proc_ueid in deleted_ueids:
             update = prev_processes[proc_ueid]
-            assert update.attrs.getvalue('pid')
-            assert update.attrs.getvalue('starttime')
-            self.forget_entity(update.attrs.getvalue('pid'),
-                               update.attrs.getvalue('starttime'))
+            assert update.attrs.get('pid').value
+            assert update.attrs.get('starttime').value
+            self.forget_entity(update.attrs.get('pid').value,
+                               update.attrs.get('starttime').value)
             update.delete()
             yield update
 

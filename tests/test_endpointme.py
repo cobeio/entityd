@@ -11,30 +11,6 @@ import entityd.processme
 
 
 @pytest.fixture
-def config(pm):
-    """An entityd.core.Config instance."""
-    return entityd.core.Config(pm, [])
-
-
-@pytest.fixture
-def session(pm, config):
-    """An entityd.core.Session instance."""
-    return entityd.core.Session(pm, config)
-
-
-@pytest.fixture
-def kvstore(session):
-    """Return a kvstore instance registered to the session fixture.
-
-    This creates a KVStore and registers it to the ``session`` fixture.
-
-    """
-    kvstore = entityd.kvstore.KVStore(':memory:')
-    session.addservice('kvstore', kvstore)
-    return kvstore
-
-
-@pytest.fixture
 def endpoint_gen(pm):
     """A entityd.entityd.EndpointEntity instance.
 
@@ -76,7 +52,7 @@ def unix_socket(request):
 
 
 @pytest.fixture
-def conn(local_socket):
+def conn(local_socket):  # pylint: disable=unused-argument
     """Get the Connection object corresponding to local_socket"""
     conns = entityd.connections.Connections()
     conn0 = conns.retrieve('all', os.getpid())[0]
@@ -172,9 +148,10 @@ def test_forget_non_existent_entity(endpoint_gen):
     assert not endpoint_gen.known_ueids
 
 
-def test_endpoints_for_process(pm, session, kvstore, local_socket,
+def test_endpoints_for_process(pm, session, kvstore, local_socket,  # pylint: disable=unused-argument
                                remote_socket):
-    conn = local_socket.accept()
+    # conn is required to keep the connection from being GC'd
+    conn = local_socket.accept()  # pylint: disable=unused-variable
 
     pm.register(entityd.processme.ProcessEntity(),
                 name='entityd.processme')
@@ -187,19 +164,20 @@ def test_endpoints_for_process(pm, session, kvstore, local_socket,
     pm.hooks.entityd_sessionstart(session=session)
 
     entities = endpoint_plugin.endpoints_for_process(os.getpid())
+    count = 0
     for count, endpoint in enumerate(entities, start=1):
         assert endpoint.metype == 'Endpoint'
         assert endpoint.ueid
         assert endpoint.attrs
-        assert endpoint.attrs.getvalue('family') == 'INET'
-        assert endpoint.attrs.getvalue('protocol') == 'TCP'
-        addr = endpoint.attrs.getvalue('addr')
-        port = endpoint.attrs.getvalue('port')
+        assert endpoint.attrs.get('family').value == 'INET'
+        assert endpoint.attrs.get('protocol').value == 'TCP'
+        addr = endpoint.attrs.get('addr').value
+        port = endpoint.attrs.get('port').value
         if (addr, port) == local_socket.getsockname():
             # If it's the listening socket, we won't have a
             # remote address here. If it's accepted socket, then we do.
             if len(list(endpoint.children)):
-                assert endpoint.attrs.getvalue('listening') is False
+                assert endpoint.attrs.get('listening').value is False
                 update = entityd.EntityUpdate('Endpoint')
                 update.attrs.set('addr', remote_socket.getsockname()[0],
                                  attrtype='id')
@@ -207,29 +185,29 @@ def test_endpoints_for_process(pm, session, kvstore, local_socket,
                                  attrtype='id')
                 update.attrs.set('family', 'INET', attrtype='id')
                 update.attrs.set('protocol',
-                                 endpoint.attrs.getvalue('protocol'),
+                                 endpoint.attrs.get('protocol').value,
                                  attrtype='id')
                 assert update.ueid in endpoint.children
                 assert update.ueid in endpoint.parents
             else:
-                assert endpoint.attrs.getvalue('listening') is True
+                assert endpoint.attrs.get('listening').value is True
         elif (addr, port) == remote_socket.getsockname():
             # This is the remote, connected socket
-            assert endpoint.attrs.getvalue('listening') is False
+            assert endpoint.attrs.get('listening').value is False
             update = entityd.EntityUpdate('Endpoint')
             update.attrs.set('addr', local_socket.getsockname()[0],
                              attrtype='id')
             update.attrs.set('port', local_socket.getsockname()[1],
                              attrtype='id')
             update.attrs.set('family', 'INET', attrtype='id')
-            update.attrs.set('protocol', endpoint.attrs.getvalue('protocol'),
+            update.attrs.set('protocol', endpoint.attrs.get('protocol').value,
                              attrtype='id')
             assert update.ueid in endpoint.children
             assert update.ueid in endpoint.parents
     assert count == 3
 
 
-def test_unix_socket(pm, session, kvstore, unix_socket):
+def test_unix_socket(pm, session, kvstore, unix_socket):  # pylint: disable=unused-argument
     """Unix sockets should not be returned"""
     pm.register(entityd.processme.ProcessEntity(),
                 name='entityd.processme')
@@ -251,7 +229,7 @@ def test_unix_socket(pm, session, kvstore, unix_socket):
     assert count == 0
 
 
-def test_get_entities(pm, session, kvstore):
+def test_get_entities(pm, session, kvstore):  # pylint: disable=unused-argument
     endpoint_gen = entityd.endpointme.EndpointEntity()
     endpoint_gen.session = session
 
@@ -266,16 +244,14 @@ def test_get_entities(pm, session, kvstore):
     for endpoint in entities:
         assert endpoint.metype == 'Endpoint'
         assert endpoint.ueid
-        attrs = endpoint.attrs._attrs
         for id_key in ['addr', 'port', 'family', 'protocol']:
-            assert id_key in attrs
-            assert attrs[id_key]['type'] == 'id'
+            assert endpoint.attrs.get(id_key).type == 'id'
 
     if endpoint is None:
         pytest.fail('No endpoints found')
 
 
-def test_get_deleted_entity(pm, session, kvstore, local_socket, conn):
+def test_get_deleted_entity(pm, session, kvstore, local_socket, conn):  # pylint: disable=unused-argument
     endpoint_gen = entityd.endpointme.EndpointEntity()
     endpoint_gen.session = session
 
@@ -284,9 +260,8 @@ def test_get_deleted_entity(pm, session, kvstore, local_socket, conn):
                                        name='entityd.processme')
     pm.hooks.entityd_sessionstart(session=endpoint_gen.session)
 
-    # First, get the current mes, and check our local_socket is there.
-    previous_mes = list(endpoint_gen.entityd_find_entity(name='Endpoint',
-                                                         attrs=None))
+    # Get the current mes, so we have one to delete.
+    list(endpoint_gen.entityd_find_entity(name='Endpoint', attrs=None))
 
     local_socket.close()
     # Now the socket is closed, we should get a 'delete' message
@@ -296,9 +271,8 @@ def test_get_deleted_entity(pm, session, kvstore, local_socket, conn):
     assert len(deleted_ueids)
 
 
-def test_endpoint_for_deleted_process(pm, session, kvstore, local_socket,
-                                      conn):
-    """Need to get Process to return .deleted"""
+def test_endpoint_for_deleted_process(pm, session,
+                                      kvstore, local_socket, conn):  # pylint: disable=unused-argument
     endpoint_gen = entityd.endpointme.EndpointEntity()
     endpoint_gen.session = session
 
@@ -322,7 +296,7 @@ def test_get_uuid_new(endpoint_gen, conn):
     assert ueid
 
 
-def test_get_ueid_reuse(endpoint_gen, local_socket):
+def test_get_ueid_reuse(endpoint_gen, local_socket):  # pylint: disable=unused-argument
     conns = entityd.connections.Connections()
     conn0 = conns.retrieve('all', os.getpid())[0]
     ueid0 = endpoint_gen.create_update(conn0).ueid

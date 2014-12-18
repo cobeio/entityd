@@ -1,6 +1,7 @@
 """Plugin providing the Host Monitored Entity."""
 
 import socket
+import time
 import uuid
 
 import syskit
@@ -60,8 +61,17 @@ class HostEntity:
         """Generator of Host MEs."""
         fqdn = socket.getfqdn()
         uptime = int(syskit.uptime())
-        update = entityd.EntityUpdate('Host')
-        update.attrs.set('id', self.get_uuid(), 'id')
-        update.attrs.set('fqdn', fqdn)
-        update.attrs.set('uptime', uptime, 'perf:counter')
-        yield update
+        yield {
+            'type': 'Host',
+            'uuid': self.get_uuid(),
+            'timestamp': time.time(),
+            'attrs': {
+                'fqdn': {
+                    'value': fqdn,
+                },
+                'uptime': {
+                    'value': uptime,
+                    'type': "perf:counter"
+                }
+            }
+        }

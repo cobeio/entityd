@@ -1,6 +1,8 @@
 """Plugin providing the Process Monitored Entity."""
 
 import functools
+import time
+import uuid
 
 import syskit
 
@@ -21,9 +23,9 @@ class ProcessEntity:
 
     def __init__(self):
         self.active_processes = {}
-        self.known_ueids = {}
+        self.known_uuids = {}
         self.session = None
-        self._host_ueid = None
+        self.host_uuid = None
 
     @staticmethod
     @entityd.pm.hookimpl
@@ -33,15 +35,15 @@ class ProcessEntity:
 
     @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
-        """Load known ProcessME UEIDs."""
+        """Load known ProcessME UUIDs."""
         self.session = session
-        self.known_ueids = session.svc.kvstore.getmany('entityd.processme:')
+        self.known_uuids = session.svc.kvstore.getmany('entityd.processme:')
 
     @entityd.pm.hookimpl
     def entityd_sessionfinish(self):
         """Called when the monitoring session ends."""
         self.session.svc.kvstore.deletemany('entityd.processme:')
-        self.session.svc.kvstore.addmany(self.known_ueids)
+        self.session.svc.kvstore.addmany(self.known_uuids)
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs):
@@ -54,49 +56,33 @@ class ProcessEntity:
                                   'for attrs {}'.format(attrs))
             return self.processes()
 
-    @property
-    def host_ueid(self):
-        """Property to get the host ueid, used in a few places"""
-        if not self._host_ueid:
-            results = self.session.pluginmanager.hooks.entityd_find_entity(
-                name='Host', attrs=None)
-            if results:
-                host_me = next(iter(results[0]))
-                self._host_ueid = host_me.ueid
-        return self._host_ueid
-
     @staticmethod
     def _cache_key(pid, start_time):
         """Get a standard cache key for a process entity."""
         return 'entityd.processme:{}-{}'.format(pid, start_time)
 
-    def get_ueid(self, proc):
-        """Get a cached ueid for this process if one exists, else generate one.
+    def get_uuid(self, proc):
+        """Get a uuid for this process if one exists, else generate one.
 
         :param proc: syskit.Process instance.
         """
-
         key = self._cache_key(proc.pid, proc.start_time.timestamp())
-        if key in self.known_ueids:
-            return self.known_ueids[key]
+        if key in self.known_uuids:
+            return self.known_uuids[key]
         else:
-            entity = entityd.EntityUpdate('Process')
-            entity.attrs.set('pid', proc.pid, attrtype='id')
-            entity.attrs.set('start_time', proc.start_time, attrtype='id')
-            entity.attrs.set('host', self.host_ueid, attrtype='id')
-            value = entity.ueid
-            self.known_ueids[key] = value
+            value = uuid.uuid4().hex
+            self.known_uuids[key] = value
             return value
 
     def forget_entity(self, pid, start_time):
         """Remove the cached version of this Process Entity."""
         key = self._cache_key(pid, start_time)
         try:
-            del self.known_ueids[key]
+            del self.known_uuids[key]
         except KeyError:
             pass
 
-    def get_parents(self, pid, procs):
+    def get_relations(self, pid, procs):
         """Get relations for a process.
 
         Relations may include:
@@ -108,15 +94,29 @@ class ProcessEntity:
         :returns: A list of relations, as wire-protocol dicts.
 
         """
-        parents = []
+        relations = []
         proc = procs[pid]
         ppid = proc.ppid
         if ppid and ppid in procs:
             pproc = procs[ppid]
-            parents.append(self.get_ueid(pproc))
-        if self.host_ueid:
-            parents.append(self.host_ueid)
-        return parents
+            relations.append({
+                'uuid': self.get_uuid(pproc),
+                'type': 'me:Process',
+                'rel': 'parent'
+            })
+        if not self.host_uuid:
+            results = self.session.pluginmanager.hooks.entityd_find_entity(
+                name='Host', attrs=None)
+            if results:
+                host_me = next(iter(results[0]))
+                self.host_uuid = host_me['uuid']
+        if self.host_uuid:
+            relations.append({
+                'uuid': self.host_uuid,
+                'type': 'me:Host',
+                'rel': 'parent'
+            })
+        return relations
 
     def process(self, pid):
         """Generate a single process ME for the process ID provided
@@ -145,21 +145,23 @@ class ProcessEntity:
         procs = self.process_table()
         create_me = functools.partial(self.create_process_me, procs)
         self.active_processes = {
-            me.ueid: me
+            me['uuid']: me
             for me in map(create_me, procs.values())
         }
         yield from self.active_processes.values()
-        prev_ueids = set(prev_processes.keys())
-        active_ueids = set(self.active_processes.keys())
-        deleted_ueids = prev_ueids - active_ueids
-        for proc_ueid in deleted_ueids:
-            update = prev_processes[proc_ueid]
-            assert update.attrs.get('pid').value
-            assert update.attrs.get('starttime').value
-            self.forget_entity(update.attrs.get('pid').value,
-                               update.attrs.get('starttime').value)
-            update.delete()
-            yield update
+        prev_uuids = set(prev_processes.keys())
+        active_uuids = set(self.active_processes.keys())
+        deleted_uuids = prev_uuids - active_uuids
+        for proc_uuid in deleted_uuids:
+            proc = prev_processes[proc_uuid]
+            self.forget_entity(proc['attrs']['pid']['value'],
+                               proc['attrs']['starttime']['value'])
+            yield {
+                'type': 'Process',
+                'timestamp': time.time(),
+                'uuid': proc_uuid,
+                'delete': True
+            }
 
     @staticmethod
     def process_table():
@@ -185,15 +187,20 @@ class ProcessEntity:
         :param proc: syskit.Process instance.
 
         """
-        update = entityd.EntityUpdate('Process')
-        update.attrs.set('binary', proc.name)
-        update.attrs.set('pid', proc.pid, attrtype='id')
-        update.attrs.set('starttime', proc.start_time.timestamp(),
-                         attrtype='id')
-        update.attrs.set('ppid', proc.ppid)
-        update.attrs.set('host', self.host_ueid, attrtype='id')
-        for parent in self.get_parents(proc.pid, proctable):
-            update.parents.add(parent)
-        key = self._cache_key(proc.pid, proc.start_time.timestamp())
-        self.known_ueids[key] = update.ueid
-        return update
+        return {
+            'type': 'Process',
+            'timestamp': time.time(),
+            'uuid': self.get_uuid(proc),
+            'attrs': {
+                'binary': {
+                    'value': proc.name,
+                },
+                'pid': {
+                    'value': proc.pid,
+                },
+                'starttime': {
+                    'value': proc.start_time.timestamp(),
+                },
+            },
+            'relations': self.get_relations(proc.pid, proctable)
+        }

@@ -82,10 +82,7 @@ class MonitoredEntitySender:
             self.socket.set(zmq.SNDHWM, 500)
             self.socket.set(zmq.LINGER, 0)
             self.socket.connect(self.session.config.args.dest)
-        if isinstance(entity, entityd.EntityUpdate):
-            packed_entity = self.encode_entity(entity)
-        else:
-            packed_entity = msgpack.packb(entity, use_bin_type=True)
+        packed_entity = msgpack.packb(entity, use_bin_type=True)
         try:
             self.socket.send_multipart([self.packed_protocol_version,
                                         packed_entity],
@@ -95,37 +92,3 @@ class MonitoredEntitySender:
                         "Discarding buffer.")
             self.socket.close()
             self.socket = None
-
-    @staticmethod
-    def encode_entity(entity):
-        """Encode the given entity for sending
-
-        :param entity: The entity to encode.
-        :type entity: entityd.EntityUpdate
-
-        """
-        if entity.deleted:
-            data = {
-                'type': entity.metype,
-                'ueid': entity.ueid,
-                'timestamp': entity.timestamp,
-                'deleted': True,
-            }
-        else:
-            data = {
-                'type': entity.metype,
-                'ueid': entity.ueid,
-                'timestamp': entity.timestamp,
-                'attrs': {},
-                'parents': list(entity.parents),
-                'children': list(entity.children)
-            }
-            for attr in entity.attrs:
-                attr_dict = {'value': attr.value}
-                if attr.type:
-                    attr_dict['type'] = attr.type
-                data['attrs'][attr.name] = attr_dict
-            for del_attr in entity.attrs.deleted():
-                data['attrs'][del_attr] = {'deleted': True}
-
-        return msgpack.packb(data, use_bin_type=True)

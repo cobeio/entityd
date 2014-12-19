@@ -299,8 +299,8 @@ def test_get_uuid_new(endpoint_gen, conn):
 def test_get_ueid_reuse(endpoint_gen, local_socket):  # pylint: disable=unused-argument
     conns = entityd.connections.Connections()
     conn0 = conns.retrieve('all', os.getpid())[0]
-    ueid0 = endpoint_gen.create_update(conn0).ueid
+    ueid0 = endpoint_gen.get_ueid(conn0)
     conns = entityd.connections.Connections()
     conn1 = conns.retrieve('all', os.getpid())[0]
-    ueid1 = endpoint_gen.create_update(conn1).ueid
+    ueid1 = endpoint_gen.get_ueid(conn1)
     assert ueid0 == ueid1

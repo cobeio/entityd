@@ -81,15 +81,15 @@ class EndpointEntity:
         key = self._cache_key(conn.laddr, conn.family, conn.type)
         if key in self.known_ueids:
             return self.known_ueids[key]
-        ueid = self.create_update(conn).ueid
+        ueid = self.create_local_update(conn).ueid
         self.known_ueids[key] = ueid
         return ueid
 
     @staticmethod
-    def create_update(conn):
-        """Create an EntityUpdate from a Connection.
+    def create_local_update(conn):
+        """Create a basic Endpoint update, with no relations.
 
-        Doesn't populate parents or children.
+        Useful for getting the UEID without constructing a complete update.
         """
         update = entityd.EntityUpdate('Endpoint')
         update.attrs.set('addr', conn.laddr[0], attrtype='id')
@@ -101,6 +101,39 @@ class EndpointEntity:
                          attrtype='id')
         update.attrs.set('listening', conn.status == 'LISTEN')
         return update
+
+    def create_update(self, conn):
+        """Create an EntityUpdate from a Connection."""
+        update = self.create_local_update(conn)
+        if conn.bound_pid:
+            results = self.session.pluginmanager.hooks.entityd_find_entity(
+                name='Process', attrs={'pid': conn.bound_pid})
+            if results:
+                process = next(iter(results[0]))
+                if process.deleted:
+                    return None
+                else:
+                    update.parents.add(process)
+        if conn.raddr:
+            # Remote endpoint relation goes in parents and children
+            remote = self.get_remote_endpoint(conn)
+            update.parents.add(remote.ueid)
+            update.children.add(remote.ueid)
+        return update
+
+    @staticmethod
+    def get_remote_endpoint(conn):
+        """Get the UEID of the remote Endpoint of conn."""
+        remote = entityd.EntityUpdate(metype='Endpoint')
+        remote.attrs.set('addr', conn.raddr[0], attrtype='id')
+        remote.attrs.set('port', conn.raddr[1], attrtype='id')
+        remote.attrs.set('family',
+                         FAMILIES.get(conn.family),
+                         attrtype='id')
+        remote.attrs.set('protocol',
+                         PROTOCOLS.get(conn.type),
+                         attrtype='id')
+        return remote
 
     def forget_entity(self, laddr, family, type_):
         """Remove the cached version of this Endpoint Entity."""
@@ -121,45 +154,22 @@ class EndpointEntity:
         self.active_endpoints = {}
         connections = entityd.connections.Connections()
         for conn in connections.retrieve('inet', pid):
-            process = None
-            if conn.bound_pid:
-                results = self.session.pluginmanager.hooks.entityd_find_entity(
-                    name='Process', attrs={'pid': conn.bound_pid})
-                if results:
-                    process = next(iter(results[0]))
-
-            if process and process.deleted:
-                continue
-
             update = self.create_update(conn)
-
-            if conn.raddr:
-                # Remote endpoint relation goes in parents and children
-                remote = entityd.EntityUpdate(metype='Endpoint')
-                remote.attrs.set('addr', conn.raddr[0], attrtype='id')
-                remote.attrs.set('port', conn.raddr[1], attrtype='id')
-                remote.attrs.set('family',
-                                 update.attrs.get('family').value,
-                                 attrtype='id')
-                remote.attrs.set('protocol',
-                                 update.attrs.get('protocol').value,
-                                 attrtype='id')
-                update.parents.add(remote.ueid)
-                update.children.add(remote.ueid)
-
-            if process:
-                update.parents.add(process)
-            self.active_endpoints[update.ueid] = update
-            yield update
-
-            deleted_ueids = (set(previous_endpoints.keys()) -
-                             set(self.active_endpoints.keys()))
-
-            for endpoint_ueid in deleted_ueids:
-                update = previous_endpoints[endpoint_ueid]
-                update.delete()
-                self.forget_entity(conn.laddr, conn.family, conn.type)
+            if update:
+                self.active_endpoints[update.ueid] = update
                 yield update
+
+        deleted_ueids = (set(previous_endpoints.keys()) -
+                         set(self.active_endpoints.keys()))
+
+        for endpoint_ueid in deleted_ueids:
+            update = previous_endpoints[endpoint_ueid]
+            update.delete()
+            self.forget_entity((update.attrs.get('addr').value,
+                                update.attrs.get('port').value),
+                               update.attrs.get('family').value,
+                               update.attrs.get('protocol').value)
+            yield update
 
     def endpoints_for_process(self, pid):
         """Generator of endpoints for the provided process.

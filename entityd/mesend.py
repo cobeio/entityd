@@ -121,10 +121,9 @@ class MonitoredEntitySender:
                 'children': list(entity.children)
             }
             for attr in entity.attrs:
-                attr_dict = {'value': attr.value}
+                data['attrs'][attr.name] = {'value': attr.value}
                 if attr.type:
-                    attr_dict['type'] = attr.type
-                data['attrs'][attr.name] = attr_dict
+                    data['attrs'][attr.name]['type'] = attr.type
             for del_attr in entity.attrs.deleted():
                 data['attrs'][del_attr] = {'deleted': True}
 

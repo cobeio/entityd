@@ -1,5 +1,6 @@
 [report]
 omit =
+     entityd/connections.py
      entityd/constraint.py
      entityd/hookspec.py
      entityd/version.py

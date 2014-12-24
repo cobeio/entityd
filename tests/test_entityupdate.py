@@ -66,3 +66,11 @@ def test_attrs(update):
 def test_attr_delete_nonexistent(update):
     update.attrs.delete('NA')
     assert 'NA' in update.attrs.deleted()
+
+
+def test_create_deleted_from_ueid():
+    ueid = 'abdef'
+    update = entityd.EntityUpdate('Endpoint', ueid=ueid)
+    update.delete()
+    assert update.deleted
+    assert update.ueid == ueid

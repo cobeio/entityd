@@ -138,14 +138,19 @@ def test_forget_entity(kvstore, session, procent):  # pylint: disable=unused-arg
     assert key in procent.known_ueids
 
     # Check it is removed
-    procent.forget_entity(proc.pid, proc.start_time.timestamp())
+    entity = entityd.EntityUpdate('Process')
+    entity.attrs.set('pid', proc.pid, attrtype='id')
+    entity.attrs.set('start_time', proc.start_time, attrtype='id')
+    entity.attrs.set('host', procent.host_ueid, attrtype='id')
+    procent.forget_entity(entity)
     assert key not in procent.known_ueids
 
 
 def test_forget_non_existent_entity(procent):
     # Should not raise an exception if a process is no longer there.
     assert not procent.known_ueids
-    procent.forget_entity(123, 123.123)
+    update = entityd.EntityUpdate('Process', ueid='non-existent-ueid')
+    procent.forget_entity(update)
     assert not procent.known_ueids
 
 
@@ -288,3 +293,16 @@ def test_specific_parent_deleted(procent, session, kvstore, monkeypatch):  # pyl
     assert not proc.parents._relations
     with pytest.raises(StopIteration):
         proc = next(entities)
+
+
+def test_previously_known_ueids_are_deleted_if_not_present(session, procent):
+    kvstore = pytest.Mock()
+    kvstore.getmany.return_value = {'cache_key': 'made up ueid'}
+    session.addservice('kvstore', kvstore)
+    procent.entityd_sessionstart(session)
+    entities = procent.entityd_find_entity(name='Process', attrs=None)
+    for process in entities:
+        if process.deleted:
+            assert process.ueid == 'made up ueid'
+            return
+    pytest.fail('deleted ueid not found')

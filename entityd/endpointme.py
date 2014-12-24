@@ -135,13 +135,22 @@ class EndpointEntity:
                          attrtype='id')
         return remote
 
-    def forget_entity(self, laddr, family, type_):
+    def forget_entity(self, update):
         """Remove the cached version of this Endpoint Entity."""
-        key = self._cache_key(laddr, family, type_)
+
         try:
+            key = self._cache_key((update.attrs.get('addr').value,
+                                   update.attrs.get('port').value),
+                                  update.attrs.get('family').value,
+                                  update.attrs.get('protocol').value)
             del self.known_ueids[key]
         except KeyError:
-            pass
+            key_to_delete = None
+            for key, value in self.known_ueids.items():
+                if value == update.ueid:
+                    key_to_delete = key
+            if key_to_delete:
+                del self.known_ueids[key_to_delete]
 
     def endpoints(self, pid=None):
         """Generator of all endpoints.
@@ -159,16 +168,17 @@ class EndpointEntity:
                 self.active_endpoints[update.ueid] = update
                 yield update
 
-        deleted_ueids = (set(previous_endpoints.keys()) -
+        deleted_ueids = ((set(previous_endpoints.keys()) |
+                          set(self.known_ueids.values())) -
                          set(self.active_endpoints.keys()))
 
         for endpoint_ueid in deleted_ueids:
-            update = previous_endpoints[endpoint_ueid]
+            try:
+                update = previous_endpoints[endpoint_ueid]
+            except KeyError:
+                update = entityd.EntityUpdate('Endpoint', ueid=endpoint_ueid)
             update.delete()
-            self.forget_entity((update.attrs.get('addr').value,
-                                update.attrs.get('port').value),
-                               update.attrs.get('family').value,
-                               update.attrs.get('protocol').value)
+            self.forget_entity(update)
             yield update
 
     def endpoints_for_process(self, pid):

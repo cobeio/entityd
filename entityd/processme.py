@@ -88,13 +88,19 @@ class ProcessEntity:
             self.known_ueids[key] = value
             return value
 
-    def forget_entity(self, pid, start_time):
+    def forget_entity(self, update):
         """Remove the cached version of this Process Entity."""
-        key = self._cache_key(pid, start_time)
         try:
+            key = self._cache_key(update.attrs.get('pid').value,
+                                  update.attrs.get('starttime').value)
             del self.known_ueids[key]
         except KeyError:
-            pass
+            key_to_delete = None
+            for key, value in self.known_ueids.items():
+                if value == update.ueid:
+                    key_to_delete = key
+            if key_to_delete:
+                del self.known_ueids[key_to_delete]
 
     def get_parents(self, pid, procs):
         """Get relations for a process.
@@ -149,14 +155,16 @@ class ProcessEntity:
             for me in map(create_me, procs.values())
         }
         yield from self.active_processes.values()
-        prev_ueids = set(prev_processes.keys())
+        prev_ueids = set(prev_processes.keys()) | set(self.known_ueids.values())
         active_ueids = set(self.active_processes.keys())
         deleted_ueids = prev_ueids - active_ueids
         for proc_ueid in deleted_ueids:
-            update = prev_processes[proc_ueid]
-            self.forget_entity(update.attrs.get('pid').value,
-                               update.attrs.get('starttime').value)
+            try:
+                update = prev_processes[proc_ueid]
+            except KeyError:
+                update = entityd.EntityUpdate('Process', ueid=proc_ueid)
             update.delete()
+            self.forget_entity(update)
             yield update
 
     @staticmethod

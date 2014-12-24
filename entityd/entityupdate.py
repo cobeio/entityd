@@ -13,13 +13,14 @@ class EntityUpdate:
 
     """
 
-    def __init__(self, metype):
+    def __init__(self, metype, ueid=None):
         self.metype = metype
         self.timestamp = time.time()
         self.attrs = UpdateAttributes()
         self.parents = UpdateRelations()
         self.children = UpdateRelations()
         self.deleted = False
+        self._ueid = ueid
 
     def delete(self):
         """Mark this EntityUpdate as deleted."""
@@ -35,6 +36,8 @@ class EntityUpdate:
         ueid, otherwise it will be incorrect.
 
         """
+        if self._ueid:
+            return self._ueid
         attr_parts = ['{name}={value}'.format(name=attr.name, value=attr.value)
                       for attr in self.attrs
                       if attr.type == 'id']

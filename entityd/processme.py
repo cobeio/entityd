@@ -31,13 +31,13 @@ class ProcessEntity:
         """Register the Process Monitored Entity."""
         config.addentity('Process', 'entityd.processme.ProcessEntity')
 
-    @entityd.pm.hookimpl
+    @entityd.pm.hookimpl(after='entityd.kvstore')
     def entityd_sessionstart(self, session):
         """Load known ProcessME UEIDs."""
         self.session = session
         self.known_ueids = session.svc.kvstore.getmany('entityd.processme:')
 
-    @entityd.pm.hookimpl
+    @entityd.pm.hookimpl(before='entityd.kvstore')
     def entityd_sessionfinish(self):
         """Called when the monitoring session ends."""
         self.session.svc.kvstore.deletemany('entityd.processme:')

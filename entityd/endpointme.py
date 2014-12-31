@@ -44,13 +44,13 @@ class EndpointEntity:
         """Register the Endpoint Monitored Entity."""
         config.addentity('Endpoint', 'entityd.endpointme.EndpointEntity')
 
-    @entityd.pm.hookimpl
+    @entityd.pm.hookimpl(after='entityd.kvstore')
     def entityd_sessionstart(self, session):
         """Load up all the known endpoint UUIDs."""
         self.session = session
         self.known_ueids = session.svc.kvstore.getmany('entityd.endpointme:')
 
-    @entityd.pm.hookimpl
+    @entityd.pm.hookimpl(before='entityd.kvstore')
     def entityd_sessionfinish(self):
         """Store out all our known endpoint UUIDs."""
         self.session.svc.kvstore.deletemany('entityd.endpointme:')

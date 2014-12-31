@@ -555,6 +555,7 @@ class HookCaller:
                 problem.addConstraint(self._constraint_unique, pos)
                 problem.addConstraint(self._constraint_index, pos)
 
+        problem.addConstraint(self._constraint_unique, list(pos_hooks_map))
         return problem.getSolution()
 
     @staticmethod

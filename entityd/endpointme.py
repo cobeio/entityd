@@ -149,6 +149,7 @@ class EndpointEntity:
             for key, value in self.known_ueids.items():
                 if value == update.ueid:
                     key_to_delete = key
+                    break
             if key_to_delete:
                 del self.known_ueids[key_to_delete]
 

@@ -1,6 +1,7 @@
 """Plugin providing the Process Monitored Entity."""
 
 import functools
+import time
 
 import syskit
 
@@ -24,6 +25,7 @@ class ProcessEntity:
         self.known_ueids = {}
         self.session = None
         self._host_ueid = None
+        self._cpu_usages = {}
 
     @staticmethod
     @entityd.pm.hookimpl
@@ -175,6 +177,24 @@ class ProcessEntity:
                 pass
         return procs
 
+    def get_cpu_usage(self, proc):
+        """Return cpu usage percentage since the last sample.
+
+        """
+        if proc.pid not in self._cpu_usages:
+            last_cpu_time = 0
+            last_clock_time = proc.start_time.timestamp()
+        else:
+            last_cpu_time, last_clock_time = self._cpu_usages[proc.pid]
+
+        cpu_time = proc.cputime.timestamp()
+        clock_time = time.time()
+        cpu_time_passed = cpu_time - last_cpu_time
+        clock_time_passed = time.time() - last_clock_time
+        percent_cpu_usage = (cpu_time_passed / clock_time_passed) * 100
+        self._cpu_usages[proc.pid] = (cpu_time, clock_time)
+        return percent_cpu_usage
+
     def create_process_me(self, proctable, proc):
         """Create a new Process ME structure for the process.
 
@@ -190,6 +210,27 @@ class ProcessEntity:
                          attrtype='id')
         update.attrs.set('ppid', proc.ppid)
         update.attrs.set('host', self.host_ueid, attrtype='id')
+        update.attrs.set('cputime', proc.cputime.timestamp(),
+                         attrtype='perf:counter')
+        update.attrs.set('percentcpu', self.get_cpu_usage(proc),
+                         attrtype='perf:gauge')
+        update.attrs.set('virtualsize', proc.vsz, attrtype='perf:gauge')
+        update.attrs.set('residentsize', proc.rss, attrtype='perf:gauge')
+        # Note: there is a choice of (e)ffective, (s)aved or (r)eal uid
+        update.attrs.set('uid', proc.ruid)
+        update.attrs.set('username', proc.user)
+        # Note: there is a choice of (e)ffective, (s)aved or (r)eal gid
+        update.attrs.set('groupid', proc.rgid)
+        update.attrs.set('sessionid', proc.sid)
+        update.attrs.set('command', proc.command)
+        try:
+            update.attrs.set('executable', proc.exe)
+            update.attrs.set('args', proc.argv)
+            update.attrs.set('argcount', proc.argc)
+        except AttributeError:
+            # A zombie process doesn't allow access to these attributes
+            pass
+
         for parent in self.get_parents(proc.pid, proctable):
             update.parents.add(parent)
         key = self._cache_key(proc.pid, proc.start_time.timestamp())

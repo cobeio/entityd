@@ -1,4 +1,5 @@
 import os
+import time
 
 import syskit
 import pytest
@@ -79,6 +80,25 @@ def test_find_entity(procent, session, kvstore):  # pylint: disable=unused-argum
     for entity in entities:
         assert entity.metype == 'Process'
         assert entity.attrs.get('starttime').value
+        count += 1
+    assert count
+
+
+def test_entity_attrs(procent, session, kvstore):  # pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
+    entities = procent.entityd_find_entity('Process', None)
+    count = 0
+    for entity in entities:
+        assert entity.metype == 'Process'
+        for attr in 'binary pid starttime ppid host cputime virtualsize ' \
+                    'residentsize uid username command groupid ' \
+                    'sessionid'.split():
+            assert entity.attrs.get(attr)
+            if attr in ['cputime']:
+                assert entity.attrs.get(attr).type == 'perf:counter'
+            if attr in ['virtualsize', 'residentsize']:
+                assert entity.attrs.get(attr).type == 'perf:gauge'
+
         count += 1
     assert count
 
@@ -268,13 +288,11 @@ def test_specific_process_deleted(procent, session, kvstore, monkeypatch):  # py
 
 def test_specific_parent_deleted(procent, session, kvstore, monkeypatch):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
+    proc = syskit.Process(os.getpid())
 
-    def patch_syskit(pid):
+    def patch_syskit(arg):  # pylint: disable=unused-argument
         monkeypatch.setattr(syskit, 'Process',
                             pytest.Mock(side_effect=syskit.NoSuchProcessError))
-        proc = pytest.Mock()
-        proc.pid = pid
-        proc.ppid = os.getppid()
         return proc
 
     monkeypatch.setattr(syskit, 'Process', pytest.Mock(
@@ -288,3 +306,56 @@ def test_specific_parent_deleted(procent, session, kvstore, monkeypatch):  # pyl
     assert not proc.parents._relations
     with pytest.raises(StopIteration):
         proc = next(entities)
+
+
+@pytest.fixture
+def zombie_process(request):
+    import subprocess
+    popen = subprocess.Popen(['ls', '.'],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    request.addfinalizer(popen.kill)
+    assert popen.pid
+    return popen
+
+
+def test_zombie_process(procent, session, kvstore, monkeypatch,  # pylint: disable=unused-argument
+                        zombie_process):
+    procent.entityd_sessionstart(session)
+    proc = syskit.Process(zombie_process.pid)
+    with pytest.raises(AttributeError):
+        assert proc.argv
+    entities = procent.entityd_find_entity('Process', {'pid':
+                                                           zombie_process.pid})
+    # Should not raise
+    entity = next(entities)
+    for attr in ['executable', 'args', 'argcount']:
+        with pytest.raises(KeyError):
+            assert entity.attrs.get(attr)
+
+
+def test_cpu_usage_attr(procent, session, kvstore):  # pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
+    entities = procent.entityd_find_entity('Process', {'pid': os.getpid()})
+    entity = next(entities)
+    cpu_usage = entity.attrs.get('percentcpu')
+    assert isinstance(cpu_usage.value, float)
+    assert cpu_usage.type == 'perf:gauge'
+
+
+def test_cpu_usage_calculation(procent):
+    proc = pytest.Mock()
+
+    proc.pid = 1
+    proc.cputime.timestamp.return_value = 0.0
+    proc.start_time.timestamp.return_value = time.time()
+    assert procent.get_cpu_usage(proc) == 0.0
+
+    proc.pid = 2
+    proc.cputime.timestamp.return_value = 1.0
+    proc.start_time.timestamp.return_value = time.time() - 1
+    assert procent.get_cpu_usage(proc) >= 99.0
+
+    proc.pid = 3
+    proc.cputime.timestamp.return_value = 1.0
+    proc.start_time.timestamp.return_value = time.time() - 2
+    assert 49.0 <= procent.get_cpu_usage(proc) <= 51.0

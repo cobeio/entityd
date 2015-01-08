@@ -1,4 +1,5 @@
 import os
+import subprocess
 import time
 
 import syskit
@@ -90,13 +91,13 @@ def test_entity_attrs(procent, session, kvstore):  # pylint: disable=unused-argu
     count = 0
     for entity in entities:
         assert entity.metype == 'Process'
-        for attr in 'binary pid starttime ppid host cputime virtualsize ' \
-                    'residentsize uid username command groupid ' \
+        for attr in 'binary pid starttime ppid host cputime vsz ' \
+                    'rss uid username command groupid ' \
                     'sessionid'.split():
             assert entity.attrs.get(attr)
             if attr in ['cputime']:
                 assert entity.attrs.get(attr).type == 'perf:counter'
-            if attr in ['virtualsize', 'residentsize']:
+            if attr in ['vsz', 'rss']:
                 assert entity.attrs.get(attr).type == 'perf:gauge'
 
         count += 1
@@ -310,23 +311,24 @@ def test_specific_parent_deleted(procent, session, kvstore, monkeypatch):  # pyl
 
 @pytest.fixture
 def zombie_process(request):
-    import subprocess
     popen = subprocess.Popen(['ls', '.'],
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     request.addfinalizer(popen.kill)
-    assert popen.pid
+    t = time.time()
+    while (time.time() - t < 5 and
+           syskit.Process(popen.pid).status != syskit.ProcessStatus.zombie):
+        time.sleep(0.1)
+    if syskit.Process(popen.pid).status != syskit.ProcessStatus.zombie:
+        pytest.fail("Failed to create a zombie process for testing.")
+
     return popen
 
 
 def test_zombie_process(procent, session, kvstore, monkeypatch,  # pylint: disable=unused-argument
                         zombie_process):
     procent.entityd_sessionstart(session)
-    proc = syskit.Process(zombie_process.pid)
-    with pytest.raises(AttributeError):
-        assert proc.argv
     entities = procent.entityd_find_entity('Process', {'pid':
                                                            zombie_process.pid})
-    # Should not raise
     entity = next(entities)
     for attr in ['executable', 'args', 'argcount']:
         with pytest.raises(KeyError):
@@ -337,7 +339,7 @@ def test_cpu_usage_attr(procent, session, kvstore):  # pylint: disable=unused-ar
     procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', {'pid': os.getpid()})
     entity = next(entities)
-    cpu_usage = entity.attrs.get('percentcpu')
+    cpu_usage = entity.attrs.get('cpu%')
     assert isinstance(cpu_usage.value, float)
     assert cpu_usage.type == 'perf:gauge'
 
@@ -346,16 +348,16 @@ def test_cpu_usage_calculation(procent):
     proc = pytest.Mock()
 
     proc.pid = 1
-    proc.cputime.timestamp.return_value = 0.0
+    proc.cputime = 0.0
     proc.start_time.timestamp.return_value = time.time()
     assert procent.get_cpu_usage(proc) == 0.0
 
     proc.pid = 2
-    proc.cputime.timestamp.return_value = 1.0
+    proc.cputime = 1.0
     proc.start_time.timestamp.return_value = time.time() - 1
     assert procent.get_cpu_usage(proc) >= 99.0
 
     proc.pid = 3
-    proc.cputime.timestamp.return_value = 1.0
+    proc.cputime = 1.0
     proc.start_time.timestamp.return_value = time.time() - 2
     assert 49.0 <= procent.get_cpu_usage(proc) <= 51.0

@@ -25,7 +25,7 @@ class ProcessEntity:
         self.known_ueids = {}
         self.session = None
         self._host_ueid = None
-        self._cpu_usages = {}
+        self._process_times = {}
 
     @staticmethod
     @entityd.pm.hookimpl
@@ -181,18 +181,19 @@ class ProcessEntity:
         """Return cpu usage percentage since the last sample.
 
         """
-        if proc.pid not in self._cpu_usages:
+        key = (proc.pid, proc.start_time.timestamp())
+        if key not in self._process_times:
             last_cpu_time = 0
             last_clock_time = proc.start_time.timestamp()
         else:
-            last_cpu_time, last_clock_time = self._cpu_usages[proc.pid]
+            last_cpu_time, last_clock_time = self._process_times[key]
 
-        cpu_time = proc.cputime.timestamp()
+        cpu_time = float(proc.cputime)
         clock_time = time.time()
         cpu_time_passed = cpu_time - last_cpu_time
-        clock_time_passed = time.time() - last_clock_time
+        clock_time_passed = clock_time - last_clock_time
         percent_cpu_usage = (cpu_time_passed / clock_time_passed) * 100
-        self._cpu_usages[proc.pid] = (cpu_time, clock_time)
+        self._process_times[key] = (cpu_time, clock_time)
         return percent_cpu_usage
 
     def create_process_me(self, proctable, proc):
@@ -210,12 +211,12 @@ class ProcessEntity:
                          attrtype='id')
         update.attrs.set('ppid', proc.ppid)
         update.attrs.set('host', self.host_ueid, attrtype='id')
-        update.attrs.set('cputime', proc.cputime.timestamp(),
+        update.attrs.set('cputime', float(proc.cputime),
                          attrtype='perf:counter')
-        update.attrs.set('percentcpu', self.get_cpu_usage(proc),
+        update.attrs.set('cpu%', self.get_cpu_usage(proc),
                          attrtype='perf:gauge')
-        update.attrs.set('virtualsize', proc.vsz, attrtype='perf:gauge')
-        update.attrs.set('residentsize', proc.rss, attrtype='perf:gauge')
+        update.attrs.set('vsz', proc.vsz, attrtype='perf:gauge')
+        update.attrs.set('rss', proc.rss, attrtype='perf:gauge')
         # Note: there is a choice of (e)ffective, (s)aved or (r)eal uid
         update.attrs.set('uid', proc.ruid)
         update.attrs.set('username', proc.user)

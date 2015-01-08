@@ -1,5 +1,6 @@
 """Plugin providing the Host Monitored Entity."""
 
+import os
 import socket
 import uuid
 
@@ -23,6 +24,7 @@ class HostEntity:
     def __init__(self):
         self.host_uuid = None
         self.session = None
+        self.cputimes = None
 
     @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
@@ -64,4 +66,32 @@ class HostEntity:
         update.attrs.set('id', self.get_uuid(), 'id')
         update.attrs.set('fqdn', fqdn)
         update.attrs.set('uptime', uptime, 'perf:counter')
+        update.attrs.set('boottime', syskit.boottime().timestamp())
+        update.attrs.set('loadavg', syskit.loadavg())
+        update.attrs.set('free', syskit.free())
+        update.attrs.set('os', os.uname().sysname)
+        update.attrs.set('osversion', os.uname().release)
+        self._add_cputime_attrs(update)
         yield update
+
+    def _add_cputime_attrs(self, update):
+        """Add cputimes and their % values to update
+
+        The first call will return values since system boot; subsequent calls
+        will return the values for the period in between calls.
+        """
+        new_cputimes = syskit.cputimes()
+        if self.cputimes:
+            updatediff = syskit.CpuTimes._make( # pylint: disable=protected-access
+                [x - y for (x, y) in zip(new_cputimes, self.cputimes)])
+        else:
+            updatediff = new_cputimes
+        total = sum(updatediff)
+        for attr in ['usr', 'sys', 'nice', 'idle', 'iowait', 'irq',
+                     'softirq', 'steal']:
+            update.attrs.set(attr, float(getattr(updatediff, attr)))
+            update.attrs.set(
+                attr + '%',
+                float(getattr(updatediff, attr)) / float(total) * 100)
+        self.cputimes = new_cputimes
+        return None

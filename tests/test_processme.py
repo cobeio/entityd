@@ -92,7 +92,7 @@ def test_entity_attrs(procent, session, kvstore):  # pylint: disable=unused-argu
     for entity in entities:
         assert entity.metype == 'Process'
         for attr in 'binary pid starttime ppid host cputime vsz ' \
-                    'rss uid username command groupid ' \
+                    'rss uid suid euid username command gid sgid egid ' \
                     'sessionid'.split():
             assert entity.attrs.get(attr)
             if attr in ['cputime']:
@@ -311,7 +311,7 @@ def test_specific_parent_deleted(procent, session, kvstore, monkeypatch):  # pyl
 
 @pytest.fixture
 def zombie_process(request):
-    popen = subprocess.Popen(['ls', '.'],
+    popen = subprocess.Popen(['true'],
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     request.addfinalizer(popen.kill)
     t = time.time()

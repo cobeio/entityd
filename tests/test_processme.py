@@ -346,17 +346,18 @@ def test_cpu_usage_attr(procent, session, kvstore):  # pylint: disable=unused-ar
 
 def test_cpu_usage_calculation(procent):
     proc = pytest.Mock()
-
     proc.pid = 1
     proc.cputime = 0.0
     proc.start_time.timestamp.return_value = time.time()
     assert procent.get_cpu_usage(proc) == 0.0
 
+    proc = pytest.Mock()
     proc.pid = 2
     proc.cputime = 1.0
     proc.start_time.timestamp.return_value = time.time() - 1
     assert procent.get_cpu_usage(proc) >= 99.0
 
+    proc = pytest.Mock()
     proc.pid = 3
     proc.cputime = 1.0
     proc.start_time.timestamp.return_value = time.time() - 2

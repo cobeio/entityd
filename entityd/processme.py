@@ -160,6 +160,10 @@ class ProcessEntity:
                                update.attrs.get('starttime').value)
             update.delete()
             yield update
+        deleted_processes = (set(self._process_times.keys()) -
+                             set(procs.values()))
+        for proc in deleted_processes:
+            del self._process_times[proc]
 
     @staticmethod
     def process_table():
@@ -181,19 +185,20 @@ class ProcessEntity:
         """Return cpu usage percentage since the last sample.
 
         """
-        key = (proc.pid, proc.start_time.timestamp())
-        if key not in self._process_times:
+        if proc not in self._process_times:
             last_cpu_time = 0
             last_clock_time = proc.start_time.timestamp()
         else:
-            last_cpu_time, last_clock_time = self._process_times[key]
+            old_proc = self._process_times[proc]
+            last_cpu_time = float(old_proc.cputime)
+            last_clock_time = old_proc.refreshed.timestamp()
 
         cpu_time = float(proc.cputime)
         clock_time = time.time()
         cpu_time_passed = cpu_time - last_cpu_time
         clock_time_passed = clock_time - last_clock_time
         percent_cpu_usage = (cpu_time_passed / clock_time_passed) * 100
-        self._process_times[key] = (cpu_time, clock_time)
+        self._process_times[proc] = proc
         return percent_cpu_usage
 
     def create_process_me(self, proctable, proc):

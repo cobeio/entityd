@@ -1,5 +1,6 @@
 """Plugin providing the Process Monitored Entity."""
 
+import base64
 import functools
 
 import syskit
@@ -19,9 +20,11 @@ def entityd_plugin_registered(pluginmanager, name):
 class ProcessEntity:
     """Plugin to generate Process MEs."""
 
+    prefix = 'entityd.processme:'
+
     def __init__(self):
         self.active_processes = {}
-        self.known_ueids = {}
+        self.known_ueids = set()
         self.session = None
         self._host_ueid = None
 
@@ -35,13 +38,18 @@ class ProcessEntity:
     def entityd_sessionstart(self, session):
         """Load known ProcessME UEIDs."""
         self.session = session
-        self.known_ueids = session.svc.kvstore.getmany('entityd.processme:')
+        self.known_ueids = set(session.svc.kvstore.getmany(
+            self.prefix).values())
 
     @entityd.pm.hookimpl
     def entityd_sessionfinish(self):
         """Called when the monitoring session ends."""
-        self.session.svc.kvstore.deletemany('entityd.processme:')
-        self.session.svc.kvstore.addmany(self.known_ueids)
+        self.session.svc.kvstore.deletemany(self.prefix)
+        known_ueids = list(self.known_ueids)
+        to_add = dict(zip([self.prefix.encode('ascii') + base64.b64encode(ueid)
+                           for ueid in known_ueids],
+                          known_ueids))
+        self.session.svc.kvstore.addmany(to_add)
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs):
@@ -65,42 +73,24 @@ class ProcessEntity:
                 self._host_ueid = host_me.ueid
         return self._host_ueid
 
-    @staticmethod
-    def _cache_key(pid, start_time):
-        """Get a standard cache key for a process entity."""
-        return 'entityd.processme:{}-{}'.format(pid, start_time)
-
     def get_ueid(self, proc):
         """Get a cached ueid for this process if one exists, else generate one.
 
         :param proc: syskit.Process instance.
         """
-
-        key = self._cache_key(proc.pid, proc.start_time.timestamp())
-        if key in self.known_ueids:
-            return self.known_ueids[key]
-        else:
-            entity = entityd.EntityUpdate('Process')
-            entity.attrs.set('pid', proc.pid, attrtype='id')
-            entity.attrs.set('start_time', proc.start_time, attrtype='id')
-            entity.attrs.set('host', self.host_ueid, attrtype='id')
-            value = entity.ueid
-            self.known_ueids[key] = value
-            return value
+        entity = entityd.EntityUpdate('Process')
+        entity.attrs.set('pid', proc.pid, attrtype='id')
+        entity.attrs.set('start_time', proc.start_time, attrtype='id')
+        entity.attrs.set('host', self.host_ueid, attrtype='id')
+        self.known_ueids.add(entity.ueid)
+        return entity.ueid
 
     def forget_entity(self, update):
         """Remove the cached version of this Process Entity."""
         try:
-            key = self._cache_key(update.attrs.get('pid').value,
-                                  update.attrs.get('starttime').value)
-            del self.known_ueids[key]
+            self.known_ueids.remove(update.ueid)
         except KeyError:
-            key_to_delete = None
-            for key, value in self.known_ueids.items():
-                if value == update.ueid:
-                    key_to_delete = key
-            if key_to_delete:
-                del self.known_ueids[key_to_delete]
+            pass
 
     def get_parents(self, pid, procs):
         """Get relations for a process.
@@ -155,7 +145,7 @@ class ProcessEntity:
             for me in map(create_me, procs.values())
         }
         yield from self.active_processes.values()
-        prev_ueids = set(prev_processes.keys()) | set(self.known_ueids.values())
+        prev_ueids = set(prev_processes.keys()) | self.known_ueids
         active_ueids = set(self.active_processes.keys())
         deleted_ueids = prev_ueids - active_ueids
         for proc_ueid in deleted_ueids:
@@ -200,6 +190,5 @@ class ProcessEntity:
         update.attrs.set('host', self.host_ueid, attrtype='id')
         for parent in self.get_parents(proc.pid, proctable):
             update.parents.add(parent)
-        key = self._cache_key(proc.pid, proc.start_time.timestamp())
-        self.known_ueids[key] = update.ueid
+        self.known_ueids.add(update.ueid)
         return update

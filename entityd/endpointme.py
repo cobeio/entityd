@@ -1,5 +1,6 @@
 """Plugin providing the Endpoint Monitored Entity."""
 
+import base64
 import socket
 
 import entityd
@@ -33,8 +34,10 @@ def entityd_plugin_registered(pluginmanager, name):
 class EndpointEntity:
     """Plugin to generate endpoint MEs."""
 
+    prefix = 'entityd.endpointme:'
+
     def __init__(self):
-        self.known_ueids = {}
+        self.known_ueids = set()
         self.active_endpoints = {}
         self.session = None
 
@@ -48,13 +51,18 @@ class EndpointEntity:
     def entityd_sessionstart(self, session):
         """Load up all the known endpoint UUIDs."""
         self.session = session
-        self.known_ueids = session.svc.kvstore.getmany('entityd.endpointme:')
+        self.known_ueids = set(session.svc.kvstore.getmany(
+            'entityd.endpointme:').values())
 
     @entityd.pm.hookimpl
     def entityd_sessionfinish(self):
         """Store out all our known endpoint UUIDs."""
-        self.session.svc.kvstore.deletemany('entityd.endpointme:')
-        self.session.svc.kvstore.addmany(self.known_ueids)
+        self.session.svc.kvstore.deletemany(self.prefix)
+
+        known_ueids = list(self.known_ueids)
+        to_add = dict(zip([self.prefix.encode('ascii') + base64.b64encode(ueid)
+                           for ueid in known_ueids], known_ueids))
+        self.session.svc.kvstore.addmany(to_add)
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs):
@@ -64,25 +72,13 @@ class EndpointEntity:
                 raise LookupError('Attribute based filtering not supported')
             return self.endpoints()
 
-    @staticmethod
-    def _cache_key(addr, family, type_):
-        """Get a standard cache key for an Endpoint entity.
-
-        :param pid: Process ID owning the Endpoint
-        :param fd: File descriptor of the Endpoint
-        """
-        return 'entityd.endpointme:{}-{}-{}'.format(addr, family, type_)
-
     def get_ueid(self, conn):
         """Get a ueid for this endpoint if one exists, else generate one.
 
         :param conn: an entityd.connections.Connection
         """
-        key = self._cache_key(conn.laddr, conn.family, conn.type)
-        if key in self.known_ueids:
-            return self.known_ueids[key]
         ueid = self.create_local_update(conn).ueid
-        self.known_ueids[key] = ueid
+        self.known_ueids.add(ueid)
         return ueid
 
     @staticmethod
@@ -137,21 +133,10 @@ class EndpointEntity:
 
     def forget_entity(self, update):
         """Remove the cached version of this Endpoint Entity."""
-
         try:
-            key = self._cache_key((update.attrs.get('addr').value,
-                                   update.attrs.get('port').value),
-                                  update.attrs.get('family').value,
-                                  update.attrs.get('protocol').value)
-            del self.known_ueids[key]
+            self.known_ueids.remove(update.ueid)
         except KeyError:
-            key_to_delete = None
-            for key, value in self.known_ueids.items():
-                if value == update.ueid:
-                    key_to_delete = key
-                    break
-            if key_to_delete:
-                del self.known_ueids[key_to_delete]
+            pass
 
     def endpoints(self, pid=None):
         """Generator of all endpoints.
@@ -169,8 +154,7 @@ class EndpointEntity:
                 self.active_endpoints[update.ueid] = update
                 yield update
 
-        deleted_ueids = ((set(previous_endpoints.keys()) |
-                          set(self.known_ueids.values())) -
+        deleted_ueids = ((set(previous_endpoints.keys()) | self.known_ueids) -
                          set(self.active_endpoints.keys()))
 
         for endpoint_ueid in deleted_ueids:

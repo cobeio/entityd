@@ -1,3 +1,4 @@
+import base64
 import os
 
 import syskit
@@ -30,41 +31,41 @@ def test_plugin_registered(pm):
     assert pm.isregistered('entityd.processme.ProcessEntity')
 
 
-def test_session_hooks_reload_proc(procent, session, kvstore):
+def test_session_hooks_reload_proc(procent, session, kvstore):  # pylint: disable=unused-argument
     # Create an entry in known_ueids
     proc = syskit.Process(os.getpid())
     procent.entityd_sessionstart(session)
-    key = procent._cache_key(proc.pid, proc.start_time.timestamp())
     ueid = procent.get_ueid(proc)
-    assert procent.known_ueids[key] == ueid
+    assert ueid in procent.known_ueids
 
     # Persist that entry to the kvstore
     procent.entityd_sessionfinish()
-    assert kvstore.get(key) == ueid
 
     # Reload this entry from the kvstore
     procent.known_ueids.clear()
     procent.entityd_sessionstart(session)
-    assert procent.known_ueids[key] == ueid
+    assert ueid in procent.known_ueids
 
 
 def test_sessionfinish_delete_ueids(procent, session, kvstore):
     # Create an entry in known_ueids
     proc = syskit.Process(os.getpid())
     procent.entityd_sessionstart(session)
-    key = procent._cache_key(proc.pid, proc.start_time.timestamp())
     ueid = procent.get_ueid(proc)
-    assert procent.known_ueids[key] == ueid
+    assert ueid in procent.known_ueids
 
     # Persist that entry to the kvstore
     procent.entityd_sessionfinish()
-    assert kvstore.get(key) == ueid
+    assert kvstore.get(entityd.processme.ProcessEntity.prefix.encode('ascii') +
+                       base64.b64encode(ueid)) == ueid
 
     # Check that entry is deleted from the kvstore
     procent.known_ueids.clear()
     procent.entityd_sessionfinish()
     with pytest.raises(KeyError):
-        kvstore.get(key)
+        kvstore.get(
+            entityd.processme.ProcessEntity.prefix.encode('ascii') +
+            base64.b64encode(ueid))
 
 
 def test_configure(procent, config):
@@ -78,6 +79,8 @@ def test_find_entity(procent, session, kvstore):  # pylint: disable=unused-argum
     count = 0
     for entity in entities:
         assert entity.metype == 'Process'
+        if entity.deleted:
+            continue
         assert entity.attrs.get('starttime').value
         count += 1
     assert count
@@ -102,17 +105,6 @@ def test_find_entity_with_unknown_attrs(procent):
         procent.entityd_find_entity('Process', {'unknown': 1})
 
 
-def test_cache_key():
-    key = entityd.processme.ProcessEntity._cache_key(123, 456.7)
-    assert key.startswith('entityd.processme:')
-
-
-def test_cache_key_diff():
-    key0 = entityd.processme.ProcessEntity._cache_key(1, 456.7)
-    key1 = entityd.processme.ProcessEntity._cache_key(2, 456.7)
-    assert key0 != key1
-
-
 def test_get_ueid_new(kvstore, session, procent):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
     proc = syskit.Process(os.getpid())
@@ -133,9 +125,8 @@ def test_forget_entity(kvstore, session, procent):  # pylint: disable=unused-arg
     procent.entityd_sessionstart(session)
     # Insert a process into known_ueids
     proc = syskit.Process(os.getpid())
-    key = procent._cache_key(proc.pid, proc.start_time.timestamp())
-    procent.get_ueid(proc)
-    assert key in procent.known_ueids
+    ueid = procent.get_ueid(proc)
+    assert ueid in procent.known_ueids
 
     # Check it is removed
     entity = entityd.EntityUpdate('Process')
@@ -143,7 +134,7 @@ def test_forget_entity(kvstore, session, procent):  # pylint: disable=unused-arg
     entity.attrs.set('start_time', proc.start_time, attrtype='id')
     entity.attrs.set('host', procent.host_ueid, attrtype='id')
     procent.forget_entity(entity)
-    assert key not in procent.known_ueids
+    assert ueid not in procent.known_ueids
 
 
 def test_forget_non_existent_entity(procent):
@@ -160,8 +151,7 @@ def test_get_ueid(session):
     proc = syskit.Process(os.getpid())
     assert not procent.known_ueids
     ueid = procent.get_ueid(proc)
-    proc_key = next(iter(procent.known_ueids.keys()))
-    assert ueid == procent.known_ueids[proc_key]
+    assert ueid in procent.known_ueids
 
 
 def test_get_parents_nohost_noparent(session, kvstore, procent):  # pylint: disable=unused-argument
@@ -211,7 +201,10 @@ def test_processes(procent, proctable, monkeypatch, session, kvstore):  # pylint
     for me in gen:
         assert me.metype == 'Process'
         assert me.ueid
+        if me.deleted:
+            continue
         pids.append(me.attrs.get('pid').value)
+    assert pids
     assert sorted(proctable.keys()) == sorted(pids)
 
 
@@ -224,6 +217,8 @@ def test_processes_deleted(procent, proctable, monkeypatch, session, kvstore):  
     # Extract the ME for the py.test process
     gen = procent.processes()
     for me in gen:
+        if me.deleted:
+            continue
         if me.attrs.get('pid').value == os.getpid():
             procme = me
 
@@ -238,8 +233,8 @@ def test_processes_deleted(procent, proctable, monkeypatch, session, kvstore):  
     assert delme.ueid == procme.ueid
 
     # Assert ueid is forgotten
-    assert pprocme.ueid in procent.known_ueids.values()
-    assert delme.ueid not in procent.known_ueids.values()
+    assert pprocme.ueid in procent.known_ueids
+    assert delme.ueid not in procent.known_ueids
 
 
 def test_process_table():
@@ -297,12 +292,13 @@ def test_specific_parent_deleted(procent, session, kvstore, monkeypatch):  # pyl
 
 def test_previously_known_ueids_are_deleted_if_not_present(session, procent):
     kvstore = pytest.Mock()
-    kvstore.getmany.return_value = {'cache_key': 'made up ueid'}
+    kvstore.getmany.return_value = {entityd.processme.ProcessEntity.prefix +
+                                    'made up ueid':
+                                        'made up ueid'}
     session.addservice('kvstore', kvstore)
     procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity(name='Process', attrs=None)
     for process in entities:
-        if process.deleted:
-            assert process.ueid == 'made up ueid'
+        if process.deleted and process.ueid == 'made up ueid':
             return
     pytest.fail('deleted ueid not found')

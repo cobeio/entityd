@@ -1,3 +1,4 @@
+import base64
 import os
 import socket
 
@@ -65,42 +66,37 @@ def test_plugin_registered(pm):
     assert pm.isregistered('entityd.endpointme.EndpointEntity')
 
 
-def test_session_hooks_reload_proc(endpoint_gen, session, kvstore, conn):
+def test_session_hooks_reload_proc(endpoint_gen, session, kvstore, conn):  # pylint: disable=unused-argument
     # Create an entry in known_ueids
     endpoint_gen.entityd_sessionstart(session)
-    key = endpoint_gen._cache_key(conn.laddr, conn.family, conn.type)
     ueid = endpoint_gen.get_ueid(conn)
 
     # Persist that entry to the kvstore
     endpoint_gen.entityd_sessionfinish()
-    assert kvstore.get(key) == ueid
 
     # Reload this entry from the kvstore
     endpoint_gen.known_ueids.clear()
     endpoint_gen.entityd_sessionstart(session)
-    assert endpoint_gen.known_ueids[key] == ueid
-
-    # Check known_ueids is used by get_ueid
-    endpoint_gen.known_ueids[key] = 555
-    assert endpoint_gen.get_ueid(conn) == 555
+    assert ueid in endpoint_gen.known_ueids
 
 
 def test_sessionfinish_delete_ueids(endpoint_gen, session, kvstore, conn):
     # Create an entry in known_ueids
     endpoint_gen.entityd_sessionstart(session)
-    key = endpoint_gen._cache_key(conn.laddr, conn.family, conn.type)
     ueid = endpoint_gen.get_ueid(conn)
-    assert endpoint_gen.known_ueids[key] == ueid
+    assert ueid in endpoint_gen.known_ueids
 
     # Persist that entry to the kvstore
     endpoint_gen.entityd_sessionfinish()
-    assert kvstore.get(key) == ueid
+    assert kvstore.get(entityd.endpointme.EndpointEntity.prefix.encode(
+        'ascii') + base64.b64encode(ueid)) == ueid
 
     # Check that entry is deleted from the kvstore
     endpoint_gen.known_ueids.clear()
     endpoint_gen.entityd_sessionfinish()
     with pytest.raises(KeyError):
-        kvstore.get(key)
+        kvstore.get(entityd.endpointme.EndpointEntity.prefix.encode(
+            'ascii') + ueid)
 
 
 def test_configure(endpoint_gen, config):
@@ -113,33 +109,15 @@ def test_find_entity_with_attrs(endpoint_gen):
         endpoint_gen.entityd_find_entity('Endpoint', {})
 
 
-def test_cache_key():
-    key = entityd.endpointme.EndpointEntity._cache_key(('0.0.0.0', 80), 1, 2)
-    assert key.startswith('entityd.endpointme:')
-
-
-def test_cache_key_diff():
-    key0 = entityd.endpointme.EndpointEntity._cache_key(('0.0.0.0', 80), 1, 2)
-    key1 = entityd.endpointme.EndpointEntity._cache_key(('0.0.0.0', 81), 1, 2)
-    assert key0 != key1
-    key1 = entityd.endpointme.EndpointEntity._cache_key(('0.0.0.1', 80), 1, 2)
-    assert key0 != key1
-    key1 = entityd.endpointme.EndpointEntity._cache_key(('0.0.0.0', 80), 2, 2)
-    assert key0 != key1
-    key1 = entityd.endpointme.EndpointEntity._cache_key(('0.0.0.0', 80), 1, 3)
-    assert key0 != key1
-
-
 def test_forget_entity(endpoint_gen, conn):
     # Insert an Endpoint into known_ueids
-    key = endpoint_gen._cache_key(conn.laddr, conn.family, conn.type)
-    endpoint_gen.get_ueid(conn)
-    assert key in endpoint_gen.known_ueids
+    ueid = endpoint_gen.get_ueid(conn)
+    assert ueid in endpoint_gen.known_ueids
 
     # Check it is removed
     update = endpoint_gen.create_local_update(conn)
     endpoint_gen.forget_entity(update)
-    assert key not in endpoint_gen.known_ueids
+    assert ueid not in endpoint_gen.known_ueids
 
 
 def test_forget_non_existent_entity(endpoint_gen):

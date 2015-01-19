@@ -552,9 +552,9 @@ class HookCaller:
         for hooks, pos in pos_bag.items():
             if len(pos) > 1:
                 pos = sorted(pos)
-                problem.addConstraint(self._constraint_unique, pos)
                 problem.addConstraint(self._constraint_index, pos)
 
+        problem.addConstraint(self._constraint_unique, list(pos_hooks_map))
         return problem.getSolution()
 
     @staticmethod

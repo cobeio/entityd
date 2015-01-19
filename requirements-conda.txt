@@ -2,9 +2,15 @@
 python >=3.4,<3.5
 cffi
 pyzmq
+msgpack-python
+syskit
 
 # Dev requirements
 pip
 pytest
+pytest-capturelog
+pytest-cov
 pylint
+pylint-abilisoft
 coverage
+invoke

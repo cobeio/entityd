@@ -311,6 +311,20 @@ def test_specific_parent_deleted(procent, session, kvstore, monkeypatch):  # pyl
         proc = next(entities)
 
 
+def test_previously_known_ueids_are_deleted_if_not_present(session, procent):
+    kvstore = pytest.Mock()
+    kvstore.getmany.return_value = {
+        entityd.processme.ProcessEntity.prefix + 'made up ueid': 'made up ueid'
+    }
+    session.addservice('kvstore', kvstore)
+    procent.entityd_sessionstart(session)
+    entities = procent.entityd_find_entity(name='Process', attrs=None)
+    for process in entities:
+        if process.deleted and process.ueid == 'made up ueid':
+            return
+    pytest.fail('deleted ueid not found')
+
+
 @pytest.fixture
 def zombie_process(request):
     popen = subprocess.Popen(['true'],

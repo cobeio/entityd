@@ -48,7 +48,7 @@ class ProcessEntity:
         """Called when the monitoring session ends."""
         self.session.svc.kvstore.deletemany(self.prefix)
         known_ueids = list(self.known_ueids)
-        to_add = dict(zip([self.prefix.encode('ascii') + base64.b64encode(ueid)
+        to_add = dict(zip([self.prefix + base64.b64encode(ueid).decode('ascii')
                            for ueid in known_ueids],
                           known_ueids))
         self.session.svc.kvstore.addmany(to_add)
@@ -89,7 +89,10 @@ class ProcessEntity:
         return entity.ueid
 
     def forget_entity(self, update):
-        """Remove the cached version of this Process Entity."""
+        """Remove the cached version of this Process Entity.
+
+        :param update: an entityd.EntityUpdate
+        """
         try:
             self.known_ueids.remove(update.ueid)
         except KeyError:
@@ -182,6 +185,8 @@ class ProcessEntity:
 
     def get_cpu_usage(self, proc):
         """Return cpu usage percentage since the last sample.
+
+        :param proc: syskit.Process instance.
 
         """
         if proc not in self._process_times:

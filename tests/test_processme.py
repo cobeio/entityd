@@ -58,16 +58,16 @@ def test_sessionfinish_delete_ueids(procent, session, kvstore):
 
     # Persist that entry to the kvstore
     procent.entityd_sessionfinish()
-    assert kvstore.get(entityd.processme.ProcessEntity.prefix.encode('ascii') +
-                       base64.b64encode(ueid)) == ueid
+    assert kvstore.get(entityd.processme.ProcessEntity.prefix +
+                       base64.b64encode(ueid).decode('ascii')) == ueid
 
     # Check that entry is deleted from the kvstore
     procent.known_ueids.clear()
     procent.entityd_sessionfinish()
     with pytest.raises(KeyError):
         kvstore.get(
-            entityd.processme.ProcessEntity.prefix.encode('ascii') +
-            base64.b64encode(ueid))
+            entityd.processme.ProcessEntity.prefix +
+            base64.b64encode(ueid).decode('ascii'))
 
 
 def test_configure(procent, config):

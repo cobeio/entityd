@@ -82,7 +82,8 @@ class ProcessEntity:
         """
         entity = entityd.EntityUpdate('Process')
         entity.attrs.set('pid', proc.pid, attrtype='id')
-        entity.attrs.set('start_time', proc.start_time, attrtype='id')
+        entity.attrs.set('starttime', proc.start_time.timestamp(),
+                         attrtype='id')
         entity.attrs.set('host', self.host_ueid, attrtype='id')
         self.known_ueids.add(entity.ueid)
         return entity.ueid

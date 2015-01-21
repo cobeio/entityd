@@ -154,7 +154,7 @@ def test_forget_entity(kvstore, session, procent):  # pylint: disable=unused-arg
     # Check it is removed
     entity = entityd.EntityUpdate('Process')
     entity.attrs.set('pid', proc.pid, attrtype='id')
-    entity.attrs.set('start_time', proc.start_time, attrtype='id')
+    entity.attrs.set('starttime', proc.start_time.timestamp(), attrtype='id')
     entity.attrs.set('host', procent.host_ueid, attrtype='id')
     procent.forget_entity(entity)
     assert ueid not in procent.known_ueids
@@ -175,6 +175,8 @@ def test_get_ueid(session):
     assert not procent.known_ueids
     ueid = procent.get_ueid(proc)
     assert ueid in procent.known_ueids
+    ueid2 = next(procent.process(os.getpid())).ueid
+    assert ueid == ueid2
 
 
 def test_get_parents_nohost_noparent(session, kvstore, procent):  # pylint: disable=unused-argument

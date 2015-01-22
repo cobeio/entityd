@@ -26,6 +26,7 @@ class ProcessEntity:
     def __init__(self):
         self.active_processes = {}
         self.known_ueids = set()
+        self.loaded_ueids = set()
         self.session = None
         self._host_ueid = None
         self._process_times = {}
@@ -40,17 +41,17 @@ class ProcessEntity:
     def entityd_sessionstart(self, session):
         """Load known ProcessME UEIDs."""
         self.session = session
-        self.known_ueids = set(session.svc.kvstore.getmany(
+        self.loaded_ueids = set(session.svc.kvstore.getmany(
             self.prefix).values())
+        self.known_ueids = self.loaded_ueids.copy()
 
     @entityd.pm.hookimpl(before='entityd.kvstore')
     def entityd_sessionfinish(self):
         """Called when the monitoring session ends."""
         self.session.svc.kvstore.deletemany(self.prefix)
         known_ueids = list(self.known_ueids)
-        to_add = dict(zip([self.prefix + base64.b64encode(ueid).decode('ascii')
-                           for ueid in known_ueids],
-                          known_ueids))
+        to_add = {self.prefix + base64.b64encode(ueid).decode('ascii'): ueid
+                  for ueid in known_ueids}
         self.session.svc.kvstore.addmany(to_add)
 
     @entityd.pm.hookimpl
@@ -76,7 +77,7 @@ class ProcessEntity:
         return self._host_ueid
 
     def get_ueid(self, proc):
-        """Get a cached ueid for this process if one exists, else generate one.
+        """Generate a ueid for this process.
 
         :param proc: syskit.Process instance.
         """
@@ -139,49 +140,65 @@ class ProcessEntity:
             except syskit.NoSuchProcessError:
                 pass
 
-        yield self.create_process_me(proctable, proc)
+        update = self.create_process_me(proctable, proc)
+        yield update
 
     def processes(self):
         """Generator of Process MEs."""
-        prev_processes = self.active_processes
-        procs = self.process_table()
-        create_me = functools.partial(self.create_process_me, procs)
-        self.active_processes = {
-            me.ueid: me
-            for me in map(create_me, procs.values())
-        }
-        yield from self.active_processes.values()
-        prev_ueids = set(prev_processes.keys()) | self.known_ueids
-        active_ueids = set(self.active_processes.keys())
-        deleted_ueids = prev_ueids - active_ueids
-        for proc_ueid in deleted_ueids:
-            try:
-                update = prev_processes[proc_ueid]
-            except KeyError:
-                update = entityd.EntityUpdate('Process', ueid=proc_ueid)
+        active, deleted = self.update_process_table(self.active_processes)
+        create_me = functools.partial(self.create_process_me, active)
+        processed_ueids = set()
+
+        # Deleted processes
+        for proc in deleted.values():
+            update = entityd.EntityUpdate('Process',
+                                          ueid=self.get_ueid(proc))
             update.delete()
-            self.forget_entity(update)
-            yield update
-        deleted_processes = (set(self._process_times.keys()) -
-                             set(procs.values()))
-        for proc in deleted_processes:
             del self._process_times[proc]
+            self.forget_entity(update)
+            processed_ueids.add(update.ueid)
+            yield update
+
+        # Active processes
+        for proc in active.values():
+            update = create_me(proc)
+            processed_ueids.add(update.ueid)
+            yield update
+
+        # Previous ueids loaded from disk
+        for ueid in self.loaded_ueids:
+            if ueid in processed_ueids:
+                continue
+            update = entityd.EntityUpdate('Process', ueid)
+            update.delete()
+            yield update
+        self.loaded_ueids = set()
+        self.active_processes = active
 
     @staticmethod
-    def process_table():
-        """Create a process table from syskit.Process.
+    def update_process_table(procs):
+        """Updates the process table, refreshing and adding processes.
 
-        Sadly the syskit API does not make it easy to correctly create
-        a process table.
+        Returns a tuple of two separate dicts of active and deleted processes
 
         """
-        procs = {}
+        active = {}
+        deleted = {}
         for pid in syskit.Process.enumerate():
-            try:
-                procs[pid] = syskit.Process(pid)
-            except syskit.NoSuchProcessError:
-                pass
-        return procs
+            if pid in procs:
+                proc = procs[pid]
+                try:
+                    proc.refresh()
+                except syskit.NoSuchProcessError:
+                    deleted[pid] = proc
+                else:
+                    active[pid] = proc
+            else:
+                try:
+                    active[pid] = syskit.Process(pid)
+                except syskit.NoSuchProcessError:
+                    pass
+        return active, deleted
 
     def get_cpu_usage(self, proc):
         """Return cpu usage percentage since the last sample.

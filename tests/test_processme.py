@@ -217,8 +217,8 @@ def proctable():
 def test_processes(procent, proctable, monkeypatch, session, kvstore):  # pylint: disable=unused-argument
     # Wire up a fake process table
     procent.entityd_sessionstart(session)
-    monkeypatch.setattr(procent, 'process_table',
-                        pytest.Mock(return_value=proctable))
+    monkeypatch.setattr(procent, 'update_process_table',
+                        pytest.Mock(return_value=(proctable, {})))
 
     # Check we get MEs for the processes.
     gen = procent.processes()
@@ -236,8 +236,9 @@ def test_processes(procent, proctable, monkeypatch, session, kvstore):  # pylint
 def test_processes_deleted(procent, proctable, monkeypatch, session, kvstore):  # pylint: disable=unused-argument
     # Wire up a fake process table
     procent.entityd_sessionstart(session)
-    monkeypatch.setattr(procent, 'process_table',
-                        pytest.Mock(return_value=proctable))
+    monkeypatch.setattr(procent, 'update_process_table',
+                        pytest.Mock(return_value=(proctable, {})))
+    this_process = proctable[os.getpid()]
 
     # Extract the ME for the py.test process
     gen = procent.processes()
@@ -249,8 +250,12 @@ def test_processes_deleted(procent, proctable, monkeypatch, session, kvstore):  
 
     # Delete py.test process from process table and check deleted ME
     del proctable[os.getpid()]
+    monkeypatch.setattr(procent,
+                        'update_process_table',
+                        pytest.Mock(return_value=(proctable,
+                                                  {os.getpid(): this_process})))
     gen = procent.processes()
-    pprocme, delme = list(gen)
+    pprocme, delme = sorted(list(gen), key=lambda me: me.ueid == procme.ueid)
     assert pprocme.metype == 'Process'
     assert pprocme.attrs.get('pid').value == os.getppid()
     assert delme.metype == 'Process'
@@ -262,10 +267,13 @@ def test_processes_deleted(procent, proctable, monkeypatch, session, kvstore):  
     assert delme.ueid not in procent.known_ueids
 
 
-def test_process_table():
-    pt = entityd.processme.ProcessEntity.process_table()
-    assert pt
-    assert isinstance(pt[os.getpid()], syskit.Process)
+def test_update_process_table():
+    active, deleted = entityd.processme.ProcessEntity.update_process_table({})
+    assert active
+    assert isinstance(deleted, dict)
+    assert isinstance(active[os.getpid()], syskit.Process)
+    pt2 = entityd.processme.ProcessEntity.update_process_table(active)[0]
+    assert pt2[os.getpid()] is active[os.getpid()]
 
 
 def test_process_table_vanished(monkeypatch):
@@ -274,7 +282,7 @@ def test_process_table_vanished(monkeypatch):
                         pytest.Mock(side_effect=syskit.NoSuchProcessError))
     monkeypatch.setattr(syskit.Process, 'enumerate',
                         pytest.Mock(return_value=[42]))
-    pt = entityd.processme.ProcessEntity.process_table()
+    pt = entityd.processme.ProcessEntity.update_process_table({})[0]
     assert not pt
 
 

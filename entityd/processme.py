@@ -140,8 +140,7 @@ class ProcessEntity:
             except syskit.NoSuchProcessError:
                 pass
 
-        update = self.create_process_me(proctable, proc)
-        yield update
+        yield self.create_process_me(proctable, proc)
 
     def processes(self):
         """Generator of Process MEs."""
@@ -179,7 +178,9 @@ class ProcessEntity:
     def update_process_table(procs):
         """Updates the process table, refreshing and adding processes.
 
-        Returns a tuple of two separate dicts of active and deleted processes
+        Returns a tuple of two separate dicts of active and deleted processes.
+
+        :param procs: Dictionary mapping pid to syskit.Process
 
         """
         active = {}
@@ -201,7 +202,7 @@ class ProcessEntity:
         return active, deleted
 
     def get_cpu_usage(self, proc):
-        """Return cpu usage percentage since the last sample.
+        """Return CPU usage percentage since the last sample or process start.
 
         :param proc: syskit.Process instance.
 

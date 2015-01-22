@@ -286,6 +286,17 @@ def test_process_table_vanished(monkeypatch):
     assert not pt
 
 
+def test_process_table_vanished_refresh(monkeypatch):
+    # A process vanishes during creation
+    proc = syskit.Process(os.getpid())
+    proc.refresh = pytest.Mock(side_effect=syskit.NoSuchProcessError)
+    monkeypatch.setattr(syskit.Process, 'enumerate',
+                        pytest.Mock(return_value=[os.getpid()]))
+    pt = entityd.processme.ProcessEntity.update_process_table(
+        {os.getpid(): proc})[0]
+    assert not pt
+
+
 def test_specific_process_deleted(procent, session, kvstore, monkeypatch):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
     pid = os.getpid()
@@ -329,10 +340,38 @@ def test_previously_known_ueids_are_deleted_if_not_present(session, procent):
     session.addservice('kvstore', kvstore)
     procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity(name='Process', attrs=None)
+    count = 0
     for process in entities:
         if process.deleted and process.ueid == 'made up ueid':
-            return
-    pytest.fail('deleted ueid not found')
+            count += 1
+    assert count == 1
+
+
+def test_previously_known_ueids_are_not_deleted_if_present(session, procent):
+    kvstore = pytest.Mock()
+    kvstore_return = {}
+    kvstore.getmany.return_value = kvstore_return
+    session.addservice('kvstore', kvstore)
+    procent.entityd_sessionstart(session)
+    assert not procent.loaded_ueids
+    proc_ueid = procent.get_ueid(syskit.Process(os.getpid()))
+
+    kvstore_return[entityd.processme.ProcessEntity.prefix +
+                   base64.b64encode(proc_ueid).decode('ascii')] = proc_ueid
+    procent.entityd_sessionstart(session)
+    assert procent.loaded_ueids
+
+    entities = procent.entityd_find_entity(name='Process', attrs=None)
+    process_found = False
+    for process in entities:
+        if process.ueid == proc_ueid:
+            if process.deleted:
+                pytest.fail('Should not be deleted.')
+            else:
+                process_found = True
+                assert process.attrs.get('pid').value == os.getpid()
+    assert process_found
+    assert not procent.loaded_ueids
 
 
 @pytest.fixture
@@ -345,7 +384,7 @@ def zombie_process(request):
            syskit.Process(popen.pid).status != syskit.ProcessStatus.zombie):
         time.sleep(0.1)
     if syskit.Process(popen.pid).status != syskit.ProcessStatus.zombie:
-        pytest.fail("Failed to create a zombie process for testing.")
+        pytest.fail('Failed to create a zombie process for testing.')
 
     return popen
 

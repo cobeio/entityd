@@ -165,9 +165,7 @@ class ProcessEntity:
             yield update
 
         # Previous ueids loaded from disk
-        for ueid in self.loaded_ueids:
-            if ueid in processed_ueids:
-                continue
+        for ueid in self.loaded_ueids - processed_ueids:
             update = entityd.EntityUpdate('Process', ueid)
             update.delete()
             yield update
@@ -244,16 +242,13 @@ class ProcessEntity:
                          attrtype='perf:gauge')
         update.attrs.set('vsz', proc.vsz, attrtype='perf:gauge')
         update.attrs.set('rss', proc.rss, attrtype='perf:gauge')
-        # Note: there is a choice of (e)ffective, (s)aved or (r)eal uid
         update.attrs.set('uid', proc.ruid)
         update.attrs.set('euid', proc.euid)
         update.attrs.set('suid', proc.suid)
-
         update.attrs.set('username', proc.user)
-        # Note: there is a choice of (e)ffective, (s)aved or (r)eal gid
         update.attrs.set('gid', proc.rgid)
         update.attrs.set('egid', proc.egid)
-        update.attrs.set('sgid', proc.sid)
+        update.attrs.set('sgid', proc.sgid)
         update.attrs.set('sessionid', proc.sid)
         update.attrs.set('command', proc.command)
         try:

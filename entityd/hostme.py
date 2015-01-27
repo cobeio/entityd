@@ -80,18 +80,19 @@ class HostEntity:
         The first call will return values since system boot; subsequent calls
         will return the values for the period in between calls.
         """
+        attrs = ['usr', 'sys', 'nice', 'idle', 'iowait', 'irq', 'softirq',
+                 'steal']
         new_cputimes = syskit.cputimes()
         if self.cputimes:
-            updatediff = syskit.CpuTimes._make( # pylint: disable=protected-access
-                [x - y for (x, y) in zip(new_cputimes, self.cputimes)])
+            cputime_diff = [x - y for x, y in zip(new_cputimes, self.cputimes)]
         else:
-            updatediff = new_cputimes
-        total = sum(updatediff)
-        for attr in ['usr', 'sys', 'nice', 'idle', 'iowait', 'irq',
-                     'softirq', 'steal']:
-            update.attrs.set(attr, float(getattr(updatediff, attr)))
+            cputime_diff = new_cputimes
+        cputimes = {attr: diff for attr, diff in zip(attrs, cputime_diff)}
+        total = sum(cputimes.values())
+        for attr in attrs:
+            update.attrs.set(attr, float(cputimes[attr]))
             update.attrs.set(
                 attr + '%',
-                float(getattr(updatediff, attr)) / float(total) * 100)
+                float(cputimes[attr]) / float(total) * 100)
         self.cputimes = new_cputimes
         return None

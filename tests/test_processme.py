@@ -96,7 +96,7 @@ def test_entity_attrs(procent, session, kvstore):  # pylint: disable=unused-argu
         assert entity.metype == 'Process'
         if entity.deleted:
             continue
-        for attr in 'binary pid starttime ppid host cputime vsz ' \
+        for attr in 'binary pid starttime ppid host cputime utime stime vsz ' \
                     'rss uid suid euid username command gid sgid egid ' \
                     'sessionid'.split():
             assert entity.attrs.get(attr)

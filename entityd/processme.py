@@ -238,6 +238,10 @@ class ProcessEntity:
         update.attrs.set('host', self.host_ueid, attrtype='id')
         update.attrs.set('cputime', float(proc.cputime),
                          attrtype='perf:counter')
+        update.attrs.set('utime', float(proc.utime),
+                         attrtype='perf:counter')
+        update.attrs.set('stime', float(proc.stime),
+                         attrtype='perf:counter')
         update.attrs.set('cpu%', self.get_cpu_usage(proc),
                          attrtype='perf:gauge')
         update.attrs.set('vsz', proc.vsz, attrtype='perf:gauge')

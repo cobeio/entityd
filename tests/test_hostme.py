@@ -82,3 +82,14 @@ def test_cpu_usage(host_gen):
     assert 99 < sum([host.attrs.get(key).value
                      for key in ['usr%', 'sys%', 'nice%', 'idle%', 'iowait%',
                                  'irq%', 'softirq%', 'steal%']]) <= 100.1
+
+
+def test_loadavg(host_gen):
+    entities = list(host_gen.hosts())
+    host = entities[0]
+    loadavg = (host.attrs.get('loadavg_1').value,
+               host.attrs.get('loadavg_5').value,
+               host.attrs.get('loadavg_15').value)
+    for value in loadavg:
+        assert isinstance(value, float)
+        assert 0 < value < 16

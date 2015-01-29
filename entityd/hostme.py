@@ -1,6 +1,6 @@
 """Plugin providing the Host Monitored Entity."""
 
-import os
+import platform
 import socket
 import uuid
 
@@ -72,8 +72,8 @@ class HostEntity:
         update.attrs.set('loadavg_5', load[1])
         update.attrs.set('loadavg_15', load[2])
         update.attrs.set('free', syskit.free())
-        update.attrs.set('os', os.uname().sysname)
-        update.attrs.set('osversion', os.uname().release)
+        update.attrs.set('os', platform.system())
+        update.attrs.set('osversion', platform.release())
         self._add_cputime_attrs(update)
         yield update
 

@@ -206,10 +206,8 @@ def test_unix_socket(pm, session, kvstore, unix_socket):  # pylint: disable=unus
     entities = endpoint_plugin.endpoints_for_process(os.getpid())
     count = 0
     for endpoint in entities:
-        count += 1
-        assert endpoint.metype == 'Endpoint'
-        assert endpoint.ueid
-        print(endpoint.attrs.items())
+        if endpoint.attrs.get('family').value == 'UNIX':
+            count += 1
     assert count == 0
 
 

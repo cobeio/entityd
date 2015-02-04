@@ -128,6 +128,14 @@ def test_find_entity_with_unknown_attrs(procent):
         procent.entityd_find_entity('Process', {'unknown': 1})
 
 
+def test_find_entity_with_binary(procent, session, kvstore): # pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
+    entities = procent.entityd_find_entity('Process', {'binary': 'apache2'})
+    proc = next(entities)
+    assert proc.metype == 'Process'
+    assert proc.attrs.get('binary').value == 'apache2'
+
+
 def test_get_ueid_new(kvstore, session, procent):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
     proc = syskit.Process(os.getpid())

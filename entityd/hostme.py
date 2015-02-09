@@ -71,7 +71,11 @@ class HostEntity:
         update.attrs.set('loadavg_1', load[0])
         update.attrs.set('loadavg_5', load[1])
         update.attrs.set('loadavg_15', load[2])
-        update.attrs.set('free', syskit.free())
+        memorystats = syskit.MemoryStats()
+        free = memorystats.free + memorystats.buffers + memorystats.cached
+        update.attrs.set('free', free)
+        update.attrs.set('total', memorystats.total)
+        update.attrs.set('used', memorystats.total - free)
         update.attrs.set('os', platform.system())
         update.attrs.set('osversion', platform.release())
         self._add_cputime_attrs(update)

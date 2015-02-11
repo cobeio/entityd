@@ -6,7 +6,7 @@ import subprocess
 
 import requests
 
-import entityd
+import entityd.pm
 
 
 @entityd.pm.hookimpl
@@ -23,6 +23,7 @@ class ApacheEntity:
 
     def __init__(self):
         self.session = None
+        self._apache = None
 
     @staticmethod
     @entityd.pm.hookimpl
@@ -44,10 +45,16 @@ class ApacheEntity:
                                   'for attrs {}'.format(attrs))
             return self.entities()
 
+    @property
+    def apache(self):
+        if not self._apache:
+            self._apache = Apache()
+        return self._apache
+
     def entities(self):
         """Return a generator of ApacheEntity objects"""
         try:
-            apache = Apache()
+            apache = self.apache
         except RuntimeError:
             return
         else:
@@ -55,7 +62,9 @@ class ApacheEntity:
 
             # TODO: ID attributes: Host+Config root? Root process?
             # TODO; add version
+            # TODO: multiple Apache instances?
             update.attrs.set('id', 'Apache', attrtype='id')
+            update.attrs.set('version', apache.version())
             update.attrs.set('config_path', apache.config_path)
             update.attrs.set('config_ok', apache.check_config())
             update.attrs.set('config_last_mod', apache.config_last_modified())
@@ -64,20 +73,14 @@ class ApacheEntity:
                 update.attrs.set(name, value)
 
             update.attrs.set('SitesEnabled', apache.sites_enabled())
-            for child in self.processes(apache):
+            for child in self.processes():
                 update.children.add(child)
             yield update
 
-    # TODO: Have a class-level identifier whether we're using apache2 or httpd
-
-    def processes(self, apache):
-        """Find relations for Apache
-
-         - Processes
-         - Endpoints
-         """
+    def processes(self):
+        """Find child processes for Apache"""
         results = self.session.pluginmanager.hooks.entityd_find_entity(
-            name='Process', attrs={'binary': apache.apache_binary})
+            name='Process', attrs={'binary': self.apache.apache_binary})
         for processes in results:
             yield from processes
 
@@ -105,6 +108,16 @@ class Apache:
         if not self._config_path:
             self._config_path = _apache_config(self.apachectl_binary)
         return self._config_path
+
+    def version(self):
+        output = subprocess.check_output([self.apachectl_binary, '-v'])
+        lines = output.split(b'\n')
+        version = lines[0].split(b':')[1].strip()
+        return version
+
+    def is_running(self):
+        """Is apache running on this host?"""
+
 
     def check_config(self, path=None):
         """Check if the config passes basic checks"""

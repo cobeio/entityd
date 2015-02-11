@@ -18,30 +18,30 @@ def print_entity(entity):
         print("  Rel:", rel)
 
 
-def has_apache():
-    # TODO: should distinguish between a running, and an installed apache
-    apache = entityd.apacheme.Apache()
+def has_running_apache():
     try:
-        apache.apache_binary
+        entityd.apacheme._get_apache_status()
     except RuntimeError:
         return False
     else:
         return True
 
 
-apache = pytest.mark.skipif(not has_apache(), reason="Local Apache needed.")
+running_apache = pytest.mark.skipif(not has_running_apache(),
+                                    reason="Apache isn't reachable.")
 
 
 def has_apachectl():
     try:
-        entityd.apacheme.apachectl_binary()
+        entityd.apacheme._apachectl_binary()
     except RuntimeError:
         return False
     else:
         return True
 
 
-apachectl = pytest.mark.skipif(not has_apache(), reason="Local Apache needed.")
+apachectl = pytest.mark.skipif(not has_apachectl(),
+                               reason="Local Apache binaries needed.")
 
 
 @pytest.fixture
@@ -121,12 +121,12 @@ def test_configure(entitygen, config):
     assert config.entities['Apache'].obj is entitygen
 
 
-
 # TODO: Separate tests that use actual Apache, and those that don't. Try to
 # TODO: remove that dependency.
-# TODO: -- Also, how about x-platform testing. e.g. httpd vs apache2
 
 
+@running_apache
+@apachectl
 def test_find_entity(patched_entitygen):
     entities = patched_entitygen.entityd_find_entity('Apache', None)
     count = 0
@@ -134,6 +134,7 @@ def test_find_entity(patched_entitygen):
         assert entity.metype == 'Apache'
         if entity.deleted:
             continue
+        # TODO: check attributes are set on entity
         count += 1
     assert count
 
@@ -143,6 +144,8 @@ def test_find_entity_with_attrs():
         entityd.apacheme.ApacheEntity().entityd_find_entity('Apache', {})
 
 
+@running_apache
+@apachectl
 def test_relations(pm, session, kvstore, patched_entitygen): # pylint: disable=unused-argument
     """Apache should have at least one process in relations"""
     procent = entityd.processme.ProcessEntity()
@@ -152,13 +155,12 @@ def test_relations(pm, session, kvstore, patched_entitygen): # pylint: disable=u
 
     apache = entityd.apacheme.Apache()
     binary = apache.apache_binary
-    print(binary) ## getting apachectl...
     processes = procent.entityd_find_entity('Process',
                                             attrs={'binary': binary})
     procs = set(processes)
     for p in procs:
         assert p.metype == 'Process'
-        assert p.attrs.get('binary').value == 'apache2'
+        assert p.attrs.get('binary').value == binary
     entity = next(patched_entitygen.entityd_find_entity('Apache', attrs=None))
     assert len(entity.children._relations) == len(procs)
     assert entity.children._relations == set(p.ueid for p in procs)
@@ -170,14 +172,16 @@ def test_config_path(apache):
     assert os.path.isfile(path)
 
 
-def test_config_check(entity):
+@apachectl
+def test_config_check(apache):
     """Checks the Apache config.
 
     Currently relies on the system Apache install
     """
-    assert entity.attrs.get('config_ok').value in [True, False]
+    assert apache.check_config() in [True, False]
 
 
+@apachectl
 def test_config_check_fails(apache, tmpdir):
     # The check goes via the apachectl binary - how to patch?
     #
@@ -277,15 +281,13 @@ def test_performance_data_fails(apache, monkeypatch):
         apache.performance_data()
 
 
-def test_sites_enabled(entity):
-    assert isinstance(entity.attrs.get('SitesEnabled').value, list)
+@apachectl
+def test_sites_enabled(apache):
+    assert isinstance(apache.sites_enabled(), list)
 
 
+@apachectl
 def test_get_all_includes(apache):
     conf = apache.config_path
     includes = entityd.apacheme._find_all_includes(conf)
     assert b'/etc/apache2/sites-enabled/000-default.conf' in includes
-
-
-def test_last_mod(entity):
-    assert isinstance(entity.attrs.get('config_last_mod').value, float)

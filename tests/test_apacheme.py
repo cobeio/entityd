@@ -10,13 +10,34 @@ import entityd.core
 import entityd.processme
 
 
-def print_entity(entity):
-    print("{} entity: {}".format(entity.metype, entity.ueid))
-    print("  Time:", entity.timestamp)
-    for attr in entity.attrs:
-        print("  Attr:", attr)
-    for rel in entity.children._relations | entity.parents._relations:
-        print("  Rel:", rel)
+APACHECTL__V = b"""\
+Server version: Apache/2.4.7 (Ubuntu)
+Server built:   Jul 22 2014 14:36:38
+Server's Module Magic Number: 20120211:27
+Server loaded:  APR 1.5.1-dev, APR-UTIL 1.5.3
+Compiled using: APR 1.5.1-dev, APR-UTIL 1.5.3
+Architecture:   64-bit
+Server MPM:     event
+  threaded:     yes (fixed thread count)
+    forked:     yes (variable process count)
+Server compiled with....
+ -D APR_HAS_SENDFILE
+ -D APR_HAS_MMAP
+ -D APR_HAVE_IPV6 (IPv4-mapped addresses enabled)
+ -D APR_USE_SYSVSEM_SERIALIZE
+ -D APR_USE_PTHREAD_SERIALIZE
+ -D SINGLE_LISTEN_UNSERIALIZED_ACCEPT
+ -D APR_HAS_OTHER_CHILD
+ -D AP_HAVE_RELIABLE_PIPED_LOGS
+ -D DYNAMIC_MODULE_LIMIT=256
+ -D HTTPD_ROOT="/etc/apache2"
+ -D SUEXEC_BIN="/usr/lib/apache2/suexec"
+ -D DEFAULT_PIDLOG="/var/run/apache2.pid"
+ -D DEFAULT_SCOREBOARD="logs/apache_runtime_status"
+ -D DEFAULT_ERRORLOG="logs/error_log"
+ -D AP_TYPES_CONFIG_FILE="mime.types"
+ -D SERVER_CONFIG_FILE="apache2.conf"
+"""
 
 
 def has_running_apache():
@@ -153,8 +174,16 @@ def test_find_entity_mocked_apache(patched_entitygen):
     assert count
 
 
-def test_find_entity_no_apache(patched_entitygen, monkeypatch):
+def test_find_entity_no_apache_running(patched_entitygen, monkeypatch):
     monkeypatch.setattr(entityd.apacheme, '_get_apache_status',
+                        pytest.Mock(side_effect=RuntimeError))
+    gen = patched_entitygen.entityd_find_entity('Apache', None)
+    assert list(gen) == []
+
+
+def test_find_entity_no_apache_installed(patched_entitygen, monkeypatch):
+    patched_entitygen.apache._apachectl_binary = None
+    monkeypatch.setattr(entityd.apacheme, '_apachectl_binary',
                         pytest.Mock(side_effect=RuntimeError))
     gen = patched_entitygen.entityd_find_entity('Apache', None)
     assert list(gen) == []
@@ -165,30 +194,39 @@ def test_find_entity_with_attrs():
         entityd.apacheme.ApacheEntity().entityd_find_entity('Apache', {})
 
 
-@running_apache
-@apachectl
-def test_relations(pm, session, kvstore, entitygen, apache):  # pylint: disable=unused-argument
+def test_relations(pm, session, kvstore, patched_entitygen):  # pylint: disable=unused-argument
+    gen = patched_entitygen
     procent = entityd.processme.ProcessEntity()
     pm.register(procent,
                 name='entityd.processme')
     procent.entityd_sessionstart(session)
 
-    binary = apache.apache_binary
-    processes = procent.entityd_find_entity('Process',
-                                            attrs={'binary': binary})
+    # Use py.test as a binary so we're not dependent on apache running.
+    gen.apache._apache_binary = 'py.test'
+    processes = procent.entityd_find_entity(
+        'Process', attrs={'binary': 'py.test'})
     procs = set(processes)
     for p in procs:
         assert p.metype == 'Process'
-        assert p.attrs.get('binary').value == binary
-    entity = next(entitygen.entityd_find_entity('Apache', attrs=None))
+        assert p.attrs.get('binary').value == 'py.test'
+
+    entity = next(gen.entityd_find_entity('Apache', attrs=None))
     assert len(entity.children._relations) == len(procs)
     assert entity.children._relations == set(p.ueid for p in procs)
 
 
-@apachectl
-def test_config_path(apache):
+def test_config_path_from_file(apache, monkeypatch):
+    monkeypatch.setattr(subprocess, 'check_output',
+                        pytest.Mock(return_value=APACHECTL__V))
+    assert apache.config_path == b'/etc/apache2/apache2.conf'
+
+
+def test_config_path(apache, monkeypatch):
+    apache._apachectl_binary = 'apachectl'
+    monkeypatch.setattr(entityd.apacheme, '_apache_config',
+                        pytest.Mock(return_value='/etc/apache2/apache2.conf'))
     path = apache.config_path
-    assert os.path.isfile(path)
+    assert path == '/etc/apache2/apache2.conf'
 
 
 def test_config_path_fails(monkeypatch):
@@ -198,24 +236,30 @@ def test_config_path_fails(monkeypatch):
         entityd.apacheme._apache_config('httpd')
 
 
-@apachectl
-def test_config_check(apache):
+def test_config_check(apache, monkeypatch):
     """Checks the Apache config.
 
     Currently relies on the system Apache install
     """
-    assert apache.check_config() in [True, False]
+    apache._apachectl_binary = 'apachectl'
+    apache._config_path = '/etc/apache2/apache2.conf'
+    monkeypatch.setattr(subprocess, 'check_call',
+                        pytest.Mock(return_value=0))
+    assert apache.check_config() is True
 
 
-@apachectl
-def test_config_check_fails(apache, tmpdir):
-    # The check goes via the apachectl binary - how to patch?
-    path = tmpdir.join('apache.conf')
+def test_config_check_fails(apache, monkeypatch):
+    apache._apachectl_binary = 'apachectl'
+    apache._config_path = '/etc/apache2/apache2.conf'
+    monkeypatch.setattr(subprocess, 'check_call',
+                        pytest.Mock(return_value=-1))
 
-    with open(str(path), 'w') as f:
-        f.write('-ServerName localhost\n')
+    assert apache.check_config() is False
 
-    assert apache.check_config(str(path)) is False
+    monkeypatch.setattr(
+        subprocess, 'check_call',
+        pytest.Mock(side_effect=subprocess.CalledProcessError(-1, '')))
+    assert apache.check_config() is False
 
 
 @pytest.mark.parametrize("apachectl_binary,apache_binary", [
@@ -253,6 +297,13 @@ def test_config_last_modified(apache, tmpdir):
 
     assert t < apache.config_last_modified()
     assert apache.config_last_modified() < time.time()
+
+
+def test_version(apache, monkeypatch):
+    monkeypatch.setattr(subprocess, 'check_output',
+                        pytest.Mock(return_value=APACHECTL__V))
+    apache._apachectl_binary = 'apachectl'
+    assert apache.version() == b'Apache/2.4.7 (Ubuntu)'
 
 
 def test_performance_data(apache, monkeypatch):

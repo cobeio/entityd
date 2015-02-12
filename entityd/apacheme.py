@@ -63,26 +63,29 @@ class ApacheEntity:
     def entities(self):
         """Return a generator of ApacheEntity objects"""
         apache = self.apache
-        if not apache.installed or not Apache.running():
+        update = entityd.EntityUpdate('Apache')
+
+        # TODO: ID attributes: Host+Config root? Root process?
+        # TODO: multiple Apache instances?
+        if not apache.installed:
+            # If we don't have apache installed then we can't do much.
             return
-        else:
-            update = entityd.EntityUpdate('Apache')
-
-            # TODO: ID attributes: Host+Config root? Root process?
-            # TODO; add version
-            # TODO: multiple Apache instances?
-            update.attrs.set('id', 'Apache', attrtype='id')
-            update.attrs.set('version', apache.version())
-            update.attrs.set('config_path', apache.config_path)
-            update.attrs.set('config_ok', apache.check_config())
-            update.attrs.set('config_last_mod', apache.config_last_modified())
+        try:
             perfdata = apache.performance_data()
-            for name, value in perfdata.items():
-                update.attrs.set(name, value)
+        except RuntimeError:
+            # Apache isn't running so we can't get the data.
+            return
+        update.attrs.set('id', 'Apache', attrtype='id')
+        update.attrs.set('version', apache.config_path)
+        update.attrs.set('config_path', apache.config_path)
+        update.attrs.set('config_ok', apache.check_config())
+        update.attrs.set('config_last_mod', apache.config_last_modified())
+        for name, value in perfdata.items():
+            update.attrs.set(name, value)
 
-            for child in self.processes():
-                update.children.add(child)
-            yield update
+        for child in self.processes():
+            update.children.add(child)
+        yield update
 
     def processes(self):
         """Find child processes for Apache"""
@@ -127,17 +130,10 @@ class Apache:
     @property
     def installed(self):
         """Establish whether apache is installed."""
-        return self.apachectl_binary is not None
-
-    @staticmethod
-    def running():
-        """Establish whether apache is running."""
         try:
-            _get_apache_status()
+            return self.apachectl_binary is not None
         except RuntimeError:
             return False
-        else:
-            return True
 
     def version(self):
         """The Apache version as a byte string"""

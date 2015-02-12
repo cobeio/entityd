@@ -326,8 +326,76 @@ def test_performance_data_fails(apache, monkeypatch):
         apache.performance_data()
 
 
-@apachectl
-def test_get_all_includes(apache):
-    conf = apache.config_path
-    includes = entityd.apacheme._find_all_includes(conf)
-    assert b'/etc/apache2/sites-enabled/000-default.conf' in includes
+def test_get_all_includes(tmpdir):
+    config = r"""\
+        ServerName localhost
+        Mutex file:${APACHE_LOCK_DIR} default
+        PidFile ${APACHE_PID_FILE}
+        Timeout 300
+        KeepAlive On
+        MaxKeepAliveRequests 100
+        KeepAliveTimeout 5
+        User ${APACHE_RUN_USER}
+        Group ${APACHE_RUN_GROUP}
+        HostnameLookups Off
+        ErrorLog ${APACHE_LOG_DIR}/error.log
+        LogLevel warn
+        IncludeOptional mods-enabled/*.load
+        IncludeOptional mods-enabled/*.conf
+        Include ports.conf
+
+        <Directory />
+            Options FollowSymLinks
+            AllowOverride None
+            Require all denied
+        </Directory>
+
+        <Directory /usr/share>
+            AllowOverride None
+            Require all granted
+        </Directory>
+
+        <Directory /var/www/>
+            Options Indexes FollowSymLinks
+            AllowOverride None
+            Require all granted
+        </Directory>
+
+
+        AccessFileName .htaccess
+
+        <FilesMatch "^\.ht">
+            Require all denied
+        </FilesMatch>
+
+
+        LogFormat "%v:%p %h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\"" vhost_combined
+        LogFormat "%h %l %u %t \"%r\" %>s %O \"%{Referer}i\" \"%{User-Agent}i\"" combined
+        LogFormat "%h %l %u %t \"%r\" %>s %O" common
+        LogFormat "%{Referer}i -> %U" referer
+        LogFormat "%{User-agent}i" agent
+
+        # Include of directories ignores editors' and dpkg's backup files,
+        # see README.Debian for details.
+
+        # Include generic snippets of statements
+        IncludeOptional conf-enabled/*.conf
+
+        # Include the virtual host configurations:
+        IncludeOptional sites-enabled/*.conf
+    """
+
+    conf = tmpdir.join('apacheconf', 'apache2.conf')
+    with conf.open('w', ensure=True) as f:
+        f.write(config)
+
+    site = tmpdir.join('apacheconf', 'sites-enabled', '000-default.conf')
+    with site.open('w', ensure=True) as f:
+        f.write("""\
+        <VirtualHost *:80>
+            ServerAdmin webmaster@localhost
+            DocumentRoot /var/www/html
+        </VirtualHost>
+    """)
+    includes = entityd.apacheme._find_all_includes(str(conf).encode('ascii'))
+    assert str(site).encode('ascii') in includes

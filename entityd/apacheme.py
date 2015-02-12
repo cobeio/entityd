@@ -51,6 +51,11 @@ class ApacheEntity:
 
     @property
     def apache(self):
+        """The stored Apache instance.
+
+        This is stored so we don't have to rediscover the locations of
+        binaries and config files every time
+        """
         if not self._apache:
             self._apache = Apache()
         return self._apache
@@ -58,7 +63,7 @@ class ApacheEntity:
     def entities(self):
         """Return a generator of ApacheEntity objects"""
         apache = self.apache
-        if not apache.installed or not apache.running:
+        if not apache.installed or not Apache.running():
             return
         else:
             update = entityd.EntityUpdate('Apache')
@@ -88,6 +93,11 @@ class ApacheEntity:
 
 
 class Apache:
+    """Class providing access to Apache information.
+
+    Keeps track of relevant binaries and config files.
+    """
+
     def __init__(self):
         self._apachectl_binary = None
         self._apache_binary = None
@@ -95,28 +105,33 @@ class Apache:
 
     @property
     def apachectl_binary(self):
+        """The binary to call to get apache status."""
         if not self._apachectl_binary:
             self._apachectl_binary = _apachectl_binary()
         return self._apachectl_binary
 
     @property
     def apache_binary(self):
+        """The binary to check for in process lists."""
         if not self._apache_binary:
             self._apache_binary = _apache_binary(self.apachectl_binary)
         return self._apache_binary
 
     @property
     def config_path(self):
+        """The root configuration file."""
         if not self._config_path:
             self._config_path = _apache_config(self.apachectl_binary)
         return self._config_path
 
     @property
     def installed(self):
+        """Establish whether apache is installed."""
         return self.apachectl_binary is not None
 
-    @property
-    def running(self):
+    @staticmethod
+    def running():
+        """Establish whether apache is running."""
         try:
             _get_apache_status()
         except RuntimeError:
@@ -125,6 +140,7 @@ class Apache:
             return True
 
     def version(self):
+        """The Apache version as a byte string"""
         output = subprocess.check_output([self.apachectl_binary, '-v'])
         lines = output.split(b'\n')
         version = lines[0].split(b':')[1].strip()
@@ -252,6 +268,10 @@ def _find_all_includes(config_file_path):
 
 
 def _get_apache_status():
+    """Gets the response from Apache's server-status page
+
+    :returns: requests.Response with the result
+    """
     status_url = 'http://127.0.1.1:80/server-status?auto'
     try:
         response = requests.get(status_url)

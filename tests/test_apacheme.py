@@ -125,10 +125,6 @@ def test_configure(entitygen, config):
     assert config.entities['Apache'].obj is entitygen
 
 
-# TODO: Separate tests that use actual Apache, and those that don't. Try to
-# TODO: remove that dependency.
-
-
 @running_apache
 @apachectl
 def test_find_entity(entitygen):
@@ -138,7 +134,8 @@ def test_find_entity(entitygen):
         assert entity.metype == 'Apache'
         if entity.deleted:
             continue
-        # TODO: check attributes are set on entity
+        assert entity.attrs.get('version').value
+        assert os.path.isfile(entity.attrs.get('config_path').value)
         count += 1
     assert count
 
@@ -150,7 +147,8 @@ def test_find_entity_mocked_apache(patched_entitygen):
         assert entity.metype == 'Apache'
         if entity.deleted:
             continue
-        # TODO: check attributes are set on entity
+        assert entity.attrs.get('version').value
+        assert os.path.isfile(entity.attrs.get('config_path').value)
         count += 1
     assert count
 
@@ -169,8 +167,7 @@ def test_find_entity_with_attrs():
 
 @running_apache
 @apachectl
-def test_relations(pm, session, kvstore, entitygen, apache): # pylint: disable=unused-argument
-    """Apache should have at least one process in relations"""
+def test_relations(pm, session, kvstore, entitygen, apache):  # pylint: disable=unused-argument
     procent = entityd.processme.ProcessEntity()
     pm.register(procent,
                 name='entityd.processme')
@@ -221,7 +218,7 @@ def test_config_check_fails(apache, tmpdir):
     assert apache.check_config(str(path)) is False
 
 
-@pytest.mark.parametrize("apachectl_binary,apache_binary",[
+@pytest.mark.parametrize("apachectl_binary,apache_binary", [
     ('apachectl', 'apache2'),
     ('apache2ctl', 'apache2'),
     ('httpd', 'httpd')
@@ -238,13 +235,15 @@ def test_apachectl_binary_not_there(monkeypatch):
 
 
 def test_apachectl_binary_fails(monkeypatch):
-    monkeypatch.setattr(subprocess, 'check_output',
-                        pytest.Mock(side_effect=subprocess.CalledProcessError(-1, '')))
+    monkeypatch.setattr(
+        subprocess, 'check_output',
+        pytest.Mock(side_effect=subprocess.CalledProcessError(-1, ''))
+    )
     with pytest.raises(RuntimeError):
         entityd.apacheme._apachectl_binary()
 
 
-def test_config_last_modified(apache, tmpdir, monkeypatch):
+def test_config_last_modified(apache, tmpdir):
     t = time.time()
     time.sleep(.1)
     tmpfile = tmpdir.join('apache.conf')

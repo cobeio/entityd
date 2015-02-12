@@ -53,9 +53,8 @@ class ApacheEntity:
 
     def entities(self):
         """Return a generator of ApacheEntity objects"""
-        try:
-            apache = self.apache
-        except RuntimeError:
+        apache = self.apache
+        if not apache.installed or not apache.running:
             return
         else:
             update = entityd.EntityUpdate('Apache')
@@ -109,18 +108,30 @@ class Apache:
             self._config_path = _apache_config(self.apachectl_binary)
         return self._config_path
 
+    @property
+    def installed(self):
+        return self.apachectl_binary is not None
+
+    @property
+    def running(self):
+        try:
+            _get_apache_status()
+        except RuntimeError:
+            return False
+        else:
+            return True
+
     def version(self):
         output = subprocess.check_output([self.apachectl_binary, '-v'])
         lines = output.split(b'\n')
         version = lines[0].split(b':')[1].strip()
         return version
 
-    def is_running(self):
-        """Is apache running on this host?"""
-
-
     def check_config(self, path=None):
-        """Check if the config passes basic checks"""
+        """Check if the config passes basic checks.
+
+        :param path: Optionally supply a config file path to check
+        """
         if path is None:
             path = self.config_path
         try:
@@ -181,7 +192,7 @@ class Apache:
     def sites_enabled(self):
         """Get a list of sites enabled
 
-        Note: We can't actually send lists of items in attributes
+        Note: We can't actually send lists of items in attribute.
         """
         sites = []
         output = subprocess.check_output([self.apachectl_binary, '-S'])

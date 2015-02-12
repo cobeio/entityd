@@ -62,7 +62,7 @@ class ProcessEntity:
                 if 'pid' in attrs:
                     return self.process(attrs['pid'])
                 elif 'binary' in attrs:
-                    return self.filtered_processes(attrs)
+                    return self.filtered_processes({'binary': attrs['binary']})
                 raise LookupError('Attribute based filtering not supported '
                                   'for attrs {}'.format(attrs))
             return self.processes()

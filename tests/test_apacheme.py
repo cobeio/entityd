@@ -1,4 +1,5 @@
 import os
+import subprocess
 import time
 
 import pytest
@@ -96,13 +97,19 @@ def patched_entitygen(monkeypatch, pm, session):
     monkeypatch.setattr(entityd.apacheme,
                         '_get_apache_status',
                         get_func)
+
+    gen.apache._apachectl_binary = 'apachectl'
+
+    gen.apache.version = pytest.Mock(
+        return_value='Apache/2.4.7 (Ubuntu)')
+    gen.apache._config_path = b'/etc/apache2/apache2.conf'
+    gen.apache.check_config = pytest.Mock(
+        return_value=True
+    )
+    gen.apache.sites_enabled = pytest.Mock(
+        return_value=[]
+    )
     return gen
-
-
-@pytest.fixture
-def entity(patched_entitygen):
-    entity = next(patched_entitygen.entityd_find_entity('Apache', None))
-    return entity
 
 
 @pytest.fixture
@@ -127,7 +134,19 @@ def test_configure(entitygen, config):
 
 @running_apache
 @apachectl
-def test_find_entity(patched_entitygen):
+def test_find_entity(entitygen):
+    entities = entitygen.entityd_find_entity('Apache', None)
+    count = 0
+    for entity in entities:
+        assert entity.metype == 'Apache'
+        if entity.deleted:
+            continue
+        # TODO: check attributes are set on entity
+        count += 1
+    assert count
+
+
+def test_find_entity_mocked_apache(patched_entitygen):
     entities = patched_entitygen.entityd_find_entity('Apache', None)
     count = 0
     for entity in entities:
@@ -139,6 +158,13 @@ def test_find_entity(patched_entitygen):
     assert count
 
 
+def test_find_entity_no_apache(patched_entitygen, monkeypatch):
+    monkeypatch.setattr(entityd.apacheme, '_get_apache_status',
+                        pytest.Mock(side_effect=RuntimeError))
+    gen = patched_entitygen.entityd_find_entity('Apache', None)
+    assert list(gen) == []
+
+
 def test_find_entity_with_attrs():
     with pytest.raises(LookupError):
         entityd.apacheme.ApacheEntity().entityd_find_entity('Apache', {})
@@ -146,14 +172,13 @@ def test_find_entity_with_attrs():
 
 @running_apache
 @apachectl
-def test_relations(pm, session, kvstore, patched_entitygen): # pylint: disable=unused-argument
+def test_relations(pm, session, kvstore, entitygen, apache): # pylint: disable=unused-argument
     """Apache should have at least one process in relations"""
     procent = entityd.processme.ProcessEntity()
     pm.register(procent,
                 name='entityd.processme')
     procent.entityd_sessionstart(session)
 
-    apache = entityd.apacheme.Apache()
     binary = apache.apache_binary
     processes = procent.entityd_find_entity('Process',
                                             attrs={'binary': binary})
@@ -161,7 +186,7 @@ def test_relations(pm, session, kvstore, patched_entitygen): # pylint: disable=u
     for p in procs:
         assert p.metype == 'Process'
         assert p.attrs.get('binary').value == binary
-    entity = next(patched_entitygen.entityd_find_entity('Apache', attrs=None))
+    entity = next(entitygen.entityd_find_entity('Apache', attrs=None))
     assert len(entity.children._relations) == len(procs)
     assert entity.children._relations == set(p.ueid for p in procs)
 
@@ -170,6 +195,13 @@ def test_relations(pm, session, kvstore, patched_entitygen): # pylint: disable=u
 def test_config_path(apache):
     path = apache.config_path
     assert os.path.isfile(path)
+
+
+def test_config_path_fails(monkeypatch):
+    monkeypatch.setattr(subprocess, 'check_output', pytest.Mock(
+        return_value=b'no config file here'))
+    with pytest.raises(RuntimeError):
+        entityd.apacheme._apache_config('httpd')
 
 
 @apachectl
@@ -184,7 +216,6 @@ def test_config_check(apache):
 @apachectl
 def test_config_check_fails(apache, tmpdir):
     # The check goes via the apachectl binary - how to patch?
-    #
     path = tmpdir.join('apache.conf')
 
     with open(str(path), 'w') as f:
@@ -193,9 +224,20 @@ def test_config_check_fails(apache, tmpdir):
     assert apache.check_config(str(path)) is False
 
 
-def test_rhel():
-    # TODO: How do we run a test that works for httpd (on rhel)?
-    pass
+@pytest.mark.parametrize("apachectl_binary,apache_binary",[
+    ('apachectl', 'apache2'),
+    ('apache2ctl', 'apache2'),
+    ('httpd', 'httpd')
+])
+def test_apache_binary(apachectl_binary, apache_binary):
+    assert entityd.apacheme._apache_binary(apachectl_binary) == apache_binary
+
+
+def test_apachectl_binary_not_there(monkeypatch):
+    monkeypatch.setattr(subprocess, 'check_output',
+                        pytest.Mock(side_effect=FileNotFoundError))
+    with pytest.raises(RuntimeError):
+        entityd.apacheme._apachectl_binary()
 
 
 def test_config_last_modified(apache, tmpdir, monkeypatch):

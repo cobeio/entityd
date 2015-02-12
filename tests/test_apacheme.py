@@ -106,9 +106,6 @@ def patched_entitygen(monkeypatch, pm, session):
     gen.apache.check_config = pytest.Mock(
         return_value=True
     )
-    gen.apache.sites_enabled = pytest.Mock(
-        return_value=[]
-    )
     return gen
 
 
@@ -240,6 +237,13 @@ def test_apachectl_binary_not_there(monkeypatch):
         entityd.apacheme._apachectl_binary()
 
 
+def test_apachectl_binary_fails(monkeypatch):
+    monkeypatch.setattr(subprocess, 'check_output',
+                        pytest.Mock(side_effect=subprocess.CalledProcessError(-1, '')))
+    with pytest.raises(RuntimeError):
+        entityd.apacheme._apachectl_binary()
+
+
 def test_config_last_modified(apache, tmpdir, monkeypatch):
     t = time.time()
     time.sleep(.1)
@@ -321,11 +325,6 @@ def test_performance_data_fails(apache, monkeypatch):
                             side_effect=requests.exceptions.ConnectionError))
     with pytest.raises(RuntimeError):
         apache.performance_data()
-
-
-@apachectl
-def test_sites_enabled(apache):
-    assert isinstance(apache.sites_enabled(), list)
 
 
 @apachectl

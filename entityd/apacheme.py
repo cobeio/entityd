@@ -1,12 +1,16 @@
 """Entity providing monitoring information on an Apache2 service"""
 
 import glob
+import logging
 import os
 import subprocess
 
 import requests
 
 import entityd.pm
+
+
+logging.getLogger('requests').setLevel(logging.WARNING)
 
 
 @entityd.pm.hookimpl
@@ -71,7 +75,6 @@ class ApacheEntity:
             for name, value in perfdata.items():
                 update.attrs.set(name, value)
 
-            update.attrs.set('SitesEnabled', apache.sites_enabled())
             for child in self.processes():
                 update.children.add(child)
             yield update
@@ -135,8 +138,10 @@ class Apache:
         if path is None:
             path = self.config_path
         try:
-            exit_code = subprocess.check_call([self.apachectl_binary, '-t',
-                                               '-f', path])
+            exit_code = subprocess.check_call(
+                [self.apachectl_binary, '-t', '-f', path],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.STDOUT)
             return exit_code == 0
         except subprocess.CalledProcessError:
             return False
@@ -188,19 +193,6 @@ class Apache:
                     perfdata[desc] = scoreboard.count(symbol)
 
         return perfdata
-
-    def sites_enabled(self):
-        """Get a list of sites enabled
-
-        Note: We can't actually send lists of items in attribute.
-        """
-        sites = []
-        output = subprocess.check_output([self.apachectl_binary, '-S'])
-        for line in output.split(b'\n'):
-            print(line)
-            # TODO: Extract site details
-            # TODO: These will be included as additional entities (child rel)
-        return sites
 
 
 def _apache_config(binary):

@@ -44,12 +44,12 @@ def main(argv=None, plugins=None):
         try:
             plugin = importlib.import_module(name)
         except Exception:       # pylint: disable=broad-except
-            log.exception('Failed to import plugin: {}'.format(name))
+            log.exception('Failed to import plugin: %s', name)
             continue
         try:
             pluginmanager.register(plugin)
         except Exception:       # pylint: disable=broad-except
-            log.exception('Failed to register plugin: {}'.format(name))
+            log.exception('Failed to register plugin: %s', name)
     return pluginmanager.hooks.entityd_main(
         pluginmanager=pluginmanager,
         argv=argv,

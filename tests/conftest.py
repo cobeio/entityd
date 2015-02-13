@@ -1,5 +1,6 @@
 """Local py.test plugin."""
 
+import types
 import unittest.mock
 
 import pytest
@@ -22,7 +23,7 @@ def pm():
 @pytest.fixture
 def config(pm):
     """An entityd.core.Config instance."""
-    return entityd.core.Config(pm, [])
+    return entityd.core.Config(pm, types.SimpleNamespace())
 
 
 @pytest.fixture

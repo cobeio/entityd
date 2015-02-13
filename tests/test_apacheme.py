@@ -7,6 +7,7 @@ import requests
 
 import entityd.apacheme
 import entityd.core
+import entityd.hostme
 import entityd.processme
 
 
@@ -201,6 +202,11 @@ def test_relations(pm, session, kvstore, patched_entitygen):  # pylint: disable=
                 name='entityd.processme')
     procent.entityd_sessionstart(session)
 
+    hostgen = entityd.hostme.HostEntity()
+    pm.register(hostgen, name='entityd.hostme')
+    hostgen.entityd_sessionstart(session)
+    hosts = hostgen.entityd_find_entity('Host', None)
+
     # Use py.test as a binary so we're not dependent on apache running.
     gen.apache._apache_binary = 'py.test'
     processes = procent.entityd_find_entity(
@@ -213,6 +219,9 @@ def test_relations(pm, session, kvstore, patched_entitygen):  # pylint: disable=
     entity = next(gen.entityd_find_entity('Apache', attrs=None))
     assert len(entity.children._relations) == len(procs)
     assert entity.children._relations == set(p.ueid for p in procs)
+
+    assert len(entity.parents._relations) == 1
+    assert entity.parents._relations == set(host.ueid for host in hosts)
 
 
 def test_config_path_from_file(apache, monkeypatch):

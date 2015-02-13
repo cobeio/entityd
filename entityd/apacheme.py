@@ -28,6 +28,7 @@ class ApacheEntity:
     def __init__(self):
         self.session = None
         self._apache = None
+        self._host = None
 
     @staticmethod
     @entityd.pm.hookimpl
@@ -60,6 +61,19 @@ class ApacheEntity:
             self._apache = Apache()
         return self._apache
 
+    @property
+    def host(self):
+        """Get and store the host entity."""
+        if self._host:
+            return self._host
+        results = self.session.pluginmanager.hooks.entityd_find_entity(
+            name='Host', attrs=None)
+        for hosts in results:
+            for host in hosts:
+                self._host = host
+                return self._host
+        return None
+
     def entities(self):
         """Return a generator of ApacheEntity objects"""
         apache = self.apache
@@ -85,6 +99,10 @@ class ApacheEntity:
 
         for child in self.processes():
             update.children.add(child)
+
+        if self.host:
+            update.parents.add(self.host)
+
         yield update
 
     def processes(self):

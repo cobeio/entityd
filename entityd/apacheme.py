@@ -29,6 +29,7 @@ class ApacheEntity:
         self.session = None
         self._apache = None
         self._host = None
+        self._last_ueid = None
 
     @staticmethod
     @entityd.pm.hookimpl
@@ -83,11 +84,21 @@ class ApacheEntity:
         # TODO: multiple Apache instances?
         if not apache.installed:
             # If we don't have apache installed then we can't do much.
+            if self._last_ueid:
+                update = entityd.EntityUpdate('Apache', self._last_ueid)
+                update.delete()
+                print('Deleting - no binaries')
+                yield update
             return
         try:
             perfdata = apache.performance_data()
         except RuntimeError:
             # Apache isn't running so we can't get the data.
+            if self._last_ueid:
+                update = entityd.EntityUpdate('Apache', self._last_ueid)
+                update.delete()
+                print('Deleting - no status')
+                yield update
             return
         update.attrs.set('id', 'Apache', attrtype='id')
         update.attrs.set('version', apache.config_path)
@@ -103,6 +114,7 @@ class ApacheEntity:
         if self.host:
             update.parents.add(self.host)
 
+        self._last_ueid = update.ueid
         yield update
 
     def processes(self):

@@ -195,6 +195,31 @@ def test_find_entity_with_attrs():
         entityd.apacheme.ApacheEntity().entityd_find_entity('Apache', {})
 
 
+def test_entity_deleted_installed(patched_entitygen, monkeypatch):
+    gen = patched_entitygen.entityd_find_entity('Apache', None)
+    last_entity = next(gen)
+    last_ueid = last_entity.ueid
+    monkeypatch.setattr(entityd.apacheme, '_apachectl_binary',
+                        pytest.Mock(side_effect=RuntimeError))
+    patched_entitygen.apache._apachectl_binary = None
+    gen = patched_entitygen.entityd_find_entity('Apache', None)
+    entity = next(gen)
+    assert entity.deleted
+    assert entity.ueid == last_ueid
+
+
+def test_entity_deleted_running(patched_entitygen, monkeypatch):
+    gen = patched_entitygen.entityd_find_entity('Apache', None)
+    last_entity = next(gen)
+    last_ueid = last_entity.ueid
+    monkeypatch.setattr(entityd.apacheme, '_get_apache_status',
+                        pytest.Mock(side_effect=RuntimeError))
+    gen = patched_entitygen.entityd_find_entity('Apache', None)
+    entity = next(gen)
+    assert entity.deleted
+    assert entity.ueid == last_ueid
+
+
 def test_relations(pm, session, kvstore, patched_entitygen):  # pylint: disable=unused-argument
     gen = patched_entitygen
     procent = entityd.processme.ProcessEntity()

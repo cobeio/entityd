@@ -271,10 +271,6 @@ def test_config_path_fails(monkeypatch):
 
 
 def test_config_check(apache, monkeypatch):
-    """Checks the Apache config.
-
-    Currently relies on the system Apache install
-    """
     apache._apachectl_binary = 'apachectl'
     apache._config_path = '/etc/apache2/apache2.conf'
     monkeypatch.setattr(subprocess, 'check_call',

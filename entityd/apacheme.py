@@ -1,4 +1,4 @@
-"""Entity providing monitoring information on an Apache2 service"""
+"""Entity providing monitoring information on an Apache2 service."""
 
 import glob
 import logging
@@ -23,7 +23,7 @@ def entityd_plugin_registered(pluginmanager, name):
 
 
 class ApacheEntity:
-    """Class for all things related to Apache"""
+    """Class to generate Apache MEs."""
 
     def __init__(self):
         self.session = None
@@ -56,7 +56,7 @@ class ApacheEntity:
         """The stored Apache instance.
 
         This is stored so we don't have to rediscover the locations of
-        binaries and config files every time
+        binaries and config files every time.
         """
         if not self._apache:
             self._apache = Apache()
@@ -80,24 +80,18 @@ class ApacheEntity:
         apache = self.apache
         update = entityd.EntityUpdate('Apache')
 
-        # TODO: ID attributes: Host+Config root? Root process?
-        # TODO: multiple Apache instances?
         if not apache.installed:
-            # If we don't have apache installed then we can't do much.
             if self._last_ueid:
                 update = entityd.EntityUpdate('Apache', self._last_ueid)
                 update.delete()
-                print('Deleting - no binaries')
                 yield update
             return
         try:
             perfdata = apache.performance_data()
         except RuntimeError:
-            # Apache isn't running so we can't get the data.
             if self._last_ueid:
                 update = entityd.EntityUpdate('Apache', self._last_ueid)
                 update.delete()
-                print('Deleting - no status')
                 yield update
             return
         update.attrs.set('id', 'Apache', attrtype='id')
@@ -166,7 +160,7 @@ class Apache:
             return False
 
     def version(self):
-        """The Apache version as a byte string"""
+        """The Apache version as a byte string."""
         output = subprocess.check_output([self.apachectl_binary, '-v'])
         lines = output.split(b'\n')
         version = lines[0].split(b':')[1].strip()
@@ -175,7 +169,7 @@ class Apache:
     def check_config(self, path=None):
         """Check if the config passes basic checks.
 
-        :param path: Optionally supply a config file path to check
+        :param path: Optionally supply a config file path to check.
         """
         if path is None:
             path = self.config_path
@@ -189,7 +183,7 @@ class Apache:
             return False
 
     def config_last_modified(self):
-        """Return the most recent last modified date on config files"""
+        """Return the most recent last modified date on config files."""
         config_files = _find_all_includes(self.config_path)
         last_mod = None
         for file in [self.config_path] + config_files:
@@ -200,7 +194,10 @@ class Apache:
 
     @staticmethod
     def performance_data():
-        """Return information from mod_status"""
+        """Apache performance information from mod_status.
+
+        :returns: Dictionary with performance data.
+        """
         perfdata = {}
         response = _get_apache_status()
         lines = response.text.split('\n')
@@ -238,7 +235,10 @@ class Apache:
 
 
 def _apache_config(binary):
-    """Find the location of apache config files"""
+    """Find the location of apache config files.
+
+    :param binary: The path to the apachectl binary to use.
+    """
     output = subprocess.check_output([binary, '-V'])
     config_file = config_path = None
     for line in output.split(b'\n'):
@@ -269,16 +269,23 @@ def _apachectl_binary():
     raise RuntimeError("Apache executable not found.")
 
 
-def _apache_binary(apachectl_binary):
-    """What process will Apache be running as"""
-    if apachectl_binary in ['apachectl', 'apache2ctl']:
+def _apache_binary(binary):
+    """Get the process that Apache will be running as.
+
+    :param binary: The path to the apachectl binary to use.
+    """
+    if binary in ['apachectl', 'apache2ctl']:
         return 'apache2'
     else:
         return 'httpd'
 
 
 def _find_all_includes(config_file_path):
-    """Find all included config files in ``config_file_path``."""
+    """Find all included config files in this file.
+
+    :param config_file_path: The path to check.
+    :returns: A list of file paths.
+    """
     include_globs = []
     with open(config_file_path, 'rb') as config:
         for line in config:
@@ -294,9 +301,9 @@ def _find_all_includes(config_file_path):
 
 
 def _get_apache_status():
-    """Gets the response from Apache's server-status page
+    """Gets the response from Apache's server-status page.
 
-    :returns: requests.Response with the result
+    :returns: requests.Response with the result.
     """
     status_url = 'http://127.0.1.1:80/server-status?auto'
     try:

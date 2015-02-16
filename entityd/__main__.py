@@ -31,7 +31,6 @@ def main(argv=None, plugins=None):
     the ``entityd_main()`` hook.
 
     """
-    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
     if plugins is None:
         plugins = BUILTIN_PLUGIN_NAMES
     pluginmanager = entityd.pm.PluginManager()

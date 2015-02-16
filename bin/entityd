@@ -1,0 +1,7 @@
+#!/usr/bin/env python3
+"""The Abilisoft Entity Daemon."""
+
+import entityd.__main__
+
+
+entityd.__main__.main()

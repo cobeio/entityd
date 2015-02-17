@@ -20,6 +20,10 @@ import entityd.pm
 log = logging.getLogger(__name__)
 
 
+class ValidationError(Exception):
+    pass
+
+
 @entityd.pm.hookimpl
 def entityd_plugin_registered(pluginmanager, name):
     """Called to register the plugin."""
@@ -63,8 +67,7 @@ class DeclerativeEntity:
     @entityd.pm.hookimpl
     def entityd_configure(self, config):
         """Configure the declerative entity creator with the dir path."""
-        if hasattr(config.args, 'declentity_dir'):
-            self._path = config.args.declentity_dir
+        self._path = config.args.declentity_dir
 
     @entityd.pm.hookimpl(after='entityd.kvstore')
     def entityd_sessionstart(self, session):
@@ -74,8 +77,8 @@ class DeclerativeEntity:
         loaded_values = session.svc.kvstore.getmany(self.prefix)
         for key, ent_type in loaded_values.items():
             ueid = base64.b64decode(key.split(':', 1)[1])
-            expected = self._create_declerative_entity(
-                self._conf_attrs.get(ent_type, dict(type=ent_type))).ueid
+            data = self._validate_conf(self._conf_attrs.get(ent_type, dict(type=ent_type)))
+            expected = self._create_declerative_entity(data).ueid
             if ueid not in expected:
                 self._deleted[ent_type].add(ueid)
 
@@ -99,6 +102,7 @@ class DeclerativeEntity:
     def entityd_find_entity(self, name, attrs):
         """Return an iterator of Monitored Entities.
 
+        :param name: The name of the entity type to return.
         :param attrs: A dictionary of attributes to filter return entities on.
         """
         if name in self._deleted.keys():
@@ -150,28 +154,38 @@ class DeclerativeEntity:
                         continue
                 for data in load_data:
                     if not isinstance(data, dict):
-                        log.warning("Error loading file %s", filepath)
+                        log.warning("Error loading file %s, one or more entity"
+                                    "declarations not loaded.", filepath)
                         continue
                     data['filepath'] = filepath
-                    self._add_conf(data)
+                    try:
+                        data = self._validate_conf(data)
+                    except ValidationError:
+                        pass
+                    else:
+                        self._add_conf(data)
 
+    def _validate_conf(self, data):
+        """Add entity config data to the conf_data dictionary.
 
-    def _add_conf(self, data):
-        """Add entity config data to the conf_data dictionary
+        :param data: A dictionary of entity configuration data to store.
         """
         if 'type' not in data.keys():
             log.warning("No type field found in file %s", data.get('filepath'))
-            return
+            raise ValidationError
         if '/' in data['type']:
             log.warning("Invalid entity specification in file %s, "
                         "'\\' not allowed.", data.get('filepath'))
-            return
-        if 'attrs' not in data.keys():
-            data['attrs'] = dict()
-        if 'parents' not in data.keys():
-            data['parents'] = list()
+            raise ValidationError
+        data.setdefault('filepath', '')
+        data.setdefault('attrs', dict())
+        data.setdefault('children', list())
+        data.setdefault('parents', list())
         if {'type': 'Host'} not in data['parents']:
             data['parents'].append({'type': 'Host'})
+        return data
+
+    def _add_conf(self, data):
         self._conf_attrs[data['type']].append(data)
         try:
             self.session.config.addentity(
@@ -199,11 +213,9 @@ class DeclerativeEntity:
         # Parents and children are generators, not sets, to delay evaluation
         # allowing for successful recursive relationships.
         entity = entityd.EntityUpdate(conf_attrs.get('type'))
-        entity.attrs.set('filepath',
-                         conf_attrs.get('filepath', ''),
-                         attrtype='id')
+        entity.attrs.set('filepath', conf_attrs['filepath'], attrtype='id')
         entity.attrs.set('host', self.host_ueid, attrtype='id')
-        for name, value in conf_attrs.get('attrs', dict()).items():
+        for name, value in conf_attrs['attrs'].items():
             if isinstance(value, dict):
                 attr_type = value.get('type', None)
                 attr_val = value.get('value', None)
@@ -215,11 +227,11 @@ class DeclerativeEntity:
         # pylint: disable=protected-access
         entity.children._relations = (
             entity.ueid for entity in self._find_entities(
-                conf_attrs.get('children', list())))
+                conf_attrs['children']))
 
         entity.parents._relations = (
             entity.ueid for entity in self._find_entities(
-                conf_attrs.get('parents', list())))
+                conf_attrs['parents']))
         return entity
 
     def _find_entities(self, args):

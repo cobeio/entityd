@@ -213,6 +213,7 @@ def test_deleted_ueid_sent_on_get(declent, config, session, conf_file):
 
 
 def test_find_deleted_with_attrs(declent, config, session):
+    config.args.declentity_dir = '/tmp'
     declent._deleted['Test'].add('DeletedUEID')
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
@@ -233,6 +234,7 @@ def conf_attrs():
                 },
         },
         'children': [],
+        'parents': []
     }
 
 

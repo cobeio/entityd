@@ -10,9 +10,6 @@ import requests
 import entityd.pm
 
 
-logging.getLogger('requests').setLevel(logging.WARNING)
-
-
 @entityd.pm.hookimpl
 def entityd_plugin_registered(pluginmanager, name):
     """Called to register the plugin."""
@@ -34,8 +31,14 @@ class ApacheEntity:
     @staticmethod
     @entityd.pm.hookimpl
     def entityd_configure(config):
-        """Register the Apache Monitored Entity."""
+        """Configure this entity.
+
+        Register the Apache Monitored Entity.
+        Reduce logging noise of requests library.
+        """
         config.addentity('Apache', 'entityd.apacheme.ApacheEntity')
+        logging.getLogger('requests').setLevel(logging.WARNING)
+
 
     @entityd.pm.hookimpl()
     def entityd_sessionstart(self, session):
@@ -73,13 +76,11 @@ class ApacheEntity:
             for host in hosts:
                 self._host = host
                 return self._host
-        return None
 
     def entities(self):
         """Return a generator of ApacheEntity objects"""
         apache = self.apache
         update = entityd.EntityUpdate('Apache')
-
         if not apache.installed:
             if self._last_ueid:
                 update = entityd.EntityUpdate('Apache', self._last_ueid)
@@ -101,13 +102,10 @@ class ApacheEntity:
         update.attrs.set('config_last_mod', apache.config_last_modified())
         for name, value in perfdata.items():
             update.attrs.set(name, value)
-
         for child in self.processes():
             update.children.add(child)
-
         if self.host:
             update.parents.add(self.host)
-
         self._last_ueid = update.ueid
         yield update
 
@@ -186,12 +184,8 @@ class Apache:
     def config_last_modified(self):
         """Return the most recent last modified date on config files."""
         config_files = _find_all_includes(self.config_path)
-        last_mod = None
-        for file in [self.config_path] + config_files:
-            file_lastmod = os.path.getmtime(file)
-            if last_mod is None or file_lastmod > last_mod:
-                last_mod = file_lastmod
-        return last_mod
+        return max(os.path.getmtime(file) for file in
+                   [self.config_path] + config_files)
 
     @staticmethod
     def performance_data():
@@ -231,7 +225,6 @@ class Apache:
                 }
                 for symbol, desc in names.items():
                     perfdata[desc] = scoreboard.count(symbol)
-
         return perfdata
 
 

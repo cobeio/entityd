@@ -124,10 +124,11 @@ def test_load_files_on_start(declent, config, session, conf_file):
     assert attrs['attrs']['owner'] == 'admin@default'
     assert attrs['attrs']['dict'] == {'value': 'a_value', 'type': 'a_type'}
     assert attrs['filepath'] == conf_file.strpath
-    assert attrs['children'][0]['type'] == 'Process'
-    assert attrs['children'][0]['command'] == 'proccommand -a'
-    assert attrs['children'][1]['type'] == 'File'
-    assert attrs['children'][1]['path'] == '/path/to/file'
+    assert isinstance(attrs['children'][0], entityd.declentity.RelDesc)
+    assert attrs['children'][0].type == 'Process'
+    assert attrs['children'][0].attrs['command'] == 'proccommand -a'
+    assert attrs['children'][1].type == 'File'
+    assert attrs['children'][1].attrs['path'] == '/path/to/file'
 
 
 def test_load_file_no_type(declent, config, session, tmpdir, caplog):
@@ -179,8 +180,27 @@ def test_invalid_type(declent, config, session, tmpdir, caplog):
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     assert 'Invalid/Type' not in declent._conf_attrs.keys()
-    assert 'Invalid entity specification' in caplog.text()
+    assert 'not allowed in type' in caplog.text()
 
+def test_invalid_relation(declent, config, session, tmpdir, caplog):
+    conf_file = tmpdir.join('test.conf')
+    conf_file.write("""
+        type: Test
+        children:
+            - - one
+              - two
+            - two
+            - three
+        """)
+    config.args.declentity_dir = tmpdir.strpath
+    declent.entityd_configure(config)
+    declent.entityd_sessionstart(session)
+    assert 'Test' not in declent._conf_attrs.keys()
+    assert 'Bad relation' in caplog.text()
+
+def test_revalidate_relations(declent, session, config, conf_file):
+    relations = [entityd.declentity.RelDesc('Test', {})]
+    assert declent._validate_relations(relations) == relations
 
 def test_deleted_on_file_remove(declent, session, config, conf_file):
     config.args.declentity_dir = os.path.split(conf_file.strpath)[0]
@@ -232,6 +252,7 @@ def conf_attrs():
                 'value': 'a_value',
                 'type': 'a_type'
                 },
+            'type': 'attribute_called_type'
         },
         'children': [],
         'parents': []
@@ -250,6 +271,7 @@ def test_create_service_me(declent, conf_attrs, session):
     assert entity.attrs.get('filepath').type == 'id'
     assert entity.attrs.get('a_dict').value == 'a_value'
     assert entity.attrs.get('a_dict').type == 'a_type'
+    assert entity.attrs.get('type').value == 'attribute_called_type'
 
 
 def test_find_entity(declent, conf_attrs, monkeypatch, session):
@@ -259,8 +281,7 @@ def test_find_entity(declent, conf_attrs, monkeypatch, session):
     monkeypatch.setattr(session.pluginmanager.hooks,
                         'entityd_find_entity',
                         pytest.Mock(return_value=[[ent, ]]))
-    entity = declent._find_entities([
-        {'type': 'Process', 'command': 'procCommand'}])
+    entity = declent._find_entities('Process', {'command': 'procCommand'})
     assert next(entity) == ent
 
 
@@ -273,8 +294,7 @@ def test_find_entity_regex(declent, conf_attrs, monkeypatch, session):
     monkeypatch.setattr(session.pluginmanager.hooks,
                         'entityd_find_entity',
                         pytest.Mock(return_value=[ents]))
-    found_ents = declent._find_entities([
-        {'type': 'Process', 'command': 'cmd[0-9]'}])
+    found_ents = declent._find_entities('Process', {'command': 'cmd[0-9]'})
     count = 0
     for entity in found_ents:
         assert entity in ents[:-1]
@@ -290,11 +310,10 @@ def test_find_entity_invalid_key(declent, session, monkeypatch):
     monkeypatch.setattr(session.pluginmanager.hooks,
                         'entityd_find_entity',
                         pytest.Mock(return_value=[ents]))
-    found_ents = declent._find_entities([
-        {'type': 'Process', 'bacon': 'eggs'}])
-    assert next(found_ents) == ents[1]
+    found_entities = declent._find_entities('Process', {'bacon': 'eggs'})
+    assert next(found_entities) == ents[1]
     with pytest.raises(StopIteration):
-        next(found_ents)
+        next(found_entities)
 
 
 def test_entityd_find_entity(declent, session, config, conf_file):
@@ -415,9 +434,9 @@ def test_relation_without_type(declent, session, config, tmpdir, caplog):
     config.args.declentity_dir = tmpdir.strpath
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
-    found_ents = next(declent.entityd_find_entity('Test', None))
-    assert list(found_ents.children) == list()
-    assert "'type' required" in caplog.text()
+    with pytest.raises(StopIteration):
+        next(declent.entityd_find_entity('Test', None))
+    assert "'type' is required" in caplog.text()
 
 
 def test_recursive_relation(declent, session, config, tmpdir, caplog):

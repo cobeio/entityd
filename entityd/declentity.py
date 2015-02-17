@@ -21,6 +21,7 @@ log = logging.getLogger(__name__)
 
 
 class ValidationError(Exception):
+    """Error in validating data from entity declaration file."""
     pass
 
 
@@ -41,6 +42,9 @@ def entityd_addoption(parser):
         type=str,
         help=('Directory to scan for entity declaration files.'),
     )
+
+
+RelDesc = collections.namedtuple('RelationDescription', ['type', 'attrs'])
 
 
 class DeclerativeEntity:
@@ -77,7 +81,8 @@ class DeclerativeEntity:
         loaded_values = session.svc.kvstore.getmany(self.prefix)
         for key, ent_type in loaded_values.items():
             ueid = base64.b64decode(key.split(':', 1)[1])
-            data = self._validate_conf(self._conf_attrs.get(ent_type, dict(type=ent_type)))
+            data = self._validate_conf(
+                self._conf_attrs.get(ent_type, dict(type=ent_type)))
             expected = self._create_declerative_entity(data).ueid
             if ueid not in expected:
                 self._deleted[ent_type].add(ueid)
@@ -149,43 +154,82 @@ class DeclerativeEntity:
                     try:
                         load_data = list(yaml.safe_load_all(openfile))
                     except yaml.scanner.ScannerError as err:
-                        log.warning("Error loading file %s: %s",
+                        log.warning('Error loading file %s: %s',
                                     filepath, err)
                         continue
                 for data in load_data:
                     if not isinstance(data, dict):
-                        log.warning("Error loading file %s, one or more entity"
-                                    "declarations not loaded.", filepath)
+                        log.warning('Error loading file %s, one or more entity'
+                                    'declarations not loaded.', filepath)
                         continue
                     data['filepath'] = filepath
                     try:
                         data = self._validate_conf(data)
-                    except ValidationError:
-                        pass
+                    except ValidationError as err:
+                        log.warning('Error validating entity declaration '
+                                    'in %s: %s', filepath, err)
                     else:
                         self._add_conf(data)
 
-    def _validate_conf(self, data):
-        """Add entity config data to the conf_data dictionary.
+    @staticmethod
+    def _validate_conf(data):
+        """Validate the dictionary `data` as containing an entity description.
 
         :param data: A dictionary of entity configuration data to store.
+
+        Returns a dictionary of the validated configuration data.
+
+        Raises ValidationError if any of the elements cannot be validated.
         """
         if 'type' not in data.keys():
-            log.warning("No type field found in file %s", data.get('filepath'))
-            raise ValidationError
+            raise ValidationError('No type field found in entity.')
         if '/' in data['type']:
-            log.warning("Invalid entity specification in file %s, "
-                        "'\\' not allowed.", data.get('filepath'))
-            raise ValidationError
+            raise ValidationError("'/' not allowed in type field.")
         data.setdefault('filepath', '')
         data.setdefault('attrs', dict())
-        data.setdefault('children', list())
-        data.setdefault('parents', list())
-        if {'type': 'Host'} not in data['parents']:
-            data['parents'].append({'type': 'Host'})
+        data['children'] = DeclerativeEntity._validate_relations(
+            data.get('children', []))
+        data['parents'] = DeclerativeEntity._validate_relations(
+            data.get('parents', []))
+
+        if RelDesc('Host', {}) not in data['parents']:
+            data['parents'].append(RelDesc('Host', {}))
         return data
 
+    @staticmethod
+    def _validate_relations(rel_list):
+        """Validate a list of relations, converting them to RelDesc tuples.
+
+        :param rel_list: A list of relations which will be validated
+
+        Returns a list of RelDesc tuples matching the dictionaries in the
+        original rel_list.
+
+        Raises ValidationError if any of the relations cannot be validated.
+        """
+        validated = []
+        for desc in rel_list:
+            if isinstance(desc, RelDesc):
+                validated.append(desc)
+            elif isinstance(desc, dict):
+                try:
+                    relation = RelDesc(desc.pop('type'), desc)
+                except KeyError:
+                    raise ValidationError(
+                        "'type' is required for relation definition")
+                else:
+                    validated.append(relation)
+            else:
+                raise ValidationError(
+                    'Bad relation description, expected dictionary, got {}'
+                    .format(type(desc).__name__))
+        return validated
+
     def _add_conf(self, data):
+        """Add the configuration given in `data` to the list of known data.
+
+        :param data: A dictionary of pre-validated entity confiuration data.
+        """
         self._conf_attrs[data['type']].append(data)
         try:
             self.session.config.addentity(
@@ -204,18 +248,20 @@ class DeclerativeEntity:
                 self._host_ueid = host_me.ueid
         return self._host_ueid
 
-    def _create_declerative_entity(self, conf_attrs):
+    def _create_declerative_entity(self, config_properties):
         """Create a new declerative entity structure for the file.
 
-        :param conf_attrs: A dictionary of attributes to use when creating the
-                           entity.
+        :param config_properties: A dictionary of properties to use when
+                                  creating the entity.
         """
         # Parents and children are generators, not sets, to delay evaluation
         # allowing for successful recursive relationships.
-        entity = entityd.EntityUpdate(conf_attrs.get('type'))
-        entity.attrs.set('filepath', conf_attrs['filepath'], attrtype='id')
+        entity = entityd.EntityUpdate(config_properties.get('type'))
+        entity.attrs.set('filepath',
+                         config_properties['filepath'],
+                         attrtype='id')
         entity.attrs.set('host', self.host_ueid, attrtype='id')
-        for name, value in conf_attrs['attrs'].items():
+        for name, value in config_properties['attrs'].items():
             if isinstance(value, dict):
                 attr_type = value.get('type', None)
                 attr_val = value.get('value', None)
@@ -225,52 +271,47 @@ class DeclerativeEntity:
             entity.attrs.set(name, attr_val, attrtype=attr_type)
 
         # pylint: disable=protected-access
-        entity.children._relations = (
-            entity.ueid for entity in self._find_entities(
-                conf_attrs['children']))
-
         entity.parents._relations = (
-            entity.ueid for entity in self._find_entities(
-                conf_attrs['parents']))
+            entity.ueid for relation in config_properties['parents']
+            for entity in self._find_entities(relation.type, relation.attrs)
+        )
+
+        entity.children._relations = (
+            entity.ueid for relation in config_properties['children']
+            for entity in self._find_entities(relation.type, relation.attrs)
+        )
+
         return entity
 
-    def _find_entities(self, args):
-        """Find entities based on the descriptions given in `args`.
+    def _find_entities(self, entity_type, attrs):
+        """Find entities of type entity_type matching the description in attrs.
 
         Returns a generator of all matching entities.
 
-        :param args: A list of dictionaries describing the entities to find.
-            Each dictionary must have the key `type` whose value is the type
-                of entity to find.
-            All other keys in the dictionary should be attribute names.
-            The value of all other keys should be regular expressions which
+        :param entity_type: The type of the entity to find
+
+        :param attrs: A dictionary of the attributes of the entity to find.
+            The keys of the dictionary should be the attribute name.
+            The values of the dictionary should be regular expressions which
                 will be matched against the value of the attribute in the
                 entities found.
             There can be any number of attributes to match, all of which must
                 match successfully for the entitiy to be considered a match.
-            e.g.: [{type: <type>, <attr_name>: <attr_val>}]
         """
         # Get the type, then ask pluginmanager for all entities of that type.
         # This returns a list of generators, need to iterate through all the
         # entities in all the generators in the list and test for matching
         # arguments, then return a generator of those matching entities.
-        for entity_description in args:
-            if 'type' not in entity_description.keys():
-                log.warning("'type' required to find entity, got %s",
-                            entity_description)
-                continue
-            entities = self.session.pluginmanager.hooks.entityd_find_entity(
-                name=entity_description['type'], attrs=None)
-            for entity_gen in entities:
-                for entity in entity_gen:
-                    for attr_name, attr_val in entity_description.items():
-                        if attr_name == 'type':
-                            continue
-                        try:
-                            re_term = entity.attrs.get(attr_name).value
-                        except KeyError:
-                            break
-                        if not re.search(attr_val, re_term):
-                            break
-                    else:
-                        yield entity
+        found_entities = self.session.pluginmanager.hooks.entityd_find_entity(
+            name=entity_type, attrs=None)
+        for entity_gen in found_entities:
+            for entity in entity_gen:
+                for attr_name, attr_val in attrs.items():
+                    try:
+                        re_term = entity.attrs.get(attr_name).value
+                    except KeyError:
+                        break
+                    if not re.search(attr_val, re_term):
+                        break
+                else:
+                    yield entity

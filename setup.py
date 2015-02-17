@@ -22,6 +22,7 @@ setup(
     url='http://abilisoft.com',
     description='Abilisoft Entity Monitoring Agent',
     packages=['entityd'],
+    scripts=['bin/entityd'],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'License :: Other/Proprietary License',

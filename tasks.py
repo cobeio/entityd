@@ -39,9 +39,9 @@ def check():
     try:
         pylint()
     except invoke.exceptions.Failure as err:
-        pass
+        error = err
     else:
-        err = None
+        error = None
     pytest()
-    if err:
-        raise err
+    if error:
+        raise error

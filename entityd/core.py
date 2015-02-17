@@ -13,10 +13,14 @@ then runs the application by calling this hook.
 import argparse
 import logging
 import threading
+import time
 import types
 
 import entityd.pm
 import entityd.version
+
+
+log = logging.getLogger(__name__)
 
 
 @entityd.pm.hookimpl
@@ -24,6 +28,7 @@ def entityd_main(pluginmanager, argv):
     """Run entityd."""
     config = pluginmanager.hooks.entityd_cmdline_parse(
         pluginmanager=pluginmanager, argv=argv)
+    setup_logging(config)
     pluginmanager.hooks.entityd_configure(config=config)
     session = Session(pluginmanager, config)
     pluginmanager.hooks.entityd_sessionstart(session=session)
@@ -58,11 +63,11 @@ def entityd_addoption(parser):
     )
     parser.add_argument(
         '-l', '--log-level',
-        metavar='N',
+        metavar='LEVEL',
         default=logging.INFO,
-        type=int,
-        help=('log verbosity (0-100): 10=DEBUG, '
-              '20=INFO, 30=WARNING, 40=ERROR, 50=CRITICAL'),
+        help=('log verbosity; debug, info, '
+              'warning, error or critical; or 0-100'),
+        action=LogLevelAction,
     )
     parser.add_argument(
         '--trace',
@@ -74,10 +79,47 @@ def entityd_addoption(parser):
 @entityd.pm.hookimpl
 def entityd_mainloop(session):
     """Run the daemon mainloop."""
+    log.info('entityd started')
     try:
         session.run()
     except KeyboardInterrupt:
         pass
+
+
+def setup_logging(config):
+    """Setup the global logging infrastructure.
+
+    :param config: The Config instance.
+
+    :return: The root logger instance.
+    """
+    log_format = '{asctime} {levelname:8} {name:14} {message}'
+    root_logger = logging.getLogger()
+    root_handler = logging.StreamHandler()
+    root_formatter = logging.Formatter(fmt=log_format, style='{')
+    root_formatter.converter = time.gmtime
+    root_handler.setFormatter(root_formatter)
+    root_logger.setLevel(config.args.log_level)
+    root_logger.addHandler(root_handler)
+    return root_logger
+
+
+class LogLevelAction(argparse.Action):
+    """Custom parser action to validate loglevel as either int or string."""
+
+    def __init__(self, option_strings, dest, nargs=None, **kwargs):
+        super().__init__(option_strings, dest, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        try:
+            values = int(values)
+        except ValueError:
+            try:
+                values = getattr(logging, values.upper())
+            except AttributeError:
+                raise argparse.ArgumentError(
+                    self, "Invalid log level: {}".format(values))
+        setattr(namespace, self.dest, values)
 
 
 class Config:

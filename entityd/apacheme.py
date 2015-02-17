@@ -95,7 +95,7 @@ class ApacheEntity:
                 yield update
             return
         update.attrs.set('id', 'Apache', attrtype='id')
-        update.attrs.set('version', apache.config_path)
+        update.attrs.set('version', apache.version)
         update.attrs.set('config_path', apache.config_path)
         update.attrs.set('config_ok', apache.check_config())
         update.attrs.set('config_last_mod', apache.config_last_modified())
@@ -129,6 +129,7 @@ class Apache:
         self._apachectl_binary = None
         self._apache_binary = None
         self._config_path = None
+        self._version = None
 
     @property
     def apachectl_binary(self):
@@ -159,13 +160,12 @@ class Apache:
         except RuntimeError:
             return False
 
+    @property
     def version(self):
         """The Apache version as a string."""
-        output = subprocess.check_output([self.apachectl_binary, '-v'],
-                                         universal_newlines=True)
-        lines = output.split('\n')
-        version = lines[0].split(':')[1].strip()
-        return version
+        if not self._version:
+            self._version = _version(self.apachectl_binary)
+        return self._version
 
     def check_config(self, path=None):
         """Check if the config passes basic checks.
@@ -279,6 +279,14 @@ def _apache_binary(binary):
         return 'apache2'
     else:
         return 'httpd'
+
+
+def _version(binary):
+    """Get the Apache version string."""
+    output = subprocess.check_output([binary, '-v'], universal_newlines=True)
+    lines = output.split('\n')
+    version = lines[0].split(':')[1].strip()
+    return version
 
 
 def _find_all_includes(config_file_path):

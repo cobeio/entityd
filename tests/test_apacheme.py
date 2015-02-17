@@ -121,9 +121,7 @@ def patched_entitygen(monkeypatch, pm, session):
                         get_func)
 
     gen.apache._apachectl_binary = 'apachectl'
-
-    gen.apache.version = pytest.Mock(
-        return_value='Apache/2.4.7 (Ubuntu)')
+    gen.apache._version = 'Apache/2.4.7 (Ubuntu)'
     gen.apache._config_path = '/etc/apache2/apache2.conf'
     gen.apache.check_config = pytest.Mock(
         return_value=True
@@ -156,7 +154,7 @@ def test_find_entity(entitygen):
         assert entity.metype == 'Apache'
         if entity.deleted:
             continue
-        assert entity.attrs.get('version').value
+        assert 'Apache/2' in entity.attrs.get('version').value
         assert os.path.isfile(entity.attrs.get('config_path').value)
         count += 1
     assert count
@@ -169,7 +167,7 @@ def test_find_entity_mocked_apache(patched_entitygen):
         assert entity.metype == 'Apache'
         if entity.deleted:
             continue
-        assert entity.attrs.get('version').value
+        assert 'Apache/2' in entity.attrs.get('version').value
         assert os.path.isfile(entity.attrs.get('config_path').value)
         count += 1
     assert count
@@ -333,7 +331,7 @@ def test_version(apache, monkeypatch):
     monkeypatch.setattr(subprocess, 'check_output',
                         pytest.Mock(return_value=APACHECTL__V))
     apache._apachectl_binary = 'apachectl'
-    assert apache.version() == 'Apache/2.4.7 (Ubuntu)'
+    assert apache.version == 'Apache/2.4.7 (Ubuntu)'
 
 
 def test_performance_data(apache, monkeypatch):

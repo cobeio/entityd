@@ -259,7 +259,7 @@ def conf_attrs():
     }
 
 
-def test_create_service_me(declent, conf_attrs, session):
+def test_create_decelarative_me(declent, conf_attrs, session):
     declent.entityd_sessionstart(session)
     entity = declent._create_declerative_entity(conf_attrs)
     assert entity.metype == 'testService'

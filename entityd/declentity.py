@@ -83,7 +83,7 @@ class DeclerativeEntity:
             ueid = base64.b64decode(key.split(':', 1)[1])
             data = self._validate_conf(
                 self._conf_attrs.get(ent_type, dict(type=ent_type)))
-            expected = self._create_declerative_entity(data).ueid
+            expected = self._create_declarative_entity(data).ueid
             if ueid not in expected:
                 self._deleted[ent_type].add(ueid)
 
@@ -98,7 +98,7 @@ class DeclerativeEntity:
         to_add = dict()
         for entity_type in self._conf_attrs:
             for entity_desc in self._conf_attrs[entity_type]:
-                ueid = self._create_declerative_entity(entity_desc).ueid
+                ueid = self._create_declarative_entity(entity_desc).ueid
                 key = self.prefix + base64.b64encode(ueid).decode('ascii')
                 to_add[key] = entity_type
         self.session.svc.kvstore.addmany(to_add)
@@ -122,7 +122,7 @@ class DeclerativeEntity:
                 raise LookupError('Attribute based filtering not supported'
                                   ' for attrs {}'.format(attrs))
             for entity_desc in self._conf_attrs[name]:
-                yield self._create_declerative_entity(entity_desc)
+                yield self._create_declarative_entity(entity_desc)
 
     @staticmethod
     def _deleted_entity(name, ueid):
@@ -248,8 +248,8 @@ class DeclerativeEntity:
                 self._host_ueid = host_me.ueid
         return self._host_ueid
 
-    def _create_declerative_entity(self, config_properties):
-        """Create a new declerative entity structure for the file.
+    def _create_declarative_entity(self, config_properties):
+        """Create a new declarative entity structure for the file.
 
         :param config_properties: A dictionary of properties to use when
                                   creating the entity.

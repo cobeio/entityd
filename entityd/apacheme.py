@@ -160,10 +160,11 @@ class Apache:
             return False
 
     def version(self):
-        """The Apache version as a byte string."""
-        output = subprocess.check_output([self.apachectl_binary, '-v'])
-        lines = output.split(b'\n')
-        version = lines[0].split(b':')[1].strip()
+        """The Apache version as a string."""
+        output = subprocess.check_output([self.apachectl_binary, '-v'],
+                                         universal_newlines=True)
+        lines = output.split('\n')
+        version = lines[0].split(':')[1].strip()
         return version
 
     def check_config(self, path=None):
@@ -239,13 +240,13 @@ def _apache_config(binary):
 
     :param binary: The path to the apachectl binary to use.
     """
-    output = subprocess.check_output([binary, '-V'])
+    output = subprocess.check_output([binary, '-V'], universal_newlines=True)
     config_file = config_path = None
-    for line in output.split(b'\n'):
-        if line.startswith(b' -D HTTPD_ROOT='):
-            config_path = line.split(b'"')[1]
-        if line.startswith(b' -D SERVER_CONFIG_FILE='):
-            config_file = line.split(b'"')[1]
+    for line in output.split('\n'):
+        if line.startswith(' -D HTTPD_ROOT='):
+            config_path = line.split('"')[1]
+        if line.startswith(' -D SERVER_CONFIG_FILE='):
+            config_file = line.split('"')[1]
     if config_file and config_path:
         return os.path.join(config_path, config_file)
     raise RuntimeError("Apache config not found")
@@ -259,7 +260,7 @@ def _apachectl_binary():
     apache_binarys = ['apachectl', 'apache2ctl', 'httpd']
     for name in apache_binarys:
         try:
-            subprocess.check_output([name, '-S'])
+            subprocess.check_output([name, '-S'], universal_newlines=True)
         except FileNotFoundError:
             continue
         except subprocess.CalledProcessError:
@@ -287,9 +288,9 @@ def _find_all_includes(config_file_path):
     :returns: A list of file paths.
     """
     include_globs = []
-    with open(config_file_path, 'rb') as config:
+    with open(config_file_path, 'r') as config:
         for line in config:
-            if b'Include ' in line or b'IncludeOptional ' in line:
+            if 'Include ' in line or 'IncludeOptional ' in line:
                 include_globs.append(line.split()[1].strip())
 
     includes = []

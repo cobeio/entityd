@@ -11,7 +11,7 @@ import entityd.hostme
 import entityd.processme
 
 
-APACHECTL__V = b"""\
+APACHECTL__V = """\
 Server version: Apache/2.4.7 (Ubuntu)
 Server built:   Jul 22 2014 14:36:38
 Server's Module Magic Number: 20120211:27
@@ -124,7 +124,7 @@ def patched_entitygen(monkeypatch, pm, session):
 
     gen.apache.version = pytest.Mock(
         return_value='Apache/2.4.7 (Ubuntu)')
-    gen.apache._config_path = b'/etc/apache2/apache2.conf'
+    gen.apache._config_path = '/etc/apache2/apache2.conf'
     gen.apache.check_config = pytest.Mock(
         return_value=True
     )
@@ -252,7 +252,7 @@ def test_relations(pm, session, kvstore, patched_entitygen):  # pylint: disable=
 def test_config_path_from_file(apache, monkeypatch):
     monkeypatch.setattr(subprocess, 'check_output',
                         pytest.Mock(return_value=APACHECTL__V))
-    assert apache.config_path == b'/etc/apache2/apache2.conf'
+    assert apache.config_path == '/etc/apache2/apache2.conf'
 
 
 def test_config_path(apache, monkeypatch):
@@ -265,7 +265,7 @@ def test_config_path(apache, monkeypatch):
 
 def test_config_path_fails(monkeypatch):
     monkeypatch.setattr(subprocess, 'check_output', pytest.Mock(
-        return_value=b'no config file here'))
+        return_value='no config file here'))
     with pytest.raises(RuntimeError):
         entityd.apacheme._apache_config('httpd')
 
@@ -333,7 +333,7 @@ def test_version(apache, monkeypatch):
     monkeypatch.setattr(subprocess, 'check_output',
                         pytest.Mock(return_value=APACHECTL__V))
     apache._apachectl_binary = 'apachectl'
-    assert apache.version() == b'Apache/2.4.7 (Ubuntu)'
+    assert apache.version() == 'Apache/2.4.7 (Ubuntu)'
 
 
 def test_performance_data(apache, monkeypatch):
@@ -478,5 +478,5 @@ def test_get_all_includes(tmpdir):
             DocumentRoot /var/www/html
         </VirtualHost>
     """)
-    includes = entityd.apacheme._find_all_includes(str(conf).encode('ascii'))
-    assert str(site).encode('ascii') in includes
+    includes = entityd.apacheme._find_all_includes(str(conf))
+    assert str(site) in includes

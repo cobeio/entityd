@@ -1,7 +1,7 @@
 """DeclerativeEntity
 
 This creates entities based on a description in a config file, which can be
-used to proscribe how entities are related.
+used to describe how entities are related.
 """
 
 import base64
@@ -11,6 +11,7 @@ import os
 import os.path
 import pathlib
 import re
+
 import yaml
 
 import entityd.pm
@@ -34,12 +35,21 @@ def entityd_addoption(parser):
         '--declentity-dir',
         default=pathlib.Path(__file__).parent,
         type=str,
-        help=('File path to .conf files used to define DeclerativeEntities.'),
+        help=('Directory to scan for entity declaration files.'),
     )
 
 
 class DeclerativeEntity:
     """Plugin to generate Declerative Entities."""
+    # Private Attributes
+    #
+    # _host_ueid: The UEID of the host entity
+    # _path: The path scanned for entity declaration files
+    # _conf_attrs: A dictionary of lists, each being the terms used to describe
+    #              entities which will be found
+    # _deleted: A dictionary of sets, with the key being the name of an entity
+    #           type, and the set being ueids of entities which are no longer
+    #           being monitored.
 
     prefix = 'entityd.declentity:'
 

@@ -26,20 +26,20 @@ def mock_host(pm, session, config):
 
 @pytest.fixture
 def declent(pm, mock_host, kvstore):
-    """A entityd.declentity.DeclerativeEntity instance.
+    """A entityd.declentity.DeclarativeEntity instance.
 
     The plugin will be registered with the PluginManager but no hooks
     will have been called.
     """
-    declent = entityd.declentity.DeclerativeEntity()
-    pm.register(declent, 'entityd.declentity.DeclerativeEntity')
+    declent = entityd.declentity.DeclarativeEntity()
+    pm.register(declent, 'entityd.declentity.DeclarativeEntity')
     return declent
 
 
 def test_plugin_registered(pm):
     name = 'entityd.declentity'
     entityd.declentity.entityd_plugin_registered(pm, name)
-    assert pm.isregistered('entityd.declentity.DeclerativeEntity')
+    assert pm.isregistered('entityd.declentity.DeclarativeEntity')
 
 
 def test_configure(declent, config):
@@ -259,7 +259,7 @@ def conf_attrs():
         'children': [],
         'parents': []
     }
-    return entityd.declentity.DeclerativeEntity._validate_conf(conf)
+    return entityd.declentity.DeclarativeEntity._validate_conf(conf)
 
 
 def test_create_decelarative_me(declent, conf_attrs, session):

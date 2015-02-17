@@ -1,4 +1,4 @@
-"""DeclerativeEntity
+"""DeclarativeEntity
 
 This creates entities based on a description in a config file, which can be
 used to describe how entities are related.
@@ -29,8 +29,8 @@ class ValidationError(Exception):
 def entityd_plugin_registered(pluginmanager, name):
     """Called to register the plugin."""
     if name == 'entityd.declentity':
-        gen = DeclerativeEntity()
-        pluginmanager.register(gen, name='entityd.declentity.DeclerativeEntity')
+        gen = DeclarativeEntity()
+        pluginmanager.register(gen, name='entityd.declentity.DeclarativeEntity')
 
 
 @entityd.pm.hookimpl
@@ -47,8 +47,8 @@ def entityd_addoption(parser):
 RelDesc = collections.namedtuple('RelationDescription', ['type', 'attrs'])
 
 
-class DeclerativeEntity:
-    """Plugin to generate Declerative Entities."""
+class DeclarativeEntity:
+    """Plugin to generate Declarative Entities."""
     # Private Attributes
     #
     # _host_ueid: The UEID of the host entity
@@ -70,7 +70,7 @@ class DeclerativeEntity:
 
     @entityd.pm.hookimpl
     def entityd_configure(self, config):
-        """Configure the declerative entity creator with the dir path."""
+        """Configure the declarative entity creator with the dir path."""
         self._path = config.args.declentity_dir
 
     @entityd.pm.hookimpl(after='entityd.kvstore')
@@ -196,9 +196,9 @@ class DeclerativeEntity:
                 attr_val = value
             attrs[name] = {'value': attr_val, 'type': attr_type}
         data['attrs'] = attrs
-        data['children'] = DeclerativeEntity._validate_relations(
+        data['children'] = DeclarativeEntity._validate_relations(
             data.get('children', []))
-        data['parents'] = DeclerativeEntity._validate_relations(
+        data['parents'] = DeclarativeEntity._validate_relations(
             data.get('parents', []))
 
         if RelDesc('Host', {}) not in data['parents']:
@@ -242,7 +242,7 @@ class DeclerativeEntity:
         self._conf_attrs[data['type']].append(data)
         try:
             self.session.config.addentity(
-                data['type'], 'entityd.declentity.DeclerativeEntity')
+                data['type'], 'entityd.declentity.DeclarativeEntity')
         except KeyError:
             pass
 

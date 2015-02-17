@@ -56,7 +56,7 @@ def test_addoption():
 
 
 def test_load_files(declent, session, config, tmpdir):
-    conf_file = tmpdir.join('test.conf')
+    conf_file = tmpdir.join('test.entity')
     conf_file.write("""type: test""")
     config.args.declentity_dir = tmpdir.strpath
     declent.entityd_configure(config)
@@ -68,7 +68,7 @@ def test_load_files(declent, session, config, tmpdir):
 
 def test_load_incorrect_file(declent, config, tmpdir, caplog):
     # A file with a load of rubbish in shouldn't crash entityd
-    conf_file = tmpdir.join('test.conf')
+    conf_file = tmpdir.join('test.entity')
     conf_file.write("""\xAA Rabbit, Foobar""")
     config.args.declentity_dir = tmpdir.strpath
     declent.entityd_configure(config)
@@ -79,7 +79,7 @@ def test_load_incorrect_file(declent, config, tmpdir, caplog):
 
 def test_load_invalid_file(declent, config, tmpdir, caplog):
     # Multidoc files can't have leading spaces
-    conf_file = tmpdir.join('test.conf')
+    conf_file = tmpdir.join('test.entity')
     conf_file.write("""
         ---
         type: Type
@@ -94,7 +94,7 @@ def test_load_invalid_file(declent, config, tmpdir, caplog):
 
 
 def test_load_no_permission(declent, session, config, tmpdir, caplog):
-    conf_file = tmpdir.join('test.conf')
+    conf_file = tmpdir.join('test.entity')
     conf_file.write('type: Test')
     os.chmod(conf_file.strpath, 0x000)
     config.args.declentity_dir = tmpdir.strpath
@@ -106,7 +106,7 @@ def test_load_no_permission(declent, session, config, tmpdir, caplog):
 
 @pytest.fixture
 def conf_file(tmpdir):
-    conf_file = tmpdir.join('test.conf')
+    conf_file = tmpdir.join('test.entity')
     conf_file.write("""
         type: Test
         attrs:
@@ -143,7 +143,7 @@ def test_load_files_on_start(declent, config, session, conf_file):
 
 
 def test_load_file_no_type(declent, config, session, tmpdir, caplog):
-    conf_file = tmpdir.join('test.conf')
+    conf_file = tmpdir.join('test.entity')
     conf_file.write("""
         attrs:
             owner: foobar
@@ -156,7 +156,7 @@ def test_load_file_no_type(declent, config, session, tmpdir, caplog):
 
 
 def test_filename_attr_used(declent, config, session, tmpdir):
-    conf_file = tmpdir.join('test.conf')
+    conf_file = tmpdir.join('test.entity')
     conf_file.write("""
         type: test
         attrs:
@@ -183,7 +183,7 @@ def test_bad_file_suffix(declent, config, session, tmpdir):
 
 
 def test_invalid_type(declent, config, session, tmpdir, caplog):
-    conf_file = tmpdir.join('test.conf')
+    conf_file = tmpdir.join('test.entity')
     conf_file.write("""
         type: Invalid/Type
         """)
@@ -194,7 +194,7 @@ def test_invalid_type(declent, config, session, tmpdir, caplog):
     assert 'not allowed in type' in caplog.text()
 
 def test_invalid_relation(declent, config, session, tmpdir, caplog):
-    conf_file = tmpdir.join('test.conf')
+    conf_file = tmpdir.join('test.entity')
     conf_file.write("""
         type: Test
         children:
@@ -395,7 +395,7 @@ def test_children_and_parents(declent, session, config, conf_file, pm):
 
 
 def test_one_file_two_entities(declent, session, config, tmpdir):
-    conf_file = tmpdir.join('test.conf')
+    conf_file = tmpdir.join('test.entity')
     conf_file.write(textwrap.dedent("""
         ---
         type: Ent1
@@ -414,7 +414,7 @@ def test_one_file_two_entities(declent, session, config, tmpdir):
 
 
 def test_relation_without_params(declent, session, config, tmpdir):
-    conf_file = tmpdir.join('test.conf')
+    conf_file = tmpdir.join('test.entity')
     conf_file.write(textwrap.dedent("""
         type: Test
         children:
@@ -435,7 +435,7 @@ def test_relation_without_params(declent, session, config, tmpdir):
 
 
 def test_relation_without_type(declent, session, config, tmpdir, caplog):
-    conf_file = tmpdir.join('test.conf')
+    conf_file = tmpdir.join('test.entity')
     conf_file.write(textwrap.dedent("""
         type: Test
         children:
@@ -454,7 +454,7 @@ def test_relation_without_type(declent, session, config, tmpdir, caplog):
 
 
 def test_recursive_relation(declent, session, config, tmpdir, caplog):
-    conf_file = tmpdir.join('test.conf')
+    conf_file = tmpdir.join('test.entity')
     conf_file.write(textwrap.dedent("""
         type: Test
         children:
@@ -473,7 +473,7 @@ def test_recursive_relation(declent, session, config, tmpdir, caplog):
 
 
 def test_overlapping_entity_names(declent, session, config, tmpdir):
-    conf_file = tmpdir.join('test.conf')
+    conf_file = tmpdir.join('test.entity')
     conf_file.write(textwrap.dedent("""
         type: Test
         attrs:

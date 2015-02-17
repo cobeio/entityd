@@ -140,14 +140,14 @@ class DeclarativeEntity:
         """Load files, read the config data and add it to the conf_data dict.
 
         The folder path to search is provided by the entityd.config module
-        Entity description files must end in .conf
+        Entity description files must end in .entity
         Each entity description must have a `type` to be valid.
         """
         if not self._path:
             return
         for dirpath, _, filenames in os.walk(self._path):
             for filename in filenames:
-                if not filename.endswith('.conf'):
+                if not filename.endswith('.entity'):
                     continue
                 filepath = os.path.join(dirpath, filename)
                 try:

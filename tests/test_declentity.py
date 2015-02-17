@@ -90,7 +90,7 @@ def test_load_invalid_file(declent, config, tmpdir, caplog):
     declent.entityd_configure(config)
     declent._load_files()
     assert not declent._conf_attrs
-    assert "Error loading" in caplog.text()
+    assert "Could not load file" in caplog.text()
 
 
 @pytest.fixture
@@ -121,7 +121,7 @@ def test_load_files_on_start(declent, config, session, conf_file):
     declent.entityd_sessionstart(session)
     assert 'Test' in declent._conf_attrs.keys()
     attrs = declent._conf_attrs['Test'][0]
-    assert attrs['attrs']['owner'] == 'admin@default'
+    assert attrs['attrs']['owner']['value'] == 'admin@default'
     assert attrs['attrs']['dict'] == {'value': 'a_value', 'type': 'a_type'}
     assert attrs['filepath'] == conf_file.strpath
     assert isinstance(attrs['children'][0], entityd.declentity.RelDesc)
@@ -198,9 +198,11 @@ def test_invalid_relation(declent, config, session, tmpdir, caplog):
     assert 'Test' not in declent._conf_attrs.keys()
     assert 'Bad relation' in caplog.text()
 
+
 def test_revalidate_relations(declent, session, config, conf_file):
     relations = [entityd.declentity.RelDesc('Test', {})]
     assert declent._validate_relations(relations) == relations
+
 
 def test_deleted_on_file_remove(declent, session, config, conf_file):
     config.args.declentity_dir = os.path.split(conf_file.strpath)[0]
@@ -243,7 +245,7 @@ def test_find_deleted_with_attrs(declent, config, session):
 
 @pytest.fixture
 def conf_attrs():
-    return {
+    conf = {
         'type': 'testService',
         'filepath': 'testFilePath',
         'attrs': {
@@ -257,16 +259,17 @@ def conf_attrs():
         'children': [],
         'parents': []
     }
+    return entityd.declentity.DeclerativeEntity._validate_conf(conf)
 
 
 def test_create_decelarative_me(declent, conf_attrs, session):
     declent.entityd_sessionstart(session)
-    entity = declent._create_declerative_entity(conf_attrs)
+    entity = declent._create_declarative_entity(conf_attrs)
     assert entity.metype == 'testService'
     assert entity.attrs.get('owner').value == 'testOwner'
     assert entity.attrs.get('owner').type == None
-    assert entity.attrs.get('host').value == declent.host_ueid
-    assert entity.attrs.get('host').type == 'id'
+    assert entity.attrs.get('hostueid').value == declent.host_ueid
+    assert entity.attrs.get('hostueid').type == 'id'
     assert entity.attrs.get('filepath').value == 'testFilePath'
     assert entity.attrs.get('filepath').type == 'id'
     assert entity.attrs.get('a_dict').value == 'a_value'
@@ -371,11 +374,11 @@ def test_children_and_parents(declent, session, config, conf_file, pm):
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
 
-    entity = declent._create_declerative_entity(declent._conf_attrs['Test'][0])
+    entity = declent._create_declarative_entity(declent._conf_attrs['Test'][0])
     assert set(entity.children) == set([procent.ueid, fileent.ueid])
     assert set(entity.parents) == set([declent._host_ueid, procent2.ueid])
 
-    entity = declent._create_declerative_entity(declent._conf_attrs['Test'][0])
+    entity = declent._create_declarative_entity(declent._conf_attrs['Test'][0])
     assert set(entity.children) == set([procent.ueid, fileent.ueid])
     assert set(entity.parents) == set([declent._host_ueid, procent2.ueid])
 
@@ -415,7 +418,7 @@ def test_relation_without_params(declent, session, config, tmpdir):
     declent.entityd_sessionstart(session)
     found_ents = next(declent.entityd_find_entity('Test', None))
     child = list(found_ents.children)[0]
-    expected = declent._create_declerative_entity(
+    expected = declent._create_declarative_entity(
         declent._conf_attrs['File'][0]).ueid
     assert child == expected
 
@@ -452,7 +455,7 @@ def test_recursive_relation(declent, session, config, tmpdir, caplog):
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     found_ents = next(declent.entityd_find_entity('Test', None))
-    ent_ueid = declent._create_declerative_entity(
+    ent_ueid = declent._create_declarative_entity(
         declent._conf_attrs['Test'][0]).ueid
     assert ent_ueid in found_ents.children
     assert ent_ueid in found_ents.parents

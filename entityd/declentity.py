@@ -154,7 +154,7 @@ class DeclerativeEntity:
                     try:
                         load_data = list(yaml.safe_load_all(openfile))
                     except yaml.scanner.ScannerError as err:
-                        log.warning('Error loading file %s: %s',
+                        log.warning('Could not load file %s: %s',
                                     filepath, err)
                         continue
                 for data in load_data:
@@ -166,7 +166,7 @@ class DeclerativeEntity:
                     try:
                         data = self._validate_conf(data)
                     except ValidationError as err:
-                        log.warning('Error validating entity declaration '
+                        log.warning('Ignoring invalid entity declaration '
                                     'in %s: %s', filepath, err)
                     else:
                         self._add_conf(data)
@@ -186,7 +186,16 @@ class DeclerativeEntity:
         if '/' in data['type']:
             raise ValidationError("'/' not allowed in type field.")
         data.setdefault('filepath', '')
-        data.setdefault('attrs', dict())
+        attrs = dict()
+        for name, value in data.get('attrs', dict()).items():
+            if isinstance(value, dict):
+                attr_type = value.get('type', None)
+                attr_val = value.get('value', None)
+            else:
+                attr_type = None
+                attr_val = value
+            attrs[name] = {'value': attr_val, 'type': attr_type}
+        data['attrs'] = attrs
         data['children'] = DeclerativeEntity._validate_relations(
             data.get('children', []))
         data['parents'] = DeclerativeEntity._validate_relations(
@@ -260,15 +269,9 @@ class DeclerativeEntity:
         entity.attrs.set('filepath',
                          config_properties['filepath'],
                          attrtype='id')
-        entity.attrs.set('host', self.host_ueid, attrtype='id')
+        entity.attrs.set('hostueid', self.host_ueid, attrtype='id')
         for name, value in config_properties['attrs'].items():
-            if isinstance(value, dict):
-                attr_type = value.get('type', None)
-                attr_val = value.get('value', None)
-            else:
-                attr_type = None
-                attr_val = value
-            entity.attrs.set(name, attr_val, attrtype=attr_type)
+            entity.attrs.set(name, value['value'], attrtype=value['type'])
 
         # pylint: disable=protected-access
         entity.parents._relations = (

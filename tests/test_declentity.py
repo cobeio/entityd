@@ -93,6 +93,17 @@ def test_load_invalid_file(declent, config, tmpdir, caplog):
     assert "Could not load file" in caplog.text()
 
 
+def test_load_no_permission(declent, session, config, tmpdir, caplog):
+    conf_file = tmpdir.join('test.conf')
+    conf_file.write('type: Test')
+    os.chmod(conf_file.strpath, 0x000)
+    config.args.declentity_dir = tmpdir.strpath
+    declent.entityd_configure(config)
+    declent.entityd_sessionstart(session)
+    assert 'Test' not in declent._conf_attrs.keys()
+    assert "Insufficient privilege" in caplog.text()
+
+
 @pytest.fixture
 def conf_file(tmpdir):
     conf_file = tmpdir.join('test.conf')

@@ -150,13 +150,17 @@ class DeclarativeEntity:
                 if not filename.endswith('.conf'):
                     continue
                 filepath = os.path.join(dirpath, filename)
-                with open(filepath, 'r') as openfile:
-                    try:
-                        load_data = list(yaml.safe_load_all(openfile))
-                    except yaml.scanner.ScannerError as err:
-                        log.warning('Could not load file %s: %s',
-                                    filepath, err)
-                        continue
+                try:
+                    with open(filepath, 'r') as openfile:
+                        try:
+                            load_data = list(yaml.safe_load_all(openfile))
+                        except yaml.scanner.ScannerError as err:
+                            log.warning('Could not load file %s: %s',
+                                        filepath, err)
+                            continue
+                except PermissionError:
+                    log.warning("Insufficient privileges to open %s", filepath)
+                    continue
                 for data in load_data:
                     if not isinstance(data, dict):
                         log.warning('Error loading file %s, one or more entity'

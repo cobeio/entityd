@@ -12,6 +12,7 @@ import os.path
 import pathlib
 import re
 
+import act
 import yaml
 
 import entityd.pm
@@ -38,7 +39,7 @@ def entityd_addoption(parser):
     """Add command line options to the argparse parser."""
     parser.add_argument(
         '--declentity-dir',
-        default=pathlib.Path(__file__).parent,
+        default=act.fsloc.sysconfdir.joinpath('entity_declarations'),
         type=str,
         help=('Directory to scan for entity declaration files.'),
     )

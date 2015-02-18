@@ -55,6 +55,13 @@ def test_addoption():
     assert args.declentity_dir == '/file/path'
 
 
+def test_default_dir():
+    parser = argparse.ArgumentParser()
+    entityd.declentity.entityd_addoption(parser)
+    args = parser.parse_args()
+    assert args.declentity_dir.stem == 'entity_declarations'
+
+
 def test_load_files(declent, session, config, tmpdir):
     conf_file = tmpdir.join('test.entity')
     conf_file.write("""type: test""")

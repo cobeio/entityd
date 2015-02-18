@@ -1,8 +1,8 @@
 """Entity providing monitoring information on an Apache2 service."""
 
-import glob
 import logging
 import os
+import pathlib
 import subprocess
 
 import requests
@@ -292,19 +292,19 @@ def _find_all_includes(config_file_path):
     """Find all included config files in this file.
 
     :param config_file_path: The path to check.
-    :returns: A list of file paths.
+    :returns: A list of string file paths.
     """
     include_globs = []
-    with open(config_file_path, 'r') as config:
+    config_file_path = pathlib.Path(config_file_path)
+    with config_file_path.open() as config:
         for line in config:
-            if 'Include ' in line or 'IncludeOptional ' in line:
+            if line.strip().startswith(('Include', 'IncludeOptional')):
                 include_globs.append(line.split()[1].strip())
 
     includes = []
     for pattern in include_globs:
-        files = glob.glob(os.path.join(os.path.dirname(config_file_path),
-                                       pattern))
-        includes.extend(files)
+        files = config_file_path.parent.glob(pattern)  # pylint: disable=no-member
+        includes.extend(map(str, files))
     return includes
 
 

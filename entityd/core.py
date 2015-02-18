@@ -13,6 +13,7 @@ then runs the application by calling this hook.
 import argparse
 import logging
 import threading
+import sys
 import time
 import types
 
@@ -95,7 +96,7 @@ def setup_logging(config):
     """
     log_format = '{asctime} {levelname:8} {name:14} {message}'
     root_logger = logging.getLogger()
-    root_handler = logging.StreamHandler()
+    root_handler = logging.StreamHandler(stream=sys.stdout)
     root_formatter = logging.Formatter(fmt=log_format, style='{')
     root_formatter.converter = time.gmtime
     root_handler.setFormatter(root_formatter)

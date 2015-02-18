@@ -89,7 +89,7 @@ class ApacheEntity:
             return
         try:
             perfdata = apache.performance_data()
-        except RuntimeError:
+        except ApacheNotFound:
             if self._last_ueid:
                 update = entityd.EntityUpdate('Apache', self._last_ueid)
                 update.delete()
@@ -115,6 +115,11 @@ class ApacheEntity:
             name='Process', attrs={'binary': self.apache.apache_binary})
         for processes in results:
             yield from processes
+
+
+class ApacheNotFound(Exception):
+    """Raised if Apache is not running, or the binaries are not found."""
+    pass
 
 
 class Apache:
@@ -155,7 +160,7 @@ class Apache:
         """Establish whether apache is installed."""
         try:
             return self.apachectl_binary is not None
-        except RuntimeError:
+        except ApacheNotFound:
             return False
 
     @property
@@ -232,6 +237,7 @@ def _apache_config(binary):
     """Find the location of apache config files.
 
     :param binary: The path to the apachectl binary to use.
+    :raises: ApacheNotFound if Apache configuration is not found.
     """
     output = subprocess.check_output([binary, '-V'], universal_newlines=True)
     config_file = config_path = None
@@ -242,13 +248,13 @@ def _apache_config(binary):
             config_file = line.split('"')[1]
     if config_file and config_path:
         return os.path.join(config_path, config_file)
-    raise RuntimeError("Apache config not found")
+    raise ApacheNotFound("Apache config not found")
 
 
 def _apachectl_binary():
     """Find the installed apachectl executable
 
-    :raises Runtime error if Apache is not installed.
+    :raises: ApacheNotFound if Apache binaries are not found.
     """
     apache_binarys = ['apachectl', 'apache2ctl', 'httpd']
     for name in apache_binarys:
@@ -260,7 +266,7 @@ def _apachectl_binary():
             continue
         else:
             return name
-    raise RuntimeError("Apache executable not found.")
+    raise ApacheNotFound("Apache executable not found.")
 
 
 def _apache_binary(binary):
@@ -311,7 +317,7 @@ def _get_apache_status():
     try:
         response = requests.get(status_url)
     except requests.exceptions.ConnectionError:
-        raise RuntimeError("Running Apache server with mod_status not found "
-                           "at {}".format(status_url))
+        raise ApacheNotFound("Running Apache server with mod_status not found "
+                             "at {}".format(status_url))
     else:
         return response

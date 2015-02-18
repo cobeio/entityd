@@ -9,6 +9,7 @@ import entityd.apacheme
 import entityd.core
 import entityd.hostme
 import entityd.processme
+from entityd.apacheme import ApacheNotFound
 
 
 APACHECTL__V = """\
@@ -44,7 +45,7 @@ Server compiled with....
 def has_running_apache():
     try:
         entityd.apacheme._get_apache_status()
-    except RuntimeError:
+    except ApacheNotFound:
         return False
     else:
         return True
@@ -57,7 +58,7 @@ running_apache = pytest.mark.skipif(not has_running_apache(),
 def has_apachectl():
     try:
         entityd.apacheme._apachectl_binary()
-    except RuntimeError:
+    except ApacheNotFound:
         return False
     else:
         return True
@@ -175,7 +176,7 @@ def test_find_entity_mocked_apache(patched_entitygen):
 
 def test_find_entity_no_apache_running(patched_entitygen, monkeypatch):
     monkeypatch.setattr(entityd.apacheme, '_get_apache_status',
-                        pytest.Mock(side_effect=RuntimeError))
+                        pytest.Mock(side_effect=ApacheNotFound))
     gen = patched_entitygen.entityd_find_entity('Apache', None)
     assert list(gen) == []
 
@@ -183,7 +184,7 @@ def test_find_entity_no_apache_running(patched_entitygen, monkeypatch):
 def test_find_entity_no_apache_installed(patched_entitygen, monkeypatch):
     patched_entitygen.apache._apachectl_binary = None
     monkeypatch.setattr(entityd.apacheme, '_apachectl_binary',
-                        pytest.Mock(side_effect=RuntimeError))
+                        pytest.Mock(side_effect=ApacheNotFound))
     gen = patched_entitygen.entityd_find_entity('Apache', None)
     assert list(gen) == []
 
@@ -198,7 +199,7 @@ def test_entity_deleted_installed(patched_entitygen, monkeypatch):
     last_entity = next(gen)
     last_ueid = last_entity.ueid
     monkeypatch.setattr(entityd.apacheme, '_apachectl_binary',
-                        pytest.Mock(side_effect=RuntimeError))
+                        pytest.Mock(side_effect=ApacheNotFound))
     patched_entitygen.apache._apachectl_binary = None
     gen = patched_entitygen.entityd_find_entity('Apache', None)
     entity = next(gen)
@@ -211,7 +212,7 @@ def test_entity_deleted_running(patched_entitygen, monkeypatch):
     last_entity = next(gen)
     last_ueid = last_entity.ueid
     monkeypatch.setattr(entityd.apacheme, '_get_apache_status',
-                        pytest.Mock(side_effect=RuntimeError))
+                        pytest.Mock(side_effect=ApacheNotFound))
     gen = patched_entitygen.entityd_find_entity('Apache', None)
     entity = next(gen)
     assert entity.deleted
@@ -264,7 +265,7 @@ def test_config_path(apache, monkeypatch):
 def test_config_path_fails(monkeypatch):
     monkeypatch.setattr(subprocess, 'check_output', pytest.Mock(
         return_value='no config file here'))
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ApacheNotFound):
         entityd.apacheme._apache_config('httpd')
 
 
@@ -302,7 +303,7 @@ def test_apache_binary(apachectl_binary, apache_binary):
 def test_apachectl_binary_not_there(monkeypatch):
     monkeypatch.setattr(subprocess, 'check_output',
                         pytest.Mock(side_effect=FileNotFoundError))
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ApacheNotFound):
         entityd.apacheme._apachectl_binary()
 
 
@@ -311,7 +312,7 @@ def test_apachectl_binary_fails(monkeypatch):
         subprocess, 'check_output',
         pytest.Mock(side_effect=subprocess.CalledProcessError(-1, ''))
     )
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ApacheNotFound):
         entityd.apacheme._apachectl_binary()
 
 
@@ -401,7 +402,7 @@ def test_performance_data_fails(apache, monkeypatch):
     monkeypatch.setattr(requests, 'get',
                         pytest.Mock(
                             side_effect=requests.exceptions.ConnectionError))
-    with pytest.raises(RuntimeError):
+    with pytest.raises(ApacheNotFound):
         apache.performance_data()
 
 

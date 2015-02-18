@@ -105,7 +105,7 @@ def test_load_invalid_file(declent, config, tmpdir, caplog):
     declent.entityd_configure(config)
     declent._load_files()
     assert not declent._conf_attrs
-    assert "Could not load file" in caplog.text()
+    assert 'Could not load' in caplog.text()
 
 
 def test_load_no_permission(declent, session, config, tmpdir, caplog):
@@ -116,7 +116,7 @@ def test_load_no_permission(declent, session, config, tmpdir, caplog):
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     assert 'Test' not in declent._conf_attrs.keys()
-    assert "Could not open" in caplog.text()
+    assert 'Could not open' in caplog.text()
 
 
 @pytest.fixture
@@ -146,15 +146,16 @@ def test_load_files_on_start(declent, config, session, conf_file):
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     assert 'Test' in declent._conf_attrs.keys()
-    attrs = declent._conf_attrs['Test'][0]
-    assert attrs['attrs']['owner']['value'] == 'admin@default'
-    assert attrs['attrs']['dict'] == {'value': 'a_value', 'type': 'a_type'}
-    assert attrs['filepath'] == pathlib.Path(conf_file.strpath)
-    assert isinstance(attrs['children'][0], entityd.declentity.RelDesc)
-    assert attrs['children'][0].type == 'Process'
-    assert attrs['children'][0].attrs['command'] == 'proccommand -a'
-    assert attrs['children'][1].type == 'File'
-    assert attrs['children'][1].attrs['path'] == '/path/to/file'
+    declcfg = declent._conf_attrs['Test'][0]
+    assert declcfg.attrs['owner'].value == 'admin@default'
+    assert declcfg.attrs['dict'].value == 'a_value'
+    assert declcfg.attrs['dict'].type == 'a_type'
+    assert declcfg.filepath == pathlib.Path(conf_file.strpath)
+    assert isinstance(declcfg.children[0], entityd.declentity.RelDesc)
+    assert declcfg.children[0].type == 'Process'
+    assert declcfg.children[0].attrs['command'] == 'proccommand -a'
+    assert declcfg.children[1].type == 'File'
+    assert declcfg.children[1].attrs['path'] == '/path/to/file'
 
 
 def test_load_file_no_type(declent, config, session, tmpdir, caplog):
@@ -170,7 +171,7 @@ def test_load_file_no_type(declent, config, session, tmpdir, caplog):
     assert 'No type field' in caplog.text()
 
 
-def test_filename_attr_used(declent, config, session, tmpdir):
+def test_filepath_attr_used(declent, config, session, tmpdir):
     conf_file = tmpdir.join('test.entity')
     conf_file.write("""
         type: test
@@ -223,11 +224,6 @@ def test_invalid_relation(declent, config, session, tmpdir, caplog):
     declent.entityd_sessionstart(session)
     assert 'Test' not in declent._conf_attrs.keys()
     assert 'Bad relation' in caplog.text()
-
-
-def test_revalidate_relations(declent, session, config, conf_file):
-    relations = [entityd.declentity.RelDesc('Test', {})]
-    assert declent._validate_relations(relations) == relations
 
 
 def test_deleted_on_file_remove(declent, session, config, conf_file):
@@ -285,7 +281,8 @@ def conf_attrs():
         'children': [],
         'parents': []
     }
-    return entityd.declentity.DeclarativeEntity._validate_conf(conf)
+    # return entityd.declentity.DeclarativeEntity._validate_conf(conf)
+    return entityd.declentity.DeclCfg(conf)
 
 
 def test_create_decelarative_me(declent, conf_attrs, session):
@@ -510,3 +507,70 @@ def test_overlapping_entity_names(declent, session, config, tmpdir):
     found_ents = declent.entityd_find_entity('Test', None)
     owners = set(ent.attrs.get('owner').value for ent in found_ents)
     assert owners == set(['admin', 'user'])
+
+
+class TestDecCfg:
+
+    def test_blank(self):
+        some_cfg = entityd.declentity.DeclCfg({'type': 'SomeType'})
+        assert some_cfg.type == 'SomeType'
+        assert some_cfg.filepath == ''
+        assert some_cfg.parents == [entityd.declentity.RelDesc('Host', {})]
+        assert some_cfg.children == []
+        assert some_cfg.attrs == {}
+
+    def test_invalid_type(self):
+        with pytest.raises(entityd.declentity.ValidationError):
+            some_cfg = entityd.declentity.DeclCfg({'type': 'Some/Type'})
+
+    def test_no_type(self):
+        with pytest.raises(entityd.declentity.ValidationError):
+            entityd.declentity.DeclCfg({})
+
+    @pytest.fixture
+    def data(self):
+        return {
+            'type': 'TestType',
+            'filepath': '/this/is/filepath'
+        }
+
+    def test_properties(self, data):
+        test_cfg = entityd.declentity.DeclCfg(data)
+        assert test_cfg.filepath == '/this/is/filepath'
+
+    def test_attrs(self, data):
+        data['attrs'] = {'owner': 'my_owner'}
+        test_cfg = entityd.declentity.DeclCfg(data)
+        assert test_cfg.attrs['owner'].value == 'my_owner'
+
+    def test_attr_type(self, data):
+        data['attrs'] = {'ident': {'value': 1, 'type': 'id'}}
+        test_cfg = entityd.declentity.DeclCfg(data)
+        assert test_cfg.attrs['ident'].value == 1
+        assert test_cfg.attrs['ident'].type == 'id'
+
+    def test_relation(self, data):
+        data['children'] = [{'type': 'EntType'}]
+        test_cfg = entityd.declentity.DeclCfg(data)
+        assert test_cfg.children[0] == entityd.declentity.RelDesc('EntType', {})
+
+    def test_relation_attrs(self, data):
+        data['children'] = [{'type': 'child', 'command': 'cmd'}]
+        test_cfg = entityd.declentity.DeclCfg(data)
+        rel =  entityd.declentity.RelDesc('child', {'command': 'cmd'})
+        assert test_cfg.children[0] == rel
+
+    def test_relation_no_type(self, data):
+        data['parents'] = [{'value': 'foo'}]
+        with pytest.raises(entityd.declentity.ValidationError):
+            entityd.declentity.DeclCfg(data)
+
+    def test_relation_not_dict(self, data):
+        data['children'] = ['Not a dictionary']
+        with pytest.raises(entityd.declentity.ValidationError):
+            entityd.declentity.DeclCfg(data)
+
+    def test_rel_desc_relation(self, data):
+        data['children'] = [entityd.declentity.RelDesc('Rel', {})]
+        test_cfg = entityd.declentity.DeclCfg(data)
+        assert test_cfg.children[0] == entityd.declentity.RelDesc('Rel', {})

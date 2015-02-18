@@ -34,7 +34,7 @@ Example entity declaration file:
             type: id
     children:
         - type: Process
-          command: [Pp]roccommand -a
+          command: [Cc]ommand
         - type: File
           path: /path/to/file
     parents:
@@ -90,12 +90,8 @@ class DeclarativeEntity:
     # _host_ueid: The UEID of the host entity
     # _path: The path scanned for entity declaration files
     # _conf_attrs: A dictionary of lists, the key is the type of the entities
-    #              and the list contains dictionaries describing how to build
-    #              an entity.
-    #              The entity description dictionary must have a key `type`,
-    #              the value of which will be the same as the key in the top
-    #              dictionary. See _validate_conf for a full description of
-    #              the shape of these dictionaries.
+    #              and the list contains DeclCfg objects describing how to
+    #              build an entity.
     # _deleted: A dictionary of sets, with the key being the name of an entity
     #           type, and the set being ueids of entities which are no longer
     #           being monitored.
@@ -130,8 +126,7 @@ class DeclarativeEntity:
         loaded_values = session.svc.kvstore.getmany(self.prefix)
         for key, ent_type in loaded_values.items():
             ueid = base64.b64decode(key.split(':', 1)[1])
-            data = self._validate_conf(
-                self._conf_attrs.get(ent_type, dict(type=ent_type)))
+            data = DeclCfg(self._conf_attrs.get(ent_type, dict(type=ent_type)))
             expected = self._create_declarative_entity(data).ueid
             if ueid not in expected:
                 self._deleted[ent_type].add(ueid)
@@ -213,102 +208,22 @@ class DeclarativeEntity:
                     continue
                 data['filepath'] = filepath
                 try:
-                    data = self._validate_conf(data)
+                    data = DeclCfg(data)
                 except ValidationError as err:
                     log.warning('Ignoring invalid entity declaration '
                                 'in %s: %s', filepath, err)
                 else:
                     self._add_conf(data)
 
-    @staticmethod
-    def _validate_conf(data):
-        """Validate the dictionary `data` as containing an entity description.
-
-        :param data: A dictionary of entity configuration data to store.
-
-        Returns a dictionary of the validated configuration data.
-
-        Raises ValidationError if any of the elements cannot be validated.
-
-
-        A validated dictionary will be of the format
-        {
-            type: <Type of entitiy described>, # Required and cannot contain /
-            attrs: {
-                # An optional dictionary of static attributes for the entity.
-                attr_name: attr_value,
-            },
-            # children and parents are lists of named tuples, each containing
-            # the information needed to get the ueids of related entities.
-            children: [RelDesc(<type>, {<attr_name>: <attr_regex>, ...}), ...],
-            parents: [RelDesc(<type>, {<attr_name>: <attr_regex>, ...}), ...],
-        }
-        """
-        if 'type' not in data.keys():
-            raise ValidationError('No type field found in entity.')
-        if '/' in data['type']:
-            raise ValidationError("'/' not allowed in type field.")
-        data.setdefault('filepath', '')
-        attrs = dict()
-        for name, value in data.get('attrs', dict()).items():
-            if isinstance(value, dict):
-                attr_type = value.get('type', None)
-                attr_val = value.get('value', None)
-            else:
-                attr_type = None
-                attr_val = value
-            attrs[name] = {'value': attr_val, 'type': attr_type}
-        data['attrs'] = attrs
-        data['children'] = DeclarativeEntity._validate_relations(
-            data.get('children', []))
-        data['parents'] = DeclarativeEntity._validate_relations(
-            data.get('parents', []))
-
-        if RelDesc('Host', {}) not in data['parents']:
-            data['parents'].append(RelDesc('Host', {}))
-        return data
-
-    @staticmethod
-    def _validate_relations(rel_list):
-        """Validate a list of relations, converting them to RelDesc tuples.
-
-        :param rel_list: A list of relations which will be validated
-
-        Returns a list of RelDesc tuples matching the dictionaries in the
-        original rel_list. A RelDesc tuple has two fields, `type` is required
-        and specifies the type of entitiy to find; `attrs` is a dictionary
-        whose keys are attribute names, and whose values are regular expressions
-        used to match on the attribute values for entitiy matching.
-
-        Raises ValidationError if any of the relations cannot be validated.
-        """
-        validated = []
-        for desc in rel_list:
-            if isinstance(desc, RelDesc):
-                validated.append(desc)
-            elif isinstance(desc, dict):
-                try:
-                    relation = RelDesc(desc.pop('type'), desc)
-                except KeyError:
-                    raise ValidationError(
-                        "'type' is required for relation definition")
-                else:
-                    validated.append(relation)
-            else:
-                raise ValidationError(
-                    'Bad relation description, expected dictionary, got {}'
-                    .format(type(desc).__name__))
-        return validated
-
     def _add_conf(self, data):
         """Add the configuration given in `data` to the list of known data.
 
         :param data: A dictionary of pre-validated entity confiuration data.
         """
-        self._conf_attrs[data['type']].append(data)
+        self._conf_attrs[data.type].append(data)
         try:
             self.session.config.addentity(
-                data['type'], 'entityd.declentity.DeclarativeEntity')
+                data.type, 'entityd.declentity.DeclarativeEntity')
         except KeyError:
             pass
 
@@ -331,22 +246,20 @@ class DeclarativeEntity:
         """
         # Parents and children are generators, not sets, to delay evaluation
         # allowing for successful recursive relationships.
-        entity = entityd.EntityUpdate(config_properties.get('type'))
-        entity.attrs.set('filepath',
-                         config_properties['filepath'],
-                         attrtype='id')
+        entity = entityd.EntityUpdate(config_properties.type)
+        entity.attrs.set('filepath', config_properties.filepath, attrtype='id')
         entity.attrs.set('hostueid', self.host_ueid, attrtype='id')
-        for name, value in config_properties['attrs'].items():
-            entity.attrs.set(name, value['value'], attrtype=value['type'])
+        for name, value in config_properties.attrs.items():
+            entity.attrs.set(name, value.value, attrtype=value.type)
 
         # pylint: disable=protected-access
         entity.parents._relations = (
-            entity.ueid for relation in config_properties['parents']
+            entity.ueid for relation in config_properties.parents
             for entity in self._find_entities(relation.type, relation.attrs)
         )
 
         entity.children._relations = (
-            entity.ueid for relation in config_properties['children']
+            entity.ueid for relation in config_properties.children
             for entity in self._find_entities(relation.type, relation.attrs)
         )
 
@@ -384,3 +297,91 @@ class DeclarativeEntity:
                         break
                 else:
                     yield entity
+
+class DeclCfg:
+    """A decelarative entity configuration class
+
+    This class holds the declarative entity data which is used to build a
+    declarative entity.
+
+    :param data: A dictionary of data used to create the declaration class.
+
+    Raises ValidationError if any of the elements cannot be validated.
+
+    Attributes
+    :attr type: The type of the entity. Required, cannot contain '/' characters.
+    :attr filepath: The path of the file the declaration was read from.
+    :attr attrs: A dictionary of static attributes, the keys of the dictionary
+                 are the attribute names, the values are instances of
+                 entityd.entityupdate.UpdateAttr named tuples containing the
+                 name, value and type of the attribute.
+    :attr children: A list of RelDesc named tuples which are used to find the
+                    ueids of the children of the entity.
+    :attr parents: A list of RelDesc named tuples which are used to find the
+                   ueids of the parents of the entity.
+    """
+
+    def __init__(self, data):
+        self._type = None
+        try:
+            self.type = data['type']
+        except KeyError:
+            raise ValidationError('No type field found in entity.')
+        self.filepath = data.get('filepath', '')
+        self.attrs = dict()
+        for name, value in data.get('attrs', dict()).items():
+            if isinstance(value, dict):
+                attr_type = value.get('type', None)
+                attr_val = value.get('value', None)
+            else:
+                attr_type = None
+                attr_val = value
+            self.attrs[name] = entityd.entityupdate.UpdateAttr(name,
+                                                               attr_val,
+                                                               attr_type)
+        self.children = [self._make_rel(c) for c in data.get('children', [])]
+        self.parents = [self._make_rel(p) for p in data.get('parents', [])]
+        if RelDesc('Host', {}) not in self.parents:
+            self.parents.append(RelDesc('Host', {}))
+
+    @property
+    def type(self):
+        """Return the type of the entity."""
+        return self._type
+
+    @type.setter
+    def type(self, value):
+        """Validate and set the type of the entity."""
+        if '/' in value:
+            raise ValidationError("'/' not allowed in type field.")
+        else:
+            self._type = value
+
+    @staticmethod
+    def _make_rel(relation):
+        """Validate a list of relations, converting them to RelDesc tuples.
+
+        :param rel_list: A list of relations which will be validated
+
+        Returns a list of RelDesc tuples matching the dictionaries in the
+        original rel_list. A RelDesc tuple has two fields, `type` is required
+        and specifies the type of entitiy to find; `attrs` is a dictionary
+        whose keys are attribute names, and whose values are regular expressions
+        used to match on the attribute values for entitiy matching.
+
+        Raises ValidationError if any of the relations cannot be validated.
+        """
+        if isinstance(relation, RelDesc):
+            return relation
+        elif isinstance(relation, dict):
+            try:
+                relation = RelDesc(relation.pop('type'), relation)
+            except KeyError:
+                raise ValidationError(
+                    "'type' is required for relation definition")
+            else:
+                return relation
+        else:
+            raise ValidationError(
+                'Bad relation description, expected dictionary, got {}'
+                .format(type(relation).__name__))

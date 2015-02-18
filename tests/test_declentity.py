@@ -1,5 +1,6 @@
 import argparse
 import os
+import pathlib
 
 import pytest
 import textwrap
@@ -52,7 +53,14 @@ def test_addoption():
     parser = argparse.ArgumentParser()
     entityd.declentity.entityd_addoption(parser)
     args = parser.parse_args(['--declentity-dir', '/file/path'])
-    assert args.declentity_dir == '/file/path'
+    assert args.declentity_dir == pathlib.Path('/file/path')
+
+
+def test_default_dir():
+    parser = argparse.ArgumentParser()
+    entityd.declentity.entityd_addoption(parser)
+    args = parser.parse_args([])
+    assert args.declentity_dir.stem == 'entity_declarations'
 
 
 def test_default_dir():
@@ -65,7 +73,7 @@ def test_default_dir():
 def test_load_files(declent, session, config, tmpdir):
     conf_file = tmpdir.join('test.entity')
     conf_file.write("""type: test""")
-    config.args.declentity_dir = tmpdir.strpath
+    config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     declent._load_files()
@@ -77,7 +85,7 @@ def test_load_incorrect_file(declent, config, tmpdir, caplog):
     # A file with a load of rubbish in shouldn't crash entityd
     conf_file = tmpdir.join('test.entity')
     conf_file.write("""\xAA Rabbit, Foobar""")
-    config.args.declentity_dir = tmpdir.strpath
+    config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
     declent.entityd_configure(config)
     declent._load_files()
     assert not declent._conf_attrs
@@ -93,7 +101,7 @@ def test_load_invalid_file(declent, config, tmpdir, caplog):
         ---
         type: File
         """)
-    config.args.declentity_dir = tmpdir.strpath
+    config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
     declent.entityd_configure(config)
     declent._load_files()
     assert not declent._conf_attrs
@@ -103,8 +111,8 @@ def test_load_invalid_file(declent, config, tmpdir, caplog):
 def test_load_no_permission(declent, session, config, tmpdir, caplog):
     conf_file = tmpdir.join('test.entity')
     conf_file.write('type: Test')
-    os.chmod(conf_file.strpath, 0x000)
-    config.args.declentity_dir = tmpdir.strpath
+    pathlib.Path(conf_file.strpath).chmod(0x000)
+    config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     assert 'Test' not in declent._conf_attrs.keys()
@@ -134,14 +142,14 @@ def conf_file(tmpdir):
 
 
 def test_load_files_on_start(declent, config, session, conf_file):
-    config.args.declentity_dir = os.path.split(conf_file.strpath)[0]
+    config.args.declentity_dir = pathlib.Path(conf_file.strpath).parent
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     assert 'Test' in declent._conf_attrs.keys()
     attrs = declent._conf_attrs['Test'][0]
     assert attrs['attrs']['owner']['value'] == 'admin@default'
     assert attrs['attrs']['dict'] == {'value': 'a_value', 'type': 'a_type'}
-    assert attrs['filepath'] == conf_file.strpath
+    assert attrs['filepath'] == pathlib.Path(conf_file.strpath)
     assert isinstance(attrs['children'][0], entityd.declentity.RelDesc)
     assert attrs['children'][0].type == 'Process'
     assert attrs['children'][0].attrs['command'] == 'proccommand -a'
@@ -155,7 +163,7 @@ def test_load_file_no_type(declent, config, session, tmpdir, caplog):
         attrs:
             owner: foobar
         """)
-    config.args.declentity_dir = tmpdir.strpath
+    config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     assert declent._conf_attrs == dict()
@@ -169,7 +177,7 @@ def test_filename_attr_used(declent, config, session, tmpdir):
         attrs:
             filepath: NotARealPath
         """)
-    config.args.declentity_dir = tmpdir.strpath
+    config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     ent = next(declent.entityd_find_entity('test', attrs=None))
@@ -183,7 +191,7 @@ def test_bad_file_suffix(declent, config, session, tmpdir):
         attrs:
             owner: foobar
         """)
-    config.args.declentity_dir = tmpdir.strpath
+    config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     assert 'Test' not in declent._conf_attrs.keys()
@@ -194,7 +202,7 @@ def test_invalid_type(declent, config, session, tmpdir, caplog):
     conf_file.write("""
         type: Invalid/Type
         """)
-    config.args.declentity_dir = tmpdir.strpath
+    config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     assert 'Invalid/Type' not in declent._conf_attrs.keys()
@@ -210,7 +218,7 @@ def test_invalid_relation(declent, config, session, tmpdir, caplog):
             - two
             - three
         """)
-    config.args.declentity_dir = tmpdir.strpath
+    config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     assert 'Test' not in declent._conf_attrs.keys()
@@ -223,7 +231,7 @@ def test_revalidate_relations(declent, session, config, conf_file):
 
 
 def test_deleted_on_file_remove(declent, session, config, conf_file):
-    config.args.declentity_dir = os.path.split(conf_file.strpath)[0]
+    config.args.declentity_dir = pathlib.Path(conf_file.strpath).parent
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     read_ent = next(declent.entityd_find_entity('Test', None))
@@ -241,7 +249,7 @@ def test_deleted_on_file_remove(declent, session, config, conf_file):
 
 
 def test_deleted_ueid_sent_on_get(declent, config, session, conf_file):
-    config.args.declentity_dir = os.path.split(conf_file.strpath)[0]
+    config.args.declentity_dir = pathlib.Path(conf_file.strpath).parent
     declent._deleted['Test'].add('DeletedUEID')
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
@@ -253,7 +261,7 @@ def test_deleted_ueid_sent_on_get(declent, config, session, conf_file):
 
 
 def test_find_deleted_with_attrs(declent, config, session):
-    config.args.declentity_dir = '/tmp'
+    config.args.declentity_dir = pathlib.Path('.')
     declent._deleted['Test'].add('DeletedUEID')
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
@@ -338,7 +346,7 @@ def test_find_entity_invalid_key(declent, session, monkeypatch):
 
 
 def test_entityd_find_entity(declent, session, config, conf_file):
-    config.args.declentity_dir = os.path.split(conf_file.strpath)[0]
+    config.args.declentity_dir = pathlib.Path(conf_file.strpath).parent
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     found_ents = session.pluginmanager.hooks.entityd_find_entity(
@@ -356,7 +364,7 @@ def test_entityd_find_entity(declent, session, config, conf_file):
 
 
 def test_entityd_find_entity_args(declent, session, config, conf_file):
-    config.args.declentity_dir = os.path.split(conf_file.strpath)[0]
+    config.args.declentity_dir = pathlib.Path(conf_file.strpath).parent
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     found_ents = session.pluginmanager.hooks.entityd_find_entity(
@@ -388,7 +396,7 @@ def test_children_and_parents(declent, session, config, conf_file, pm):
                 yield procent2
     pm.register(MockProc(), 'entityd.procme.MockProc')
 
-    config.args.declentity_dir = os.path.split(conf_file.strpath)[0]
+    config.args.declentity_dir = pathlib.Path(conf_file.strpath).parent
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
 
@@ -413,7 +421,7 @@ def test_one_file_two_entities(declent, session, config, tmpdir):
         attrs:
             owner: admin2@default
         """))
-    config.args.declentity_dir = tmpdir.strpath
+    config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     assert set(['Ent1', 'Ent2']) == set(declent._conf_attrs.keys())
@@ -431,7 +439,7 @@ def test_relation_without_params(declent, session, config, tmpdir):
         attrs:
             path: /path/to/file
         """))
-    config.args.declentity_dir = tmpdir.strpath
+    config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     found_ents = next(declent.entityd_find_entity('Test', None))
@@ -452,7 +460,7 @@ def test_relation_without_type(declent, session, config, tmpdir, caplog):
         attrs:
             path: path/to/file
         """))
-    config.args.declentity_dir = tmpdir.strpath
+    config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     with pytest.raises(StopIteration):
@@ -469,7 +477,7 @@ def test_recursive_relation(declent, session, config, tmpdir, caplog):
         parents:
             - type: Test
         """))
-    config.args.declentity_dir = tmpdir.strpath
+    config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     found_ents = next(declent.entityd_find_entity('Test', None))
@@ -496,7 +504,7 @@ def test_overlapping_entity_names(declent, session, config, tmpdir):
                 value: 2
                 type: id
         """))
-    config.args.declentity_dir = tmpdir.strpath
+    config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     found_ents = declent.entityd_find_entity('Test', None)

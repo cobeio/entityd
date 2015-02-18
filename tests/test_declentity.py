@@ -116,7 +116,7 @@ def test_load_no_permission(declent, session, config, tmpdir, caplog):
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     assert 'Test' not in declent._conf_attrs.keys()
-    assert "Insufficient privilege" in caplog.text()
+    assert "Could not open" in caplog.text()
 
 
 @pytest.fixture

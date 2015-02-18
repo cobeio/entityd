@@ -2,13 +2,48 @@
 
 This creates entities based on a description in a config file, which can be
 used to describe how entities are related.
+
+Entity declaration files are written in yaml, and must have the suffix
+".entity". Each file can contain one or more entity declaration, separated by
+"---". Each entity must have a `type` and can also contain static attributes
+specified under `attrs`, and children and parents which are specified by their
+type and any regular expression matches to find the correct entity.
+
+Attributes can be either given as a simple "name: value" pair, in which case
+they will have no type, or as a dictionary also specifying the type. If
+multiple entities of the same type are given in the same file then they must
+also contain at least one attribute of type `id` with differing values.
+
+Relations are given as a list of dictionaries, each dictionary corresponding
+to different entity parameters. The relation must specify the `type` of the
+entity to find, and can also include any number of additional attributes to
+match on, where the key is the attribute name, and the value is a regular
+expression to match the attribute value. All entities which match the terms
+given will be added as relations, so specifying an relation with just a `type`
+will add all entities of that type as relations.
+
+Example entity declaration file:
+
+.. yaml::
+
+    type: EntityType
+    attrs:
+        owner: admin@default
+        ident:
+            value: 1
+            type: id
+    children:
+        - type: Process
+          command: [Pp]roccommand -a
+        - type: File
+          path: /path/to/file
+    parents:
+        - type: Host
 """
 
 import base64
 import collections
 import logging
-import os
-import os.path
 import pathlib
 import re
 
@@ -40,7 +75,7 @@ def entityd_addoption(parser):
     parser.add_argument(
         '--declentity-dir',
         default=act.fsloc.sysconfdir.joinpath('entity_declarations'),
-        type=str,
+        type=pathlib.Path,
         help=('Directory to scan for entity declaration files.'),
     )
 
@@ -54,8 +89,13 @@ class DeclarativeEntity:
     #
     # _host_ueid: The UEID of the host entity
     # _path: The path scanned for entity declaration files
-    # _conf_attrs: A dictionary of lists, each being the terms used to describe
-    #              entities which will be found
+    # _conf_attrs: A dictionary of lists, the key is the type of the entities
+    #              and the list contains dictionaries describing how to build
+    #              an entity.
+    #              The entity description dictionary must have a key `type`,
+    #              the value of which will be the same as the key in the top
+    #              dictionary. See _validate_conf for a full description of
+    #              the shape of these dictionaries.
     # _deleted: A dictionary of sets, with the key being the name of an entity
     #           type, and the set being ueids of entities which are no longer
     #           being monitored.
@@ -76,7 +116,15 @@ class DeclarativeEntity:
 
     @entityd.pm.hookimpl(after='entityd.kvstore')
     def entityd_sessionstart(self, session):
-        """Load previously known entity UEIDs."""
+        """Read config files, and load previous UEIDs to find deleted entities.
+
+        This first reads all config files and loads the declarations into the
+        self._conf_attrs dictionary. It also loads previously known entity
+        UEIDs from the kvstore, and tests if a matching entity has been loaded
+        into the self._conf_attrs dictionary. If there is no matching entity
+        then the entitiy is marked as deleted and will be sent when entities
+        of it's type are next requested.
+        """
         self.session = session
         self._load_files()
         loaded_values = session.svc.kvstore.getmany(self.prefix)
@@ -138,43 +186,39 @@ class DeclarativeEntity:
         return entity
 
     def _load_files(self):
-        """Load files, read the config data and add it to the conf_data dict.
+        """Load files, read the config data and add it to self._conf_attrs.
 
-        The folder path to search is provided by the entityd.config module
+        The folder path to search is provided by the entityd.core.Config class
         Entity description files must end in .entity
         Each entity description must have a `type` to be valid.
         """
         if not self._path:
             return
-        for dirpath, _, filenames in os.walk(self._path):
-            for filename in filenames:
-                if not filename.endswith('.entity'):
-                    continue
-                filepath = os.path.join(dirpath, filename)
-                try:
-                    with open(filepath, 'r') as openfile:
-                        try:
-                            load_data = list(yaml.safe_load_all(openfile))
-                        except yaml.scanner.ScannerError as err:
-                            log.warning('Could not load file %s: %s',
-                                        filepath, err)
-                            continue
-                except PermissionError:
-                    log.warning("Insufficient privileges to open %s", filepath)
-                    continue
-                for data in load_data:
-                    if not isinstance(data, dict):
-                        log.warning('Error loading file %s, one or more entity'
-                                    'declarations not loaded.', filepath)
-                        continue
-                    data['filepath'] = filepath
+        for filepath in self._path.rglob('*.entity'):
+            try:
+                with filepath.open('r') as openfile:
                     try:
-                        data = self._validate_conf(data)
-                    except ValidationError as err:
-                        log.warning('Ignoring invalid entity declaration '
-                                    'in %s: %s', filepath, err)
-                    else:
-                        self._add_conf(data)
+                        load_data = list(yaml.safe_load_all(openfile))
+                    except yaml.scanner.ScannerError as err:
+                        log.warning('Could not load file %s: %s',
+                                    filepath, err)
+                        continue
+            except IOError:
+                log.warning("Insufficient privileges to open %s", filepath)
+                continue
+            for data in load_data:
+                if not isinstance(data, dict):
+                    log.warning('Error loading file %s, one or more entity'
+                                'declarations not loaded.', filepath)
+                    continue
+                data['filepath'] = filepath
+                try:
+                    data = self._validate_conf(data)
+                except ValidationError as err:
+                    log.warning('Ignoring invalid entity declaration '
+                                'in %s: %s', filepath, err)
+                else:
+                    self._add_conf(data)
 
     @staticmethod
     def _validate_conf(data):
@@ -185,6 +229,20 @@ class DeclarativeEntity:
         Returns a dictionary of the validated configuration data.
 
         Raises ValidationError if any of the elements cannot be validated.
+
+
+        A validated dictionary will be of the format
+        {
+            type: <Type of entitiy described>, # Required and cannot contain /
+            attrs: {
+                # An optional dictionary of static attributes for the entity.
+                attr_name: attr_value,
+            },
+            # children and parents are lists of named tuples, each containing
+            # the information needed to get the ueids of related entities.
+            children: [RelDesc(<type>, {<attr_name>: <attr_regex>, ...}), ...],
+            parents: [RelDesc(<type>, {<attr_name>: <attr_regex>, ...}), ...],
+        }
         """
         if 'type' not in data.keys():
             raise ValidationError('No type field found in entity.')
@@ -217,7 +275,10 @@ class DeclarativeEntity:
         :param rel_list: A list of relations which will be validated
 
         Returns a list of RelDesc tuples matching the dictionaries in the
-        original rel_list.
+        original rel_list. A RelDesc tuple has two fields, `type` is required
+        and specifies the type of entitiy to find; `attrs` is a dictionary
+        whose keys are attribute names, and whose values are regular expressions
+        used to match on the attribute values for entitiy matching.
 
         Raises ValidationError if any of the relations cannot be validated.
         """

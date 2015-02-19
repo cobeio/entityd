@@ -1,6 +1,7 @@
 import argparse
 import os
 import pathlib
+import time
 
 import pytest
 import textwrap
@@ -76,7 +77,7 @@ def test_load_files(declent, session, config, tmpdir):
     config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
-    declent._load_files()
+    declent._update_entities()
     assert 'test' in declent._conf_attrs.keys()
     assert config.entities['test'].obj is declent
 
@@ -87,7 +88,7 @@ def test_load_incorrect_file(declent, config, tmpdir, caplog):
     conf_file.write("""\xAA Rabbit, Foobar""")
     config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
     declent.entityd_configure(config)
-    declent._load_files()
+    declent._update_entities()
     assert not declent._conf_attrs
     assert "Error loading" in caplog.text()
 
@@ -103,7 +104,7 @@ def test_load_invalid_file(declent, config, tmpdir, caplog):
         """)
     config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
     declent.entityd_configure(config)
-    declent._load_files()
+    declent._update_entities()
     assert not declent._conf_attrs
     assert 'Could not load' in caplog.text()
 
@@ -181,6 +182,9 @@ def test_filepath_attr_used(declent, config, session, tmpdir):
     config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
+    declcfg = declent._conf_attrs['test'][0]
+    assert declcfg.filepath == pathlib.Path(conf_file.strpath)
+    assert declcfg.attrs['filepath'].value == 'NotARealPath'
     ent = next(declent.entityd_find_entity('test', attrs=None))
     assert ent.attrs.get('filepath').value == 'NotARealPath'
 
@@ -281,7 +285,6 @@ def conf_attrs():
         'children': [],
         'parents': []
     }
-    # return entityd.declentity.DeclarativeEntity._validate_conf(conf)
     return entityd.declentity.DeclCfg(conf)
 
 
@@ -508,6 +511,75 @@ def test_overlapping_entity_names(declent, session, config, tmpdir):
     owners = set(ent.attrs.get('owner').value for ent in found_ents)
     assert owners == set(['admin', 'user'])
 
+
+def test_change_entity(declent, session, config, tmpdir):
+    conf_file = tmpdir.join('test.entity')
+    conf_file.write("""
+        type: Test
+        attrs:
+            owner: my_owner
+        """)
+    config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
+    declent.entityd_configure(config)
+    declent.entityd_sessionstart(session)
+    found_ents = list(declent.entityd_find_entity('Test', None))
+    assert found_ents[0].attrs.get('owner').value == 'my_owner'
+    last_ueid = found_ents[0].ueid
+    conf_file.write("""
+        type: Test
+        attrs:
+            owner: my_owner
+            ident:
+                value: 2
+                type: id
+        """)
+    stat = os.stat(conf_file.strpath)
+    os.utime(conf_file.strpath, times=(stat.st_atime+10, stat.st_mtime+10))
+    declent._update_entities()
+    assert declent._deleted['Test'] == {last_ueid, }
+    found_ents = list(declent.entityd_find_entity('Test', None))
+    assert found_ents[0].ueid == last_ueid
+    assert found_ents[0].deleted is True
+    assert found_ents[1].attrs.get('owner').value == 'my_owner'
+
+
+def test_remove_type(declent, session, config, tmpdir):
+    conf_file = tmpdir.join('test.entity')
+    conf_file.write("""
+        type: Test
+        """)
+    config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
+    declent.entityd_configure(config)
+    declent.entityd_sessionstart(session)
+    last_ueid = next(declent.entityd_find_entity('Test', None)).ueid
+    conf_file.write("""
+        """)
+    stat = os.stat(conf_file.strpath)
+    os.utime(conf_file.strpath, times=(stat.st_atime+10, stat.st_mtime+10))
+    declent._update_entities()
+    assert declent._deleted['Test'] == {last_ueid, }
+    found_ent = next(declent.entityd_find_entity('Test', None))
+    assert found_ent.ueid == last_ueid
+    assert found_ent.deleted is True
+    assert 'Test' not in declent._conf_attrs.keys()
+
+
+def test_remove_file(declent, session, config, tmpdir):
+    conf_file = tmpdir.join('test2.entity')
+    conf_file.write("""
+        type: Test
+        """)
+    config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
+    declent.entityd_configure(config)
+    declent.entityd_sessionstart(session)
+    last_ueid = next(declent.entityd_find_entity('Test', None)).ueid
+    os.remove(conf_file.strpath)
+    while pathlib.Path(conf_file.strpath).exists():
+        time.sleep(1)
+    found_ent = next(declent.entityd_find_entity('Test', None))
+    assert found_ent.ueid == last_ueid
+    assert found_ent.deleted is True
+    assert not declent._conf_attrs
 
 class TestDecCfg:
 

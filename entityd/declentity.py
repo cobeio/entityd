@@ -100,10 +100,11 @@ class DeclarativeEntity:
 
     def __init__(self):
         self._host_ueid = None
-        self._path = None
+        self._path = act.fsloc.sysconfdir.joinpath('entity_declarations')
         self.session = None
         self._conf_attrs = collections.defaultdict(list)
         self._deleted = collections.defaultdict(set)
+        self._files = {}
 
     @entityd.pm.hookimpl
     def entityd_configure(self, config):
@@ -122,7 +123,7 @@ class DeclarativeEntity:
         of it's type are next requested.
         """
         self.session = session
-        self._load_files()
+        self._update_entities()
         loaded_values = session.svc.kvstore.getmany(self.prefix)
         for key, ent_type in loaded_values.items():
             ueid = base64.b64decode(key.split(':', 1)[1])
@@ -154,6 +155,7 @@ class DeclarativeEntity:
         :param name: The name of the entity type to return.
         :param attrs: A dictionary of attributes to filter return entities on.
         """
+        self._update_entities()
         if name in self._deleted.keys():
             if attrs is not None:
                 raise LookupError('Attribute based filtering not supported'
@@ -180,40 +182,63 @@ class DeclarativeEntity:
         entity.delete()
         return entity
 
-    def _load_files(self):
+    def _update_entities(self):
         """Load files, read the config data and add it to self._conf_attrs.
 
         The folder path to search is provided by the entityd.core.Config class
         Entity description files must end in .entity
         Each entity description must have a `type` to be valid.
         """
-        if not self._path:
-            return
+        loaded = []
+        changed_files = []
         for filepath in self._path.rglob('*.entity'):
-            try:
-                with filepath.open('r') as openfile:
-                    try:
-                        load_data = list(yaml.safe_load_all(openfile))
-                    except yaml.scanner.ScannerError as err:
-                        log.warning('Could not load file %s: %s',
-                                    filepath, err)
-                        continue
-            except IOError:
-                log.warning("Insufficient privileges to open %s", filepath)
-                continue
-            for data in load_data:
-                if not isinstance(data, dict):
-                    log.warning('Error loading file %s, one or more entity'
-                                'declarations not loaded.', filepath)
+            if filepath.stat().st_mtime != self._files.get(filepath, 0):
+                log.debug("Loading file %s", filepath)
+                loaded.extend([conf for conf in self._load_file(filepath)])
+                changed_files.append(filepath)
+
+        for ent_type in list(self._conf_attrs.keys()):
+            for ent_desc in self._conf_attrs[ent_type][::-1]:
+                if (ent_desc.filepath.exists() and
+                        ent_desc.filepath not in changed_files):
                     continue
-                data['filepath'] = filepath
+                if ent_desc not in loaded:
+                    ueid = self._create_declarative_entity(ent_desc).ueid
+                    log.debug("Deleting %s", ent_desc)
+                    self._deleted[ent_type].add(ueid)
+                    self._conf_attrs[ent_type].remove(ent_desc)
+            if not self._conf_attrs[ent_type]:
+                del self._conf_attrs[ent_type]
+
+        for conf in loaded:
+                self._add_conf(conf)
+
+    def _load_file(self, filepath):
+        try:
+            with filepath.open('r') as openfile:
                 try:
-                    data = DeclCfg(data)
-                except ValidationError as err:
-                    log.warning('Ignoring invalid entity declaration '
-                                'in %s: %s', filepath, err)
-                else:
-                    self._add_conf(data)
+                    load_data = list(yaml.safe_load_all(openfile))
+                except yaml.scanner.ScannerError as err:
+                    log.warning('Could not load file %s: %s',
+                                filepath, err)
+                    return
+        except IOError as err:
+            log.warning("Could not open file %s: %s", filepath, err)
+            return
+        self._files[filepath] = filepath.stat().st_mtime
+        for data in load_data:
+            if not isinstance(data, dict):
+                log.warning('Error loading file %s, one or more entity'
+                            'declarations not loaded.', filepath)
+                continue
+            data['filepath'] = filepath
+            try:
+                data = DeclCfg(data)
+            except ValidationError as err:
+                log.warning('Ignoring invalid entity declaration '
+                            'in %s: %s', filepath, err)
+            else:
+                yield data
 
     def _add_conf(self, data):
         """Add the configuration given in `data` to the list of known data.
@@ -226,6 +251,19 @@ class DeclarativeEntity:
                 data.type, 'entityd.declentity.DeclarativeEntity')
         except KeyError:
             pass
+
+    def _remove_conf(self, data):
+        """Removed the description `data` from the known descriptions
+
+        Also removes that type key if appropriate and unregisters the type:
+        """
+        raise NotImplemented
+        self._conf_attrs[data.type].remove(data)
+        if not self._conf_attrs[data.type]:
+            self._conf_attrs.remove(data.type)
+            self.session.config.removeentity(
+                data.type, 'entityd.declentity.DeclarativeEntity')
+
 
     @property
     def host_ueid(self):

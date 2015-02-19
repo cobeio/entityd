@@ -64,13 +64,6 @@ def test_default_dir():
     assert args.declentity_dir.stem == 'entity_declarations'
 
 
-def test_default_dir():
-    parser = argparse.ArgumentParser()
-    entityd.declentity.entityd_addoption(parser)
-    args = parser.parse_args()
-    assert args.declentity_dir.stem == 'entity_declarations'
-
-
 def test_load_files(declent, session, config, tmpdir):
     conf_file = tmpdir.join('test.entity')
     conf_file.write("""type: test""")
@@ -402,11 +395,11 @@ def test_children_and_parents(declent, session, config, conf_file, pm):
 
     entity = declent._create_declarative_entity(declent._conf_attrs['Test'][0])
     assert set(entity.children) == set([procent.ueid, fileent.ueid])
-    assert set(entity.parents) == set([declent._host_ueid, procent2.ueid])
+    assert set(entity.parents) == set([procent2.ueid])
 
     entity = declent._create_declarative_entity(declent._conf_attrs['Test'][0])
     assert set(entity.children) == set([procent.ueid, fileent.ueid])
-    assert set(entity.parents) == set([declent._host_ueid, procent2.ueid])
+    assert set(entity.parents) == set([procent2.ueid])
 
 
 def test_one_file_two_entities(declent, session, config, tmpdir):
@@ -587,7 +580,7 @@ class TestDecCfg:
         some_cfg = entityd.declentity.DeclCfg({'type': 'SomeType'})
         assert some_cfg.type == 'SomeType'
         assert some_cfg.filepath == ''
-        assert some_cfg.parents == [entityd.declentity.RelDesc('Host', {})]
+        assert some_cfg.parents == []
         assert some_cfg.children == []
         assert some_cfg.attrs == {}
 

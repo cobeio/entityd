@@ -383,8 +383,6 @@ class DeclCfg:
                                                                attr_type)
         self.children = [self._make_rel(c) for c in data.get('children', [])]
         self.parents = [self._make_rel(p) for p in data.get('parents', [])]
-        if RelDesc('Host', {}) not in self.parents:
-            self.parents.append(RelDesc('Host', {}))
 
     @property
     def type(self):

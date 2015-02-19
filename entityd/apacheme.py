@@ -25,7 +25,7 @@ class ApacheEntity:
     def __init__(self):
         self.session = None
         self._apache = None
-        self._host = None
+        self._host_ueid = None
         self._last_ueid = None
 
     @staticmethod
@@ -66,16 +66,16 @@ class ApacheEntity:
         return self._apache
 
     @property
-    def host(self):
+    def host_ueid(self):
         """Get and store the host entity."""
-        if self._host:
-            return self._host
+        if self._host_ueid:
+            return self._host_ueid
         results = self.session.pluginmanager.hooks.entityd_find_entity(
             name='Host', attrs=None)
         for hosts in results:
             for host in hosts:
-                self._host = host
-                return self._host
+                self._host_ueid = host.ueid
+                return self._host_ueid
 
     def entities(self):
         """Return a generator of ApacheEntity objects"""
@@ -95,7 +95,7 @@ class ApacheEntity:
                 update.delete()
                 yield update
             return
-        update.attrs.set('id', 'Apache', attrtype='id')
+        update.attrs.set('host', self.host_ueid, attrtype='id')
         update.attrs.set('version', apache.version)
         update.attrs.set('config_path', apache.config_path)
         update.attrs.set('config_ok', apache.check_config())
@@ -104,8 +104,8 @@ class ApacheEntity:
             update.attrs.set(name, value)
         for child in self.processes():
             update.children.add(child)
-        if self.host:
-            update.parents.add(self.host)
+        if self.host_ueid:
+            update.parents.add(self.host_ueid)
         self._last_ueid = update.ueid
         yield update
 

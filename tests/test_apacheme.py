@@ -328,6 +328,14 @@ def test_config_last_modified(apache, tmpdir):
     assert apache.config_last_modified() < time.time()
 
 
+def test_apaches_on_different_hosts_have_different_ueids(patched_entitygen):
+    patched_entitygen._host_ueid = 1234
+    entity1 = next(patched_entitygen.entityd_find_entity('Apache', attrs=None))
+    patched_entitygen._host_ueid = 5678
+    entity2 = next(patched_entitygen.entityd_find_entity('Apache', attrs=None))
+    assert entity1.ueid != entity2.ueid
+
+
 def test_version(apache, monkeypatch):
     monkeypatch.setattr(subprocess, 'check_output',
                         pytest.Mock(return_value=APACHECTL__V))

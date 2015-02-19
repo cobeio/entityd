@@ -1,4 +1,4 @@
-"""DeclarativeEntity
+"""Declarative Entity Plugin.
 
 This creates entities based on a description in a config file, which can be
 used to describe how entities are related.
@@ -206,9 +206,16 @@ class DeclarativeEntity:
                     self._remove_conf(ent_desc)
 
         for conf in loaded:
-                self._add_conf(conf)
+            self._add_conf(conf)
 
     def _load_file(self, filepath):
+        """Load an entity declaration file and return DeclCfg objects.
+
+        :param filepath: The path to the entity declaration file to open.
+
+        :return: A generator of DeclCfg objects for each valid entity
+            declaration in the file
+        """
         try:
             with filepath.open('r') as openfile:
                 try:

@@ -179,6 +179,24 @@ class TestConfig:
         with pytest.raises(KeyError):
             config.addentity('foo', plugin_b)
 
+    def test_removeentity(self, pm, config):
+        plugin = pm.register(object(), 'foo')
+        config.addentity('foo', plugin)
+        assert config.entities['foo'] is plugin
+        config.removeentity('foo', plugin)
+        assert 'foo' not in config.entities.keys()
+
+    def test_remove_unregistered(self, pm, config):
+        plugin = pm.register(object(), 'foo')
+        with pytest.raises(KeyError):
+            config.removeentity('foo', plugin)
+
+    def test_remove_wrong_plugin(self, pm, config):
+        plugin_a = pm.register(object(), 'foo')
+        plugin_b = pm.register(object(), 'bar')
+        config.addentity('foo', plugin_a)
+        with pytest.raises(KeyError):
+            config.removeentity('foo', plugin_b)
 
 class TestSession:
 

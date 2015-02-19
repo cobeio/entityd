@@ -168,6 +168,28 @@ class Config:
         plugin = self.pluginmanager.getplugin(plugin)
         self.entities[name] = plugin
 
+    def removeentity(self, name, plugin):
+        """Unregister a plugin as providing a Monitored Entity.
+
+        :param name: The name of the Monitored Entity.
+
+        :param plugin: The plugin providing the Monitored Entity.
+           This can be a plugin name, the plugin object or the
+           entityd.pm.Plugin instance.
+
+        :raises KeyError: If the Monitored Entity does not exist a KeyError is
+            raised. If the Monitored Entity is registered with a different
+            plugin than given a KeyError is raised.
+        """
+        if name not in self.entities:
+            raise KeyError(
+                'Monitored Entity not registered: {}'.format(name))
+        plugin = self.pluginmanager.getplugin(plugin)
+        if self.entities[name] != plugin:
+            raise KeyError(
+                'Unregistering plugin {} does not match registered plugin {}'
+                .format(plugin, self.entities[name]))
+        del self.entities[name]
 
 class Session:
     """A monitoring session.

@@ -199,16 +199,11 @@ class DeclarativeEntity:
 
         for ent_type in list(self._conf_attrs.keys()):
             for ent_desc in self._conf_attrs[ent_type][::-1]:
-                if (ent_desc.filepath.exists() and
-                        ent_desc.filepath not in changed_files):
-                    continue
-                if ent_desc not in loaded:
-                    ueid = self._create_declarative_entity(ent_desc).ueid
-                    log.debug("Deleting %s", ent_desc)
-                    self._deleted[ent_type].add(ueid)
-                    self._conf_attrs[ent_type].remove(ent_desc)
-            if not self._conf_attrs[ent_type]:
-                del self._conf_attrs[ent_type]
+                if not ent_desc.filepath.exists():
+                    self._remove_conf(ent_desc)
+                if (ent_desc not in loaded
+                        and ent_desc.filepath in changed_files):
+                    self._remove_conf(ent_desc)
 
         for conf in loaded:
                 self._add_conf(conf)
@@ -257,10 +252,12 @@ class DeclarativeEntity:
 
         Also removes that type key if appropriate and unregisters the type:
         """
-        raise NotImplemented
+
+        ueid = self._create_declarative_entity(data).ueid
         self._conf_attrs[data.type].remove(data)
+        self._deleted[data.type].add(ueid)
         if not self._conf_attrs[data.type]:
-            self._conf_attrs.remove(data.type)
+            del self._conf_attrs[data.type]
             self.session.config.removeentity(
                 data.type, 'entityd.declentity.DeclarativeEntity')
 

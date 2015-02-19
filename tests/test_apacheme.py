@@ -12,6 +12,15 @@ import entityd.processme
 from entityd.apacheme import ApacheNotFound
 
 
+CONF_FILE = "made_up_conf.conf"
+
+
+HTTPD_ROOT = "/made/up/path"
+
+
+FULL_PATH_TO_CONF = os.path.join(HTTPD_ROOT, CONF_FILE)
+
+
 APACHECTL__V = """\
 Server version: Apache/2.4.7 (Ubuntu)
 Server built:   Jul 22 2014 14:36:38
@@ -32,14 +41,14 @@ Server compiled with....
  -D APR_HAS_OTHER_CHILD
  -D AP_HAVE_RELIABLE_PIPED_LOGS
  -D DYNAMIC_MODULE_LIMIT=256
- -D HTTPD_ROOT="/etc/apache2"
+ -D HTTPD_ROOT="{}"
  -D SUEXEC_BIN="/usr/lib/apache2/suexec"
  -D DEFAULT_PIDLOG="/var/run/apache2.pid"
  -D DEFAULT_SCOREBOARD="logs/apache_runtime_status"
  -D DEFAULT_ERRORLOG="logs/error_log"
  -D AP_TYPES_CONFIG_FILE="mime.types"
- -D SERVER_CONFIG_FILE="apache2.conf"
-"""
+ -D SERVER_CONFIG_FILE="{}"
+""".format(HTTPD_ROOT, CONF_FILE)
 
 
 def has_running_apache():
@@ -123,10 +132,12 @@ def patched_entitygen(monkeypatch, pm, session):
 
     gen.apache._apachectl_binary = 'apachectl'
     gen.apache._version = 'Apache/2.4.7 (Ubuntu)'
-    gen.apache._config_path = '/etc/apache2/apache2.conf'
+    gen.apache._config_path = FULL_PATH_TO_CONF
     gen.apache.check_config = pytest.Mock(
         return_value=True
     )
+    gen.apache.config_last_modified = pytest.Mock(
+        return_value=time.time())
     return gen
 
 
@@ -169,7 +180,6 @@ def test_find_entity_mocked_apache(patched_entitygen):
         if entity.deleted:
             continue
         assert 'Apache/2' in entity.attrs.get('version').value
-        assert os.path.isfile(entity.attrs.get('config_path').value)
         count += 1
     assert count
 
@@ -251,15 +261,14 @@ def test_relations(pm, session, kvstore, patched_entitygen):  # pylint: disable=
 def test_config_path_from_file(apache, monkeypatch):
     monkeypatch.setattr(subprocess, 'check_output',
                         pytest.Mock(return_value=APACHECTL__V))
-    assert apache.config_path == '/etc/apache2/apache2.conf'
+    assert apache.config_path == FULL_PATH_TO_CONF
 
 
 def test_config_path(apache, monkeypatch):
     apache._apachectl_binary = 'apachectl'
     monkeypatch.setattr(entityd.apacheme, '_apache_config',
-                        pytest.Mock(return_value='/etc/apache2/apache2.conf'))
-    path = apache.config_path
-    assert path == '/etc/apache2/apache2.conf'
+                        pytest.Mock(return_value=FULL_PATH_TO_CONF))
+    assert apache.config_path == FULL_PATH_TO_CONF
 
 
 def test_config_path_fails(monkeypatch):
@@ -271,7 +280,7 @@ def test_config_path_fails(monkeypatch):
 
 def test_config_check(apache, monkeypatch):
     apache._apachectl_binary = 'apachectl'
-    apache._config_path = '/etc/apache2/apache2.conf'
+    apache._config_path = FULL_PATH_TO_CONF
     monkeypatch.setattr(subprocess, 'check_call',
                         pytest.Mock(return_value=0))
     assert apache.check_config() is True
@@ -279,7 +288,7 @@ def test_config_check(apache, monkeypatch):
 
 def test_config_check_fails(apache, monkeypatch):
     apache._apachectl_binary = 'apachectl'
-    apache._config_path = '/etc/apache2/apache2.conf'
+    apache._config_path = FULL_PATH_TO_CONF
     monkeypatch.setattr(subprocess, 'check_call',
                         pytest.Mock(return_value=-1))
 
@@ -321,7 +330,7 @@ def test_config_last_modified(apache, tmpdir):
     time.sleep(.1)
     tmpfile = tmpdir.join('apache.conf')
     apache._config_path = str(tmpfile)
-    with open(str(tmpfile), 'w') as f:
+    with tmpfile.open('w') as f:
         f.write("Test at: {}".format(t))
 
     assert t < apache.config_last_modified()

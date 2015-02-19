@@ -380,7 +380,7 @@ def test_performance_data(apache, monkeypatch):
 
     perfdata = apache.performance_data()
 
-    get_func.assert_called_with('http://127.0.1.1:80/server-status?auto')
+    get_func.assert_called_with('http://localhost/server-status?auto')
 
     assert perfdata['TotalAccesses'] == 1081
     assert perfdata['TotalkBytes'] == 704

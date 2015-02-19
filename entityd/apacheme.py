@@ -1,4 +1,16 @@
-"""Entity providing monitoring information on an Apache2 service."""
+"""Entity providing monitoring information on an Apache2 service.
+
+This has been tested on CentOS 7 and Ubuntu 14.04.
+In order to get Apache entities, Apache must be configured with mod_status
+accessible on the localhost ip address. This is enabled by default on
+Ubuntu, but for CentOS a section needs to be added to httpd.conf:
+
+<Location /server-status>
+        SetHandler server-status
+        Require local
+</Location>
+
+"""
 
 import logging
 import os
@@ -313,7 +325,7 @@ def _get_apache_status():
 
     :returns: requests.Response with the result.
     """
-    status_url = 'http://127.0.1.1:80/server-status?auto'
+    status_url = 'http://localhost/server-status?auto'
     try:
         response = requests.get(status_url)
     except requests.exceptions.ConnectionError:

@@ -123,9 +123,11 @@ def test_find_entity_with_pid(procent, session, kvstore):  # pylint: disable=unu
         next(entities)
 
 
-def test_find_entity_with_unknown_attrs(procent):
-    with pytest.raises(LookupError):
-        procent.entityd_find_entity('Process', {'unknown': 1})
+def test_find_entity_with_unknown_attrs(procent, session, kvstore):  # pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
+    entities = procent.entityd_find_entity('Process', {'unknown': 1})
+    with pytest.raises(StopIteration):
+        next(entities)
 
 
 def test_find_entity_with_binary(procent, session, kvstore):  # pylint: disable=unused-argument
@@ -195,7 +197,7 @@ def test_get_ueid(session):
     assert not procent.known_ueids
     ueid = procent.get_ueid(proc)
     assert ueid in procent.known_ueids
-    ueid2 = next(procent.process(os.getpid())).ueid
+    ueid2 = next(procent.filtered_processes({'pid': os.getpid()})).ueid
     assert ueid == ueid2
 
 
@@ -341,6 +343,8 @@ def test_specific_parent_deleted(procent, session, kvstore, monkeypatch):  # pyl
 
     monkeypatch.setattr(syskit, 'Process', pytest.Mock(
         side_effect=patch_syskit))
+    monkeypatch.setattr(syskit.Process, 'enumerate',
+                        pytest.Mock(return_value=[os.getpid()]))
 
     entities = procent.entityd_find_entity('Process', {'pid': os.getpid()})
     proc = next(entities)

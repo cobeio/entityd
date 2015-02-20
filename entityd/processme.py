@@ -59,12 +59,7 @@ class ProcessEntity:
         """Return an iterator of "Process" Monitored Entities."""
         if name == 'Process':
             if attrs is not None:
-                if 'pid' in attrs:
-                    return self.process(attrs['pid'])
-                elif 'binary' in attrs:
-                    return self.filtered_processes({'binary': attrs['binary']})
-                raise LookupError('Attribute based filtering not supported '
-                                  'for attrs {}'.format(attrs))
+                return self.filtered_processes(attrs)
             return self.processes()
 
     @property
@@ -123,36 +118,19 @@ class ProcessEntity:
             parents.append(self.host_ueid)
         return parents
 
-    def process(self, pid):
-        """Generate a single process ME for the process ID provided
-
-        :param pid: Process ID to return
-        """
-        proctable = {}
-        try:
-            proc = syskit.Process(pid)
-            proctable[pid] = proc
-        except syskit.NoSuchProcessError:
-            return
-
-        if proc.ppid:
-            try:
-                pproc = syskit.Process(proc.ppid)
-                proctable[proc.ppid] = pproc
-            except syskit.NoSuchProcessError:
-                pass
-
-        yield self.create_process_me(proctable, proc)
-
     def filtered_processes(self, attrs):
-        """Filter processes based on attrs"""
-        (name, value), = attrs.items()
+        """Filter processes based on attrs.
+
+        Special case for 'pid' since this should be efficient.
+        """
         for proc in self.processes():
             try:
-                if proc.attrs.get(name).value == value:
+                match = all([proc.attrs.get(name).value == value
+                             for (name, value) in attrs.items()])
+                if match:
                     yield proc
             except KeyError:
-                pass
+                continue
 
     def processes(self):
         """Generator of Process MEs."""

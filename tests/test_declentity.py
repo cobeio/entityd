@@ -1,10 +1,10 @@
 import argparse
 import os
 import pathlib
+import textwrap
 import time
 
 import pytest
-import textwrap
 
 import entityd.core
 import entityd.hookspec
@@ -205,6 +205,7 @@ def test_invalid_type(declent, config, session, tmpdir, caplog):
     declent.entityd_sessionstart(session)
     assert 'Invalid/Type' not in declent._conf_attrs.keys()
     assert 'not allowed in type' in caplog.text()
+
 
 def test_invalid_relation(declent, config, session, tmpdir, caplog):
     conf_file = tmpdir.join('test.entity')
@@ -573,6 +574,7 @@ def test_remove_file(declent, session, config, tmpdir):
     assert found_ent.ueid == last_ueid
     assert found_ent.deleted is True
     assert not declent._conf_attrs
+
 
 class TestDecCfg:
 

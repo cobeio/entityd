@@ -268,7 +268,6 @@ class DeclarativeEntity:
             self.session.config.removeentity(
                 data.type, 'entityd.declentity.DeclarativeEntity')
 
-
     @property
     def host_ueid(self):
         """Property to get the host ueid, used in a few places"""
@@ -339,6 +338,7 @@ class DeclarativeEntity:
                         break
                 else:
                     yield entity
+
 
 class DeclCfg:
     """A decelarative entity configuration class

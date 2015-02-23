@@ -18,7 +18,7 @@ import entityd.version
 #: These plugins are always loaded first and in order.
 BUILTIN_PLUGIN_NAMES = ['entityd.' + n for n in
                         ['core', 'mesend', 'kvstore', 'hostme', 'processme',
-                         'endpointme']]
+                         'endpointme', 'declentity']]
 
 
 log = logging.getLogger('bootstrap')

@@ -20,6 +20,8 @@ requirements:
     - msgpack-python
     - syskit
     - supervisord
+    - pyyaml
+    - act
 
 test:
   requires:

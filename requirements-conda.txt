@@ -5,6 +5,7 @@ pyzmq
 msgpack-python
 syskit
 pyyaml
+act
 
 # Dev requirements
 pip

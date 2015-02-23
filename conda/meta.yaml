@@ -1,0 +1,37 @@
+package:
+  name: entityd
+  version: "0.1.0"
+
+source:
+  hg_url: https://bitbucket.org/abilisoft/entityd
+  hg_tag: "rel/0.1.0"
+
+build:
+  number: 1
+
+requirements:
+  build:
+    - python >=3.4,<3.5
+    - setuptools
+  run:
+    - python >=3.4,<3.5
+    - setuptools
+    - pyzmq
+    - msgpack-python
+    - syskit
+    - supervisord
+
+test:
+  requires:
+    - pytest
+    - pytest-capturelog
+    - pytest-cov
+  commands:
+    - entityd --version
+    - py.test --cov-report='' $SRC_DIR
+  imports:
+    - entityd
+
+about:
+  home: https://abilisoft.com
+  license: proprietary

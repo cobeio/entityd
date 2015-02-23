@@ -157,7 +157,7 @@ class Apache:
     def apache_binary(self):
         """The binary to check for in process lists."""
         if not self._apache_binary:
-            self._apache_binary = _apache_binary(self.apachectl_binary)
+            self._apache_binary = _apache_binary()
         return self._apache_binary
 
     @property
@@ -271,25 +271,36 @@ def _apachectl_binary():
     apache_binarys = ['apachectl', 'apache2ctl', 'httpd']
     for name in apache_binarys:
         try:
-            subprocess.check_output([name, '-S'], universal_newlines=True)
+            subprocess.check_call([name, '-S'],
+                                  stdout=subprocess.DEVNULL,
+                                  stderr=subprocess.STDOUT)
         except FileNotFoundError:
             continue
         except subprocess.CalledProcessError:
-            continue
+            return name
         else:
             return name
     raise ApacheNotFound("Apache executable not found.")
 
 
-def _apache_binary(binary):
+def _apache_binary():
     """Get the process that Apache will be running as.
 
     :param binary: The path to the apachectl binary to use.
     """
-    if binary in ['apachectl', 'apache2ctl']:
-        return 'apache2'
-    else:
-        return 'httpd'
+    apache_binarys = ['apache2', 'httpd']
+    for name in apache_binarys:
+        try:
+            subprocess.check_call([name, '-S'],
+                                  stdout=subprocess.DEVNULL,
+                                  stderr=subprocess.STDOUT)
+        except FileNotFoundError:
+            continue
+        except subprocess.CalledProcessError:
+            return name
+        else:
+            return name
+    raise ApacheNotFound("Apache executable not found.")
 
 
 def _version(binary):

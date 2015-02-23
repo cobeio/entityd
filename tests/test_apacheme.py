@@ -300,17 +300,8 @@ def test_config_check_fails(apache, monkeypatch):
     assert apache.check_config() is False
 
 
-@pytest.mark.parametrize("apachectl_binary,apache_binary", [
-    ('apachectl', 'apache2'),
-    ('apache2ctl', 'apache2'),
-    ('httpd', 'httpd')
-])
-def test_apache_binary(apachectl_binary, apache_binary):
-    assert entityd.apacheme._apache_binary(apachectl_binary) == apache_binary
-
-
 def test_apachectl_binary_not_there(monkeypatch):
-    monkeypatch.setattr(subprocess, 'check_output',
+    monkeypatch.setattr(subprocess, 'check_call',
                         pytest.Mock(side_effect=FileNotFoundError))
     with pytest.raises(ApacheNotFound):
         entityd.apacheme._apachectl_binary()
@@ -318,11 +309,41 @@ def test_apachectl_binary_not_there(monkeypatch):
 
 def test_apachectl_binary_fails(monkeypatch):
     monkeypatch.setattr(
-        subprocess, 'check_output',
+        subprocess, 'check_call',
         pytest.Mock(side_effect=subprocess.CalledProcessError(-1, ''))
     )
+    binary = entityd.apacheme._apachectl_binary()
+    assert binary == 'apachectl'
+
+
+def test_apache_binary_not_there(monkeypatch):
+    monkeypatch.setattr(subprocess, 'check_call',
+                        pytest.Mock(side_effect=FileNotFoundError))
     with pytest.raises(ApacheNotFound):
-        entityd.apacheme._apachectl_binary()
+        entityd.apacheme._apache_binary()
+
+
+def test_apache_binary_fails(monkeypatch):
+    monkeypatch.setattr(
+        subprocess, 'check_call',
+        pytest.Mock(side_effect=subprocess.CalledProcessError(-1, ''))
+    )
+    binary = entityd.apacheme._apache_binary()
+    assert binary == 'apache2'
+
+
+def test_apache_binary_fails_first(monkeypatch):
+    def fail_once_then_succeed(*args, **kwargs):  # pylint: disable=unused-argument
+        monkeypatch.setattr(subprocess, 'check_call',
+                            pytest.Mock(return_value=0))
+        raise FileNotFoundError()
+
+    monkeypatch.setattr(
+        subprocess, 'check_call',
+        pytest.Mock(side_effect=fail_once_then_succeed)
+    )
+    binary = entityd.apacheme._apache_binary()
+    assert binary == 'httpd'
 
 
 def test_config_last_modified(apache, tmpdir):

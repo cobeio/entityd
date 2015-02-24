@@ -78,7 +78,7 @@ def test_load_files(declent, session, config, tmpdir):
 def test_load_incorrect_file(declent, config, tmpdir, caplog):
     # A file with a load of rubbish in shouldn't crash entityd
     conf_file = tmpdir.join('test.entity')
-    conf_file.write("""\xAA Rabbit, Foobar""")
+    conf_file.write("""AA Rabbit, Foobar""")
     config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
     declent.entityd_configure(config)
     declent._update_entities()

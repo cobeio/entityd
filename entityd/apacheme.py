@@ -107,6 +107,7 @@ class ApacheEntity:
                 update.delete()
                 yield update
             return
+        update.attrs.set('label', 'Apache', attrtype='ui:label')
         update.attrs.set('host', self.host_ueid, attrtype='id')
         update.attrs.set('version', apache.version)
         update.attrs.set('config_path', apache.config_path)

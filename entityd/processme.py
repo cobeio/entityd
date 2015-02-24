@@ -220,6 +220,9 @@ class ProcessEntity:
 
         """
         update = entityd.EntityUpdate('Process')
+        update.attrs.set('label',
+                         'Process: {} ({})'.format(proc.name, proc.pid),
+                         attrtype='ui:label')
         update.attrs.set('binary', proc.name)
         update.attrs.set('pid', proc.pid, attrtype='id')
         update.attrs.set('starttime', proc.start_time.timestamp(),

@@ -59,3 +59,14 @@ def test_get_entity():
     assert host.ueid
     assert hasattr(host, 'timestamp')
     assert host.attrs
+
+
+def test_entity_has_label():
+    hostgen = entityd.hostme.HostEntity()
+    hostgen.session = pytest.Mock()
+    hostgen.session.pluginmanager.hooks.entityd_kvstore_get.return_value \
+        = None
+
+    entity = next(hostgen.entityd_find_entity(name='Host', attrs=None))
+    assert entity.attrs.get('label').value.startswith('Host:')
+    assert entity.attrs.get('label').type == 'ui:label'

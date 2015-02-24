@@ -1,5 +1,6 @@
 import base64
 import os
+import re
 import socket
 
 import pytest
@@ -300,3 +301,20 @@ def test_previously_known_ueids_are_deleted_if_not_present(session,
             assert endpoint.ueid == 'made up ueid'
             return
     pytest.fail('deleted ueid not found')
+
+
+def test_entity_has_label(session, kvstore, endpoint_gen, local_socket):  # pylint: disable=unused-argument
+    endpoint_gen.entityd_sessionstart(session)
+    entities = endpoint_gen.entityd_find_entity(name='Endpoint', attrs=None)
+
+    for entity in entities:
+        label = entity.attrs.get('label').value
+        print(label)
+        match = re.match(r'Endpoint: ([0-9a-fA-F:\.]*):\d+',
+                         label)
+        if match.group(1).count(':') > 1:
+            assert socket.inet_pton(socket.AF_INET6, match.group(1))
+        else:
+            assert socket.inet_pton(socket.AF_INET, match.group(1))
+
+        assert entity.attrs.get('label').type == 'ui:label'

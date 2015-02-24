@@ -96,6 +96,9 @@ class EndpointEntity:
         update.attrs.set('protocol', PROTOCOLS.get(conn.type),
                          attrtype='id')
         update.attrs.set('listening', conn.status == 'LISTEN')
+        update.attrs.set('label',
+                         'Endpoint: {}:{}'.format(conn.laddr[0], conn.laddr[1]),
+                         attrtype='ui:label')
         return update
 
     def create_update(self, conn):

@@ -5,7 +5,9 @@ import unittest.mock
 
 import pytest
 
+import entityd.core
 import entityd.hookspec
+import entityd.kvstore
 import entityd.pm
 
 

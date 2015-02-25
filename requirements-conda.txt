@@ -4,6 +4,7 @@ cffi
 pyzmq
 msgpack-python
 syskit
+requests
 pyyaml
 act
 

@@ -588,7 +588,7 @@ class TestDecCfg:
 
     def test_invalid_type(self):
         with pytest.raises(entityd.declentity.ValidationError):
-            some_cfg = entityd.declentity.DeclCfg({'type': 'Some/Type'})
+            _ = entityd.declentity.DeclCfg({'type': 'Some/Type'})
 
     def test_no_type(self):
         with pytest.raises(entityd.declentity.ValidationError):
@@ -624,7 +624,7 @@ class TestDecCfg:
     def test_relation_attrs(self, data):
         data['children'] = [{'type': 'child', 'command': 'cmd'}]
         test_cfg = entityd.declentity.DeclCfg(data)
-        rel =  entityd.declentity.RelDesc('child', {'command': 'cmd'})
+        rel = entityd.declentity.RelDesc('child', {'command': 'cmd'})
         assert test_cfg.children[0] == rel
 
     def test_relation_no_type(self, data):

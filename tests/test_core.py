@@ -18,54 +18,6 @@ def plugin(pm):
     return pm.register(core)
 
 
-class HookRecorder:
-    """Recorder for hook calls.
-
-    Each hook call performed is recorded in the ``calls`` attribute as
-    a tuple of the hook name and dictiontary of it's keyword
-    arguments.
-
-    Only hooks already present when the recorder is applied will be
-    recorded.  If ``.addhooks()`` is called later any new hooks will
-    not be recorded.
-
-    """
-
-    def __init__(self, pm):
-        self._pm = pm
-        self.calls = []
-        self._orig_call = entityd.pm.HookCaller.__call__
-
-        def callwrapper(inst, **kwargs):
-            self.calls.append((inst.name, kwargs))
-            return self._orig_call(inst, **kwargs)
-
-        entityd.pm.HookCaller.__call__ = callwrapper
-
-    def close(self):
-        """Undo the hookwrapper."""
-        entityd.pm.HookCaller.__call__ = self._orig_call
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self, exc, val, tb):
-        self.close()
-
-
-@pytest.fixture
-def hookrec(request, pm):
-    """Return a HookRecorder attached to the PluginManager instance.
-
-    This attached a HookRecorder to the PluginManager instance of the
-    ``pm`` fixture.
-
-    """
-    rec = HookRecorder(pm)
-    request.addfinalizer(rec.close)
-    return rec
-
-
 def test_entityd_main(pm, hookrec):
     config = pytest.Mock()
     config.args.log_level = logging.INFO
@@ -205,19 +157,19 @@ class TestSession:
         config = core.Config(pm, argparse.Namespace())
         return core.Session(pm, config)
 
-    def test_run(self, session):
-        session.collect_entities = pytest.Mock()
+    def test_run(self, session, monitor):  # pylint: disable=unused-argument
+        session.svc.monitor = pytest.Mock()
         session._shutdown = pytest.Mock()
         session._shutdown.is_set.side_effect = [False, True]
         session.run()
-        assert session.collect_entities.called
+        assert session.svc.monitor.collect_entities.called
 
     def test_shutdown(self, session):
-        session.collect_entities = pytest.Mock()
+        session.svc.monitor = pytest.Mock()
         thread = threading.Thread(target=session.run)
         thread.start()
         t = 0
-        while not session.collect_entities.called:
+        while not session.svc.monitor.collect_entities.called:
             time.sleep(0.001)
             t += 0.001
             if t > 3:
@@ -225,51 +177,6 @@ class TestSession:
         session.shutdown()
         thread.join(3)
         assert not thread.is_alive()
-
-    def test_collect_entities(self, pm, session, hookrec):
-        class FooPlugin:
-            @entityd.pm.hookimpl
-            def entityd_find_entity(self, name, attrs):
-                return [(name, attrs)]
-        plugin = pm.register(FooPlugin(), 'foo')
-        session.config.addentity('foo', plugin)
-        session.collect_entities()
-        send_entity = dict(hookrec.calls)['entityd_send_entity']
-        assert send_entity == {'session': session, 'entity': ('foo', None)}
-
-    def test_collect_multiple_entities(self, pm, session, hookrec):
-        class FooPlugin:
-            @entityd.pm.hookimpl
-            def entityd_find_entity(self, name, attrs):
-                yield (name, attrs)
-
-        plugin1 = pm.register(FooPlugin(), 'foo1')
-        plugin2 = pm.register(FooPlugin(), 'foo2')
-        session.config.addentity('foo1', plugin1)
-        session.config.addentity('foo2', plugin2)
-        session.collect_entities()
-        assert hookrec.calls != []
-        for call in hookrec.calls:
-            if call[0] == 'entityd_find_entity':
-                expected = call[1]['name']
-            elif call[0] == 'entityd_send_entity':
-                assert call[1]['entity'] == (expected, None)
-
-    def test_collect_entities_none_registered(self, session, hookrec):
-        session.collect_entities()
-        calls = dict(hookrec.calls)
-        assert 'entityd_send_entity' not in calls
-
-    def test_collect_entities_noent(self, pm, session, hookrec):
-        class FooPlugin:
-            @entityd.pm.hookimpl
-            def entityd_find_entity(self):
-                return []
-        plugin = pm.register(FooPlugin(), 'foo')
-        session.config.addentity('foo', plugin)
-        session.collect_entities()
-        calls = dict(hookrec.calls)
-        assert 'entityd_send_entity' not in calls
 
     def test_addservice(self, session):
         session.addservice('list', list)

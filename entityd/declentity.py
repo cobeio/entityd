@@ -381,10 +381,14 @@ class DeclCfg:
             self.attrs[name] = entityd.entityupdate.UpdateAttr(name,
                                                                attr_val,
                                                                attr_type)
-        if 'label' not in self.attrs or self.attrs['label'].type != 'ui:label':
-            self.attrs['label'] = entityd.entityupdate.UpdateAttr('label',
-                                                                  self.type,
-                                                                  'ui:label')
+        if 'label' not in self.attrs:
+            self.attrs['label'] = entityd.entityupdate.UpdateAttr(
+                'label', self.type, 'ui:label')
+        elif self.attrs['label'].type is None:
+            self.attrs['label'] = entityd.entityupdate.UpdateAttr(
+                'label', self.attrs['label'].value, 'ui:label')
+        elif self.attrs['label'].type != 'ui:label':
+            raise ValidationError('Attribute label must have type "ui:label"')
         self.children = [self._make_rel(c) for c in data.get('children', [])]
         self.parents = [self._make_rel(p) for p in data.get('parents', [])]
 

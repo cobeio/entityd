@@ -601,6 +601,24 @@ class TestDecCfg:
         assert some_cfg.attrs.get('label').value == 'Custom Label'
         assert some_cfg.attrs.get('label').type == 'ui:label'
 
+    def test_custom_label_untyped(self):
+        some_cfg = entityd.declentity.DeclCfg({
+            'type': 'SomeType',
+            'attrs': {'label': {'value': 'Custom Label'}}
+        })
+        assert some_cfg.type == 'SomeType'
+        assert some_cfg.filepath == ''
+        assert some_cfg.parents == []
+        assert some_cfg.children == []
+        assert some_cfg.attrs.get('label').value == 'Custom Label'
+        assert some_cfg.attrs.get('label').type == 'ui:label'
+
+    def test_custom_label_wrong_type(self):
+        with pytest.raises(entityd.declentity.ValidationError):
+            _ = entityd.declentity.DeclCfg({
+                'type': 'SomeType',
+                'attrs': {'label': {'value': 'Custom Label', 'type': 'Wrong'}}
+            })
 
     def test_invalid_type(self):
         with pytest.raises(entityd.declentity.ValidationError):

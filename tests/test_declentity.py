@@ -286,8 +286,7 @@ def test_create_declarative_me(declent, conf_attrs, session):
     declent.entityd_sessionstart(session)
     entity = declent._create_declarative_entity(conf_attrs)
     assert entity.metype == 'testService'
-    assert entity.attrs.get('label').value == 'testService'
-    assert entity.attrs.get('label').type == 'ui:label'
+    assert entity.label == 'testService'
     assert entity.attrs.get('owner').value == 'testOwner'
     assert entity.attrs.get('owner').type is None
     assert entity.attrs.get('hostueid').value == declent.host_ueid
@@ -586,39 +585,19 @@ class TestDecCfg:
         assert some_cfg.filepath == ''
         assert some_cfg.parents == []
         assert some_cfg.children == []
-        assert some_cfg.attrs.get('label').value == 'SomeType'
-        assert some_cfg.attrs.get('label').type == 'ui:label'
+        assert some_cfg.label == 'SomeType'
 
     def test_custom_label(self):
         some_cfg = entityd.declentity.DeclCfg({
             'type': 'SomeType',
-            'attrs': {'label': {'value': 'Custom Label', 'type': 'ui:label'}}
+            'label': 'Custom Label',
+            'attrs': {}
         })
         assert some_cfg.type == 'SomeType'
         assert some_cfg.filepath == ''
         assert some_cfg.parents == []
         assert some_cfg.children == []
-        assert some_cfg.attrs.get('label').value == 'Custom Label'
-        assert some_cfg.attrs.get('label').type == 'ui:label'
-
-    def test_custom_label_untyped(self):
-        some_cfg = entityd.declentity.DeclCfg({
-            'type': 'SomeType',
-            'attrs': {'label': {'value': 'Custom Label'}}
-        })
-        assert some_cfg.type == 'SomeType'
-        assert some_cfg.filepath == ''
-        assert some_cfg.parents == []
-        assert some_cfg.children == []
-        assert some_cfg.attrs.get('label').value == 'Custom Label'
-        assert some_cfg.attrs.get('label').type == 'ui:label'
-
-    def test_custom_label_wrong_type(self):
-        with pytest.raises(entityd.declentity.ValidationError):
-            _ = entityd.declentity.DeclCfg({
-                'type': 'SomeType',
-                'attrs': {'label': {'value': 'Custom Label', 'type': 'Wrong'}}
-            })
+        assert some_cfg.label == 'Custom Label'
 
     def test_invalid_type(self):
         with pytest.raises(entityd.declentity.ValidationError):

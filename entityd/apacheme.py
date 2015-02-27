@@ -93,6 +93,7 @@ class ApacheEntity:
         """Return a generator of ApacheEntity objects"""
         apache = self.apache
         update = entityd.EntityUpdate('Apache')
+        update.label = 'Apache'
         if not apache.installed:
             if self._last_ueid:
                 update = entityd.EntityUpdate('Apache', self._last_ueid)
@@ -107,7 +108,6 @@ class ApacheEntity:
                 update.delete()
                 yield update
             return
-        update.attrs.set('label', 'Apache', attrtype='ui:label')
         update.attrs.set('host', self.host_ueid, attrtype='id')
         update.attrs.set('version', apache.version)
         update.attrs.set('config_path', apache.config_path)

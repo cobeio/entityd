@@ -1,6 +1,5 @@
 import base64
 import os
-import re
 import subprocess
 import time
 
@@ -462,8 +461,6 @@ def test_entity_has_label(procent, session, kvstore):  # pylint: disable=unused-
         assert entity.metype == 'Process'
         if entity.deleted:
             continue
-        label = entity.attrs.get('label').value
-        assert re.search(r'Process: .* \(\d+\)', label)
-        assert entity.attrs.get('label').type == 'ui:label'
+        assert entity.label == entity.attrs.get('binary').value
         count += 1
     assert count

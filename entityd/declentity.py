@@ -288,6 +288,7 @@ class DeclarativeEntity:
         # Parents and children are generators, not sets, to delay evaluation
         # allowing for successful recursive relationships.
         entity = entityd.EntityUpdate(config_properties.type)
+        entity.label = config_properties.label
         entity.attrs.set('filepath', config_properties.filepath, attrtype='id')
         entity.attrs.set('hostueid', self.host_ueid, attrtype='id')
         for name, value in config_properties.attrs.items():
@@ -341,7 +342,7 @@ class DeclarativeEntity:
 
 
 class DeclCfg:
-    """A decelarative entity configuration class
+    """A declarative entity configuration class
 
     This class holds the declarative entity data which is used to build a
     declarative entity.
@@ -352,6 +353,8 @@ class DeclCfg:
 
     Attributes
     :attr type: The type of the entity. Required, cannot contain '/' characters.
+    :attr label: The label for the entity. A short human-readable string for
+                displaying the entity.
     :attr filepath: The path of the file the declaration was read from.
     :attr attrs: A dictionary of static attributes, the keys of the dictionary
                  are the attribute names, the values are instances of
@@ -369,6 +372,10 @@ class DeclCfg:
             self.type = data['type']
         except KeyError:
             raise ValidationError('No type field found in entity.')
+        try:
+            self.label = data['label']
+        except KeyError:
+            self.label = self.type
         self.filepath = data.get('filepath', '')
         self.attrs = dict()
         for name, value in data.get('attrs', dict()).items():
@@ -381,14 +388,6 @@ class DeclCfg:
             self.attrs[name] = entityd.entityupdate.UpdateAttr(name,
                                                                attr_val,
                                                                attr_type)
-        if 'label' not in self.attrs:
-            self.attrs['label'] = entityd.entityupdate.UpdateAttr(
-                'label', self.type, 'ui:label')
-        elif self.attrs['label'].type is None:
-            self.attrs['label'] = entityd.entityupdate.UpdateAttr(
-                'label', self.attrs['label'].value, 'ui:label')
-        elif self.attrs['label'].type != 'ui:label':
-            raise ValidationError('Attribute label must have type "ui:label"')
         self.children = [self._make_rel(c) for c in data.get('children', [])]
         self.parents = [self._make_rel(p) for p in data.get('parents', [])]
 

@@ -236,8 +236,7 @@ def test_apache_entity_label(patched_entitygen):
         assert entity.metype == 'Apache'
         if entity.deleted:
             continue
-        label = entity.attrs.get('label').value
-        assert label.startswith('Apache')
+        assert entity.label.startswith('Apache')
         count += 1
     assert count
 

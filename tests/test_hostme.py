@@ -1,3 +1,5 @@
+import socket
+
 import pytest
 
 import entityd.hookspec
@@ -68,5 +70,4 @@ def test_entity_has_label():
         = None
 
     entity = next(hostgen.entityd_find_entity(name='Host', attrs=None))
-    assert entity.attrs.get('label').value.startswith('Host:')
-    assert entity.attrs.get('label').type == 'ui:label'
+    assert entity.label == socket.getfqdn()

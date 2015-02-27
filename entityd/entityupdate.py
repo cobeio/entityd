@@ -12,9 +12,10 @@ class EntityUpdate:
     EntityUpdate.attrs, EntityUpdate.parents and EntityUpdate.children.
 
     """
-
+    # pylint: disable=too-many-instance-attributes
     def __init__(self, metype, ueid=None):
         self.metype = metype
+        self.label = None
         self.timestamp = time.time()
         self.attrs = UpdateAttributes()
         self.parents = UpdateRelations()

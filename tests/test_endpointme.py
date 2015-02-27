@@ -308,13 +308,9 @@ def test_entity_has_label(session, kvstore, endpoint_gen, local_socket):  # pyli
     entities = endpoint_gen.entityd_find_entity(name='Endpoint', attrs=None)
 
     for entity in entities:
-        label = entity.attrs.get('label').value
-        print(label)
-        match = re.match(r'Endpoint: ([0-9a-fA-F:\.]*):\d+',
-                         label)
+        label = entity.label
+        match = re.match(r'([0-9a-fA-F:\.]*):\d+', label)
         if match.group(1).count(':') > 1:
             assert socket.inet_pton(socket.AF_INET6, match.group(1))
         else:
             assert socket.inet_pton(socket.AF_INET, match.group(1))
-
-        assert entity.attrs.get('label').type == 'ui:label'

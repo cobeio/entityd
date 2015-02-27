@@ -1,5 +1,6 @@
 """Plugin providing the Host Monitored Entity."""
 
+import platform
 import socket
 import uuid
 
@@ -23,6 +24,7 @@ class HostEntity:
     def __init__(self):
         self.host_uuid = None
         self.session = None
+        self.cputimes = None
 
     @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
@@ -64,4 +66,36 @@ class HostEntity:
         update.attrs.set('id', self.get_uuid(), 'id')
         update.attrs.set('fqdn', fqdn)
         update.attrs.set('uptime', uptime, 'perf:counter')
+        update.attrs.set('boottime', syskit.boottime().timestamp())
+        load = syskit.loadavg()
+        update.attrs.set('loadavg_1', load[0])
+        update.attrs.set('loadavg_5', load[1])
+        update.attrs.set('loadavg_15', load[2])
+        update.attrs.set('free', syskit.free())
+        update.attrs.set('os', platform.system())
+        update.attrs.set('osversion', platform.release())
+        self._add_cputime_attrs(update)
         yield update
+
+    def _add_cputime_attrs(self, update):
+        """Add cputimes and their % values to update
+
+        The first call will return values since system boot; subsequent calls
+        will return the values for the period in between calls.
+        """
+        attrs = ['usr', 'sys', 'nice', 'idle', 'iowait', 'irq', 'softirq',
+                 'steal']
+        new_cputimes = syskit.cputimes()
+        if self.cputimes:
+            cputime_diff = [x - y for x, y in zip(new_cputimes, self.cputimes)]
+        else:
+            cputime_diff = new_cputimes
+        cputimes = {attr: diff for attr, diff in zip(attrs, cputime_diff)}
+        total = sum(cputimes.values())
+        for attr in attrs:
+            update.attrs.set(attr, float(cputimes[attr]))
+            update.attrs.set(
+                attr + '%',
+                float(cputimes[attr]) / float(total) * 100)
+        self.cputimes = new_cputimes
+        return None

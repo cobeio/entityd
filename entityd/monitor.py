@@ -1,6 +1,8 @@
 """Monitor plugin
 
-Responsible for collecting, storing and sending entities
+Responsible for collecting, monitoring and sending entities. Entities are
+collected and their state is then monitored. If an entity is no longer
+present then the entity will be deleted.
 
 The app main loop will call monitor.gather()
 """

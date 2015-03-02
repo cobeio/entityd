@@ -237,6 +237,24 @@ class TestSession:
         send_entity = dict(hookrec.calls)['entityd_send_entity']
         assert send_entity == {'session': session, 'entity': ('foo', None)}
 
+    def test_collect_multiple_entities(self, pm, session, hookrec):
+        class FooPlugin:
+            @entityd.pm.hookimpl
+            def entityd_find_entity(self, name, attrs):
+                yield (name, attrs)
+
+        plugin1 = pm.register(FooPlugin(), 'foo1')
+        plugin2 = pm.register(FooPlugin(), 'foo2')
+        session.config.addentity('foo1', plugin1)
+        session.config.addentity('foo2', plugin2)
+        session.collect_entities()
+        assert hookrec.calls != []
+        for call in hookrec.calls:
+            if call[0] == 'entityd_find_entity':
+                expected = call[1]['name']
+            elif call[0] == 'entityd_send_entity':
+                assert call[1]['entity'] == (expected, None)
+
     def test_collect_entities_none_registered(self, session, hookrec):
         session.collect_entities()
         calls = dict(hookrec.calls)

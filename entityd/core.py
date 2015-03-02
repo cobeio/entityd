@@ -238,11 +238,12 @@ class Session:
     def collect_entities(self):
         """Collect and send all Monitored Entities."""
         for metype in self.config.entities:
-            result, = self.pluginmanager.hooks.entityd_find_entity(name=metype,
+            results = self.pluginmanager.hooks.entityd_find_entity(name=metype,
                                                                    attrs=None)
-            for entity in result:
-                self.pluginmanager.hooks.entityd_send_entity(session=self,
-                                                             entity=entity)
+            for entitygen in results:
+                for entity in entitygen:
+                    self.pluginmanager.hooks.entityd_send_entity(session=self,
+                                                                 entity=entity)
 
     def addservice(self, name, obj):
         """Register a service provided by a plugin.

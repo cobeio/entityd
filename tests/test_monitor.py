@@ -92,6 +92,15 @@ def test_collect_entities_deleted(pm, session, monitor, hookrec):
     assert not any(session.svc.monitor.last_batch.values())
 
 
+def test_collect_unregistered_type(pm, session, monitor, hookrec):
+    session.svc.monitor.last_batch['foo'] = {b'ueid'}
+    session.svc.monitor.collect_entities()
+    send_entity = dict(hookrec.calls)['entityd_send_entity']
+    assert send_entity['entity'].deleted
+    assert send_entity['entity'].ueid == b'ueid'
+    assert 'foo' not in session.svc.monitor.last_batch
+
+
 def test_collect_multiple_entities(pm, session, monitor, hookrec):
     class FooPlugin:
         @entityd.pm.hookimpl

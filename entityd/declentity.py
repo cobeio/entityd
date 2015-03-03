@@ -288,7 +288,9 @@ class DeclarativeEntity:
         # Parents and children are generators, not sets, to delay evaluation
         # allowing for successful recursive relationships.
         entity = entityd.EntityUpdate(config_properties.type)
-        entity.attrs.set('filepath', config_properties.filepath, attrtype='id')
+        entity.attrs.set('filepath',
+                         str(config_properties.filepath),
+                         attrtype='id')
         entity.attrs.set('hostueid', self.host_ueid, attrtype='id')
         for name, value in config_properties.attrs.items():
             entity.attrs.set(name, value.value, attrtype=value.type)

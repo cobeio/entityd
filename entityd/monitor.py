@@ -36,7 +36,11 @@ class Monitor:
         self.config = session.config
         self.session = session
         session.addservice('monitor', self)
-        for metype in self.config.entities:
+        try:
+            last_types = set(session.svc.kvstore.get('metypes'))
+        except KeyError:
+            last_types = set()
+        for metype in set(self.config.entities) | last_types:
             prefix = 'ueids:{}:'.format(metype)
             self.last_batch[metype] = set(session.svc.kvstore.getmany(prefix)
                                           .values())
@@ -44,17 +48,19 @@ class Monitor:
     @entityd.pm.hookimpl(before='entityd.kvstore')
     def entityd_sessionfinish(self):
         """Store out entities to kvstore."""
-        for metype in self.config.entities:
+        for metype, entities in self.last_batch.items():
             prefix = 'ueids:{}:'.format(metype)
             self.session.svc.kvstore.deletemany(prefix)
             to_store = {
                 prefix + base64.b64encode(ueid).decode('ascii'): ueid
-                for ueid in self.last_batch[metype]}
+                for ueid in entities}
             self.session.svc.kvstore.addmany(to_store)
+        self.session.svc.kvstore.add('metypes', list(self.last_batch.keys()))
 
     def collect_entities(self):
         """Collect and send all Monitored Entities."""
-        for metype in set(self.config.entities) | set(self.last_batch):
+        types = set(self.config.entities) | set(self.last_batch)
+        for metype in types:
             results = self.session.pluginmanager.hooks.entityd_find_entity(
                 name=metype, attrs=None)
             this_batch = set()

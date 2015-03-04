@@ -7,37 +7,61 @@ import entityd.monitor
 
 # pylint: disable=unused-argument
 
-
-def test_sessionstart_entities_loaded():
-    """Monitor will load entities listed in config.entities that have
-    rows stored in the kvstore."""
+@pytest.fixture
+def mock_session():
     session = pytest.Mock()
     config = pytest.Mock()
     config.entities = ['foo']
     session.config = config
     session.svc.kvstore = pytest.Mock()
-    session.svc.kvstore.getmany.return_value = {'_': b'ueid'}
+    session.svc.kvstore.get.return_value = []
+    session.svc.kvstore.getmany.return_value = {}
+    return session
+
+
+def test_sessionstart_entities_loaded(mock_session):
+    """Monitor will load entities listed in config.entities that have
+    rows stored in the kvstore."""
+    mock_session.svc.kvstore.getmany.return_value = {'_': b'ueid'}
     monitor = entityd.monitor.Monitor()
-    monitor.entityd_sessionstart(session)
-    assert monitor.session == session
-    assert monitor.config == config
+    monitor.entityd_sessionstart(mock_session)
+    assert monitor.session == mock_session
+    assert monitor.config == mock_session.config
     assert b'ueid' in monitor.last_batch['foo']
 
 
-def test_sessionfinish_entities_saved():
+def test_sessionfinish_entities_saved(mock_session):
     """Monitor will save previously sent entities"""
-    session = pytest.Mock()
-    config = pytest.Mock()
-    config.entities = ['foo']
-    session.config = config
-    session.svc.kvstore = pytest.Mock()
-    session.svc.kvstore.getmany.return_value = {}
+    mock_session.config.entities = ['foo']
     monitor = entityd.monitor.Monitor()
-    monitor.entityd_sessionstart(session)
+    monitor.entityd_sessionstart(mock_session)
     monitor.last_batch['foo'] = {b'ueid'}
     monitor.entityd_sessionfinish()
-    session.svc.kvstore.deletemany.assert_called_once_with('ueids:foo:')
-    session.svc.kvstore.addmany.assert_called_once_with({
+    mock_session.svc.kvstore.deletemany.assert_called_once_with('ueids:foo:')
+    mock_session.svc.kvstore.addmany.assert_called_once_with({
+        'ueids:foo:' + base64.b64encode(b'ueid').decode('ascii'): b'ueid'
+    })
+
+
+def test_sessionstart_types_loaded(mock_session):
+    mock_session.svc.kvstore.get.return_value = ['foo', 'bar']
+    mock_session.svc.kvstore.getmany.return_value = {'_': b'ueid'}
+    monitor = entityd.monitor.Monitor()
+    monitor.entityd_sessionstart(mock_session)
+    mock_session.svc.kvstore.get.assert_called_once_with('metypes')
+    mock_session.svc.kvstore.getmany.assert_any_call('ueids:foo:')
+    mock_session.svc.kvstore.getmany.assert_any_call('ueids:bar:')
+    assert b'ueid' in monitor.last_batch['foo']
+    assert b'ueid' in monitor.last_batch['bar']
+
+
+def test_sessionstart_types_saved(mock_session):
+    monitor = entityd.monitor.Monitor()
+    monitor.session = mock_session
+    print(mock_session)
+    monitor.last_batch['foo'].add(b'ueid')
+    monitor.entityd_sessionfinish()
+    mock_session.svc.kvstore.addmany.assert_called_once_with({
         'ueids:foo:' + base64.b64encode(b'ueid').decode('ascii'): b'ueid'
     })
 

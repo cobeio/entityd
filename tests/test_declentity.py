@@ -585,6 +585,7 @@ class TestDecCfg:
         assert some_cfg.filepath == ''
         assert some_cfg.parents == []
         assert some_cfg.children == []
+        assert some_cfg.attrs == {}
         assert some_cfg.label == 'SomeType'
 
     def test_custom_label(self):

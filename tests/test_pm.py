@@ -425,6 +425,18 @@ class TestHookCaller:
         assert caller_firstresult.name == 'my_hook'
         assert caller_firstresult.firstresult
 
+    def test_incorrectly_ordered_before(self, caller, impl_spam, impl_before):
+        assert caller.correctly_ordered([impl_spam, impl_before]) is False
+
+    def test_incorrectly_ordered_after(self, caller, impl_spam, impl_after):
+        assert caller.correctly_ordered([impl_after, impl_spam]) is False
+
+    def test_correctly_ordered_before(self, caller, impl_spam, impl_before):
+        assert caller.correctly_ordered([impl_before, impl_spam]) is True
+
+    def test_correctly_ordered_after(self, caller, impl_spam, impl_after):
+        assert caller.correctly_ordered([impl_spam, impl_after]) is True
+
     def test_addimpl_single(self, caller, impl_spam):
         caller.addimpl(impl_spam)
         assert caller._hooks == [impl_spam]

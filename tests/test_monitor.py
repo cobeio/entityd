@@ -37,7 +37,7 @@ def test_sessionfinish_entities_saved(mock_session):
     monitor.entityd_sessionstart(mock_session)
     monitor.last_batch['foo'] = {b'ueid'}
     monitor.entityd_sessionfinish()
-    mock_session.svc.kvstore.deletemany.assert_called_once_with('ueids:foo:')
+    mock_session.svc.kvstore.deletemany.assert_called_once_with('ueids:')
     mock_session.svc.kvstore.addmany.assert_called_once_with({
         'ueids:foo:' + base64.b64encode(b'ueid').decode('ascii'): b'ueid'
     })
@@ -55,7 +55,7 @@ def test_sessionstart_types_loaded(mock_session):
     assert b'ueid' in monitor.last_batch['bar']
 
 
-def test_sessionstart_types_saved(mock_session):
+def test_sessionfinish_types_saved(mock_session):
     monitor = entityd.monitor.Monitor()
     monitor.session = mock_session
     print(mock_session)

@@ -48,9 +48,9 @@ class Monitor:
     @entityd.pm.hookimpl(before='entityd.kvstore')
     def entityd_sessionfinish(self):
         """Store out entities to kvstore."""
+        self.session.svc.kvstore.deletemany('ueids:')
         for metype, entities in self.last_batch.items():
             prefix = 'ueids:{}:'.format(metype)
-            self.session.svc.kvstore.deletemany(prefix)
             to_store = {
                 prefix + base64.b64encode(ueid).decode('ascii'): ueid
                 for ueid in entities}

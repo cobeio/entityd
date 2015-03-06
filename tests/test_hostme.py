@@ -64,8 +64,22 @@ def test_metype(host):
 
 
 def test_free(host):
-    free = syskit.free()
+    memorystats = syskit.MemoryStats()
+    free = memorystats.free + memorystats.buffers + memorystats.cached
     assert abs(host.attrs.get('free').value - free) < 2 ** 10
+
+
+def test_used(host):
+    memorystats = syskit.MemoryStats()
+    free = memorystats.free + memorystats.buffers + memorystats.cached
+    used = memorystats.total - free
+    assert abs(host.attrs.get('used').value - used) < 2 ** 10
+
+
+def test_total(host):
+    memorystats = syskit.MemoryStats()
+    total = memorystats.total
+    assert host.attrs.get('total').value == total
 
 
 def test_cpu_usage(host_gen):

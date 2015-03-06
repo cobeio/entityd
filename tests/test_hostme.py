@@ -98,6 +98,19 @@ def test_cpu_usage(host_gen):
                                  'irq%', 'softirq%', 'steal%']]) <= 100.1
 
 
+def test_cpu_usage_zerodiv(host_gen, monkeypatch):
+    entities = list(host_gen.entityd_find_entity(name='Host', attrs=None))
+    host = entities[0]
+    assert host.attrs.get('usr').value > 0
+    assert host.attrs.get('usr%').value > 0
+    monkeypatch.setattr(syskit, 'cputimes',
+                        pytest.Mock(return_value=host_gen.cputimes))
+    entities = list(host_gen.entityd_find_entity(name='Host', attrs=None))
+    host = entities[0]
+    assert host.attrs.get('usr%').value == 0
+    assert host.attrs.get('usr').value == 0
+
+
 def test_loadavg(host_gen):
     entities = list(host_gen.hosts())
     host = entities[0]

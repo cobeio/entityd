@@ -98,8 +98,11 @@ class HostEntity:
         total = sum(cputimes.values())
         for attr in attrs:
             update.attrs.set(attr, float(cputimes[attr]))
-            update.attrs.set(
-                attr + '%',
-                float(cputimes[attr]) / float(total) * 100)
+            if total == 0:
+                update.attrs.set(attr + '%', 0)
+            else:
+                update.attrs.set(
+                    attr + '%',
+                    float(cputimes[attr]) / float(total) * 100)
         self.cputimes = new_cputimes
         return None

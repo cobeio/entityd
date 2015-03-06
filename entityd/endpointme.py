@@ -1,6 +1,5 @@
 """Plugin providing the Endpoint Monitored Entity."""
 
-import base64
 import socket
 
 import entityd
@@ -37,7 +36,6 @@ class EndpointEntity:
     prefix = 'entityd.endpointme:'
 
     def __init__(self):
-        self.known_ueids = set()
         self.active_endpoints = {}
         self.session = None
 
@@ -47,22 +45,10 @@ class EndpointEntity:
         """Register the Endpoint Monitored Entity."""
         config.addentity('Endpoint', 'entityd.endpointme.EndpointEntity')
 
-    @entityd.pm.hookimpl(after='entityd.kvstore')
+    @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
         """Load up all the known endpoint UUIDs."""
         self.session = session
-        self.known_ueids = set(session.svc.kvstore.getmany(
-            'entityd.endpointme:').values())
-
-    @entityd.pm.hookimpl(before='entityd.kvstore')
-    def entityd_sessionfinish(self):
-        """Store out all our known endpoint UUIDs."""
-        self.session.svc.kvstore.deletemany(self.prefix)
-
-        known_ueids = list(self.known_ueids)
-        to_add = dict(zip([self.prefix.encode('ascii') + base64.b64encode(ueid)
-                           for ueid in known_ueids], known_ueids))
-        self.session.svc.kvstore.addmany(to_add)
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs):
@@ -78,7 +64,6 @@ class EndpointEntity:
         :param conn: an entityd.connections.Connection
         """
         ueid = self.create_local_update(conn).ueid
-        self.known_ueids.add(ueid)
         return ueid
 
     @staticmethod
@@ -131,13 +116,6 @@ class EndpointEntity:
                          attrtype='id')
         return remote
 
-    def forget_entity(self, update):
-        """Remove the cached version of this Endpoint Entity."""
-        try:
-            self.known_ueids.remove(update.ueid)
-        except KeyError:
-            pass
-
     def endpoints(self, pid=None):
         """Generator of all endpoints.
 
@@ -151,20 +129,7 @@ class EndpointEntity:
         for conn in connections.retrieve('inet', pid):
             update = self.create_update(conn)
             if update:
-                self.active_endpoints[update.ueid] = update
                 yield update
-
-        deleted_ueids = ((set(previous_endpoints.keys()) | self.known_ueids) -
-                         set(self.active_endpoints.keys()))
-
-        for endpoint_ueid in deleted_ueids:
-            try:
-                update = previous_endpoints[endpoint_ueid]
-            except KeyError:
-                update = entityd.EntityUpdate('Endpoint', ueid=endpoint_ueid)
-            update.delete()
-            self.forget_entity(update)
-            yield update
 
     def endpoints_for_process(self, pid):
         """Generator of endpoints for the provided process.

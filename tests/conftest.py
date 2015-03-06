@@ -8,6 +8,7 @@ import pytest
 import entityd.core
 import entityd.hookspec
 import entityd.kvstore
+import entityd.monitor
 import entityd.pm
 
 
@@ -35,6 +36,13 @@ def session(pm, config):
 
 
 @pytest.fixture
+def monitor(session, kvstore):  # pylint: disable=unused-argument
+    """An entityd.monitor.Monitor instance."""
+    monitor = entityd.monitor.Monitor()
+    monitor.entityd_sessionstart(session)
+
+
+@pytest.fixture
 def kvstore(session):
     """Return a kvstore instance registered to the session fixture.
 
@@ -44,3 +52,51 @@ def kvstore(session):
     kvstore = entityd.kvstore.KVStore(':memory:')
     session.addservice('kvstore', kvstore)
     return kvstore
+
+
+class HookRecorder:
+    """Recorder for hook calls.
+
+    Each hook call performed is recorded in the ``calls`` attribute as
+    a tuple of the hook name and dictiontary of it's keyword
+    arguments.
+
+    Only hooks already present when the recorder is applied will be
+    recorded.  If ``.addhooks()`` is called later any new hooks will
+    not be recorded.
+
+    """
+
+    def __init__(self, pm):
+        self._pm = pm
+        self.calls = []
+        self._orig_call = entityd.pm.HookCaller.__call__
+
+        def callwrapper(inst, **kwargs):
+            self.calls.append((inst.name, kwargs))
+            return self._orig_call(inst, **kwargs)
+
+        entityd.pm.HookCaller.__call__ = callwrapper
+
+    def close(self):
+        """Undo the hookwrapper."""
+        entityd.pm.HookCaller.__call__ = self._orig_call
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc, val, tb):
+        self.close()
+
+
+@pytest.fixture
+def hookrec(request, pm):
+    """Return a HookRecorder attached to the PluginManager instance.
+
+    This attached a HookRecorder to the PluginManager instance of the
+    ``pm`` fixture.
+
+    """
+    rec = HookRecorder(pm)
+    request.addfinalizer(rec.close)
+    return rec

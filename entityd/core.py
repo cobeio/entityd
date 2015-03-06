@@ -224,7 +224,7 @@ class Session:
 
         """
         while not self._shutdown.is_set():
-            self.collect_entities()
+            self.svc.monitor.collect_entities()
             self._shutdown.wait(60)
 
     def shutdown(self):
@@ -234,16 +234,6 @@ class Session:
 
         """
         self._shutdown.set()
-
-    def collect_entities(self):
-        """Collect and send all Monitored Entities."""
-        for metype in self.config.entities:
-            results = self.pluginmanager.hooks.entityd_find_entity(name=metype,
-                                                                   attrs=None)
-            for entitygen in results:
-                for entity in entitygen:
-                    self.pluginmanager.hooks.entityd_send_entity(session=self,
-                                                                 entity=entity)
 
     def addservice(self, name, obj):
         """Register a service provided by a plugin.

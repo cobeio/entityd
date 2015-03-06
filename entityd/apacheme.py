@@ -38,7 +38,6 @@ class ApacheEntity:
         self.session = None
         self._apache = None
         self._host_ueid = None
-        self._last_ueid = None
 
     @staticmethod
     @entityd.pm.hookimpl
@@ -92,21 +91,13 @@ class ApacheEntity:
     def entities(self):
         """Return a generator of ApacheEntity objects"""
         apache = self.apache
-        update = entityd.EntityUpdate('Apache')
         if not apache.installed:
-            if self._last_ueid:
-                update = entityd.EntityUpdate('Apache', self._last_ueid)
-                update.delete()
-                yield update
             return
         try:
             perfdata = apache.performance_data()
         except ApacheNotFound:
-            if self._last_ueid:
-                update = entityd.EntityUpdate('Apache', self._last_ueid)
-                update.delete()
-                yield update
             return
+        update = entityd.EntityUpdate('Apache')
         update.attrs.set('host', self.host_ueid, attrtype='id')
         update.attrs.set('version', apache.version)
         update.attrs.set('config_path', apache.config_path)
@@ -118,7 +109,6 @@ class ApacheEntity:
             update.children.add(child)
         if self.host_ueid:
             update.parents.add(self.host_ueid)
-        self._last_ueid = update.ueid
         yield update
 
     def processes(self):

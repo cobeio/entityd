@@ -164,8 +164,6 @@ def test_find_entity(entitygen):
     count = 0
     for entity in entities:
         assert entity.metype == 'Apache'
-        if entity.deleted:
-            continue
         assert 'Apache/2' in entity.attrs.get('version').value
         assert os.path.isfile(entity.attrs.get('config_path').value)
         count += 1
@@ -177,8 +175,6 @@ def test_find_entity_mocked_apache(patched_entitygen):
     count = 0
     for entity in entities:
         assert entity.metype == 'Apache'
-        if entity.deleted:
-            continue
         assert 'Apache/2' in entity.attrs.get('version').value
         count += 1
     assert count
@@ -207,26 +203,24 @@ def test_find_entity_with_attrs():
 def test_entity_deleted_installed(patched_entitygen, monkeypatch):
     gen = patched_entitygen.entityd_find_entity('Apache', None)
     last_entity = next(gen)
-    last_ueid = last_entity.ueid
+    assert last_entity.metype == 'Apache'
     monkeypatch.setattr(entityd.apacheme, '_apachectl_binary',
                         pytest.Mock(side_effect=ApacheNotFound))
     patched_entitygen.apache._apachectl_binary = None
     gen = patched_entitygen.entityd_find_entity('Apache', None)
-    entity = next(gen)
-    assert entity.deleted
-    assert entity.ueid == last_ueid
+    with pytest.raises(StopIteration):
+        _ = next(gen)
 
 
 def test_entity_deleted_running(patched_entitygen, monkeypatch):
     gen = patched_entitygen.entityd_find_entity('Apache', None)
     last_entity = next(gen)
-    last_ueid = last_entity.ueid
+    assert last_entity.metype == 'Apache'
     monkeypatch.setattr(entityd.apacheme, '_get_apache_status',
                         pytest.Mock(side_effect=ApacheNotFound))
     gen = patched_entitygen.entityd_find_entity('Apache', None)
-    entity = next(gen)
-    assert entity.deleted
-    assert entity.ueid == last_ueid
+    with pytest.raises(StopIteration):
+        _ = next(gen)
 
 
 def test_relations(pm, session, kvstore, patched_entitygen):  # pylint: disable=unused-argument

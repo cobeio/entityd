@@ -1,4 +1,3 @@
-import base64
 import os
 import subprocess
 import time
@@ -31,43 +30,6 @@ def test_plugin_registered(pm):
     name = 'entityd.processme'
     entityd.processme.entityd_plugin_registered(pm, name)
     assert pm.isregistered('entityd.processme.ProcessEntity')
-
-
-def test_session_hooks_reload_proc(procent, session, kvstore):  # pylint: disable=unused-argument
-    # Create an entry in known_ueids
-    proc = syskit.Process(os.getpid())
-    procent.entityd_sessionstart(session)
-    ueid = procent.get_ueid(proc)
-    assert ueid in procent.known_ueids
-
-    # Persist that entry to the kvstore
-    procent.entityd_sessionfinish()
-
-    # Reload this entry from the kvstore
-    procent.known_ueids.clear()
-    procent.entityd_sessionstart(session)
-    assert ueid in procent.known_ueids
-
-
-def test_sessionfinish_delete_ueids(procent, session, kvstore):
-    # Create an entry in known_ueids
-    proc = syskit.Process(os.getpid())
-    procent.entityd_sessionstart(session)
-    ueid = procent.get_ueid(proc)
-    assert ueid in procent.known_ueids
-
-    # Persist that entry to the kvstore
-    procent.entityd_sessionfinish()
-    assert kvstore.get(entityd.processme.ProcessEntity.prefix +
-                       base64.b64encode(ueid).decode('ascii')) == ueid
-
-    # Check that entry is deleted from the kvstore
-    procent.known_ueids.clear()
-    procent.entityd_sessionfinish()
-    with pytest.raises(KeyError):
-        kvstore.get(
-            entityd.processme.ProcessEntity.prefix +
-            base64.b64encode(ueid).decode('ascii'))
 
 
 def test_configure(procent, config):
@@ -267,8 +229,8 @@ def test_processes_deleted(procent, proctable, monkeypatch, session, kvstore):  
     for me in gen:
         if me.deleted:
             continue
-        if me.attrs.get('pid').value == os.getpid():
-            procme = me
+        if me.attrs.get('pid').value == os.getppid():
+            pprocme = me
 
     # Delete py.test process from process table and check deleted ME
     del proctable[os.getpid()]
@@ -277,16 +239,9 @@ def test_processes_deleted(procent, proctable, monkeypatch, session, kvstore):  
                         pytest.Mock(return_value=(proctable,
                                                   {os.getpid(): this_process})))
     gen = procent.processes()
-    pprocme, delme = sorted(list(gen), key=lambda me: me.ueid == procme.ueid)
-    assert pprocme.metype == 'Process'
-    assert pprocme.attrs.get('pid').value == os.getppid()
-    assert delme.metype == 'Process'
-    assert delme.deleted is True
-    assert delme.ueid == procme.ueid
-
-    # Assert ueid is forgotten
-    assert pprocme.ueid in procent.known_ueids
-    assert delme.ueid not in procent.known_ueids
+    pprocme2, = gen
+    assert pprocme2.ueid == pprocme.ueid
+    assert this_process not in procent._process_times
 
 
 def test_update_process_table():
@@ -354,48 +309,6 @@ def test_specific_parent_deleted(procent, session, kvstore, monkeypatch):  # pyl
     assert not proc.parents._relations
     with pytest.raises(StopIteration):
         proc = next(entities)
-
-
-def test_previously_known_ueids_are_deleted_if_not_present(session, procent):
-    kvstore = pytest.Mock()
-    kvstore.getmany.return_value = {
-        entityd.processme.ProcessEntity.prefix + 'made up ueid': 'made up ueid'
-    }
-    session.addservice('kvstore', kvstore)
-    procent.entityd_sessionstart(session)
-    entities = procent.entityd_find_entity(name='Process', attrs=None)
-    count = 0
-    for process in entities:
-        if process.deleted and process.ueid == 'made up ueid':
-            count += 1
-    assert count == 1
-
-
-def test_previously_known_ueids_are_not_deleted_if_present(session, procent):
-    kvstore = pytest.Mock()
-    kvstore_return = {}
-    kvstore.getmany.return_value = kvstore_return
-    session.addservice('kvstore', kvstore)
-    procent.entityd_sessionstart(session)
-    assert not procent.loaded_ueids
-    proc_ueid = procent.get_ueid(syskit.Process(os.getpid()))
-
-    kvstore_return[entityd.processme.ProcessEntity.prefix +
-                   base64.b64encode(proc_ueid).decode('ascii')] = proc_ueid
-    procent.entityd_sessionstart(session)
-    assert procent.loaded_ueids
-
-    entities = procent.entityd_find_entity(name='Process', attrs=None)
-    process_found = False
-    for process in entities:
-        if process.ueid == proc_ueid:
-            if process.deleted:
-                pytest.fail('Should not be deleted.')
-            else:
-                process_found = True
-                assert process.attrs.get('pid').value == os.getpid()
-    assert process_found
-    assert not procent.loaded_ueids
 
 
 @pytest.fixture

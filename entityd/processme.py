@@ -1,6 +1,5 @@
 """Plugin providing the Process Monitored Entity."""
 
-import base64
 import functools
 import time
 
@@ -37,22 +36,10 @@ class ProcessEntity:
         """Register the Process Monitored Entity."""
         config.addentity('Process', 'entityd.processme.ProcessEntity')
 
-    @entityd.pm.hookimpl(after='entityd.kvstore')
+    @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
         """Load known ProcessME UEIDs."""
         self.session = session
-        self.loaded_ueids = set(session.svc.kvstore.getmany(
-            self.prefix).values())
-        self.known_ueids = self.loaded_ueids.copy()
-
-    @entityd.pm.hookimpl(before='entityd.kvstore')
-    def entityd_sessionfinish(self):
-        """Called when the monitoring session ends."""
-        self.session.svc.kvstore.deletemany(self.prefix)
-        known_ueids = list(self.known_ueids)
-        to_add = {self.prefix + base64.b64encode(ueid).decode('ascii'): ueid
-                  for ueid in known_ueids}
-        self.session.svc.kvstore.addmany(to_add)
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs):
@@ -138,15 +125,8 @@ class ProcessEntity:
         create_me = functools.partial(self.create_process_me, active)
         processed_ueids = set()
 
-        # Deleted processes
         for proc in deleted.values():
-            update = entityd.EntityUpdate('Process',
-                                          ueid=self.get_ueid(proc))
-            update.delete()
             del self._process_times[proc]
-            self.forget_entity(update)
-            processed_ueids.add(update.ueid)
-            yield update
 
         # Active processes
         for proc in active.values():
@@ -154,11 +134,6 @@ class ProcessEntity:
             processed_ueids.add(update.ueid)
             yield update
 
-        # Previous ueids loaded from disk
-        for ueid in self.loaded_ueids - processed_ueids:
-            update = entityd.EntityUpdate('Process', ueid)
-            update.delete()
-            yield update
         self.loaded_ueids = set()
         self.active_processes = active
 

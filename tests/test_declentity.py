@@ -224,45 +224,6 @@ def test_invalid_relation(declent, config, session, tmpdir, caplog):
     assert 'Bad relation' in caplog.text()
 
 
-def test_deleted_on_file_remove(declent, session, config, conf_file):
-    config.args.declentity_dir = pathlib.Path(conf_file.strpath).parent
-    declent.entityd_configure(config)
-    declent.entityd_sessionstart(session)
-    read_ent = next(declent.entityd_find_entity('Test', None))
-    assert read_ent.attrs.get('owner').value == 'admin@default'
-    assert read_ent.deleted is False
-    declent.entityd_sessionfinish()
-    declent._conf_attrs.clear()
-    declent._deleted.clear()
-    os.remove(conf_file.strpath)
-    declent.entityd_sessionstart(session)
-    assert read_ent.ueid in list(declent._deleted['Test'])
-    deleted_ent = next(declent.entityd_find_entity('Test', None))
-    assert deleted_ent.deleted is True
-    assert read_ent.ueid == deleted_ent.ueid
-
-
-def test_deleted_ueid_sent_on_get(declent, config, session, conf_file):
-    config.args.declentity_dir = pathlib.Path(conf_file.strpath).parent
-    declent._deleted['Test'].add('DeletedUEID')
-    declent.entityd_configure(config)
-    declent.entityd_sessionstart(session)
-    test_ents = declent.entityd_find_entity('Test', None)
-    assert next(test_ents).ueid == 'DeletedUEID'
-    assert next(test_ents).attrs.get('owner').value == 'admin@default'
-    with pytest.raises(StopIteration):
-        next(test_ents)
-
-
-def test_find_deleted_with_attrs(declent, config, session):
-    config.args.declentity_dir = pathlib.Path('.')
-    declent._deleted['Test'].add('DeletedUEID')
-    declent.entityd_configure(config)
-    declent.entityd_sessionstart(session)
-    with pytest.raises(LookupError):
-        next(declent.entityd_find_entity('Test', 1))
-
-
 @pytest.fixture
 def conf_attrs():
     conf = {
@@ -518,7 +479,8 @@ def test_change_entity(declent, session, config, tmpdir):
     declent.entityd_sessionstart(session)
     found_ents = list(declent.entityd_find_entity('Test', None))
     assert found_ents[0].attrs.get('owner').value == 'my_owner'
-    last_ueid = found_ents[0].ueid
+    with pytest.raises(KeyError):
+        found_ents[0].attrs.get('ident')
     conf_file.write("""
         type: Test
         attrs:
@@ -530,11 +492,9 @@ def test_change_entity(declent, session, config, tmpdir):
     stat = os.stat(conf_file.strpath)
     os.utime(conf_file.strpath, times=(stat.st_atime+10, stat.st_mtime+10))
     declent._update_entities()
-    assert declent._deleted['Test'] == {last_ueid, }
     found_ents = list(declent.entityd_find_entity('Test', None))
-    assert found_ents[0].ueid == last_ueid
-    assert found_ents[0].deleted is True
-    assert found_ents[1].attrs.get('owner').value == 'my_owner'
+    assert found_ents[0].attrs.get('owner').value == 'my_owner'
+    assert found_ents[0].attrs.get('ident').value == 2
 
 
 def test_remove_type(declent, session, config, tmpdir):
@@ -545,16 +505,15 @@ def test_remove_type(declent, session, config, tmpdir):
     config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
-    last_ueid = next(declent.entityd_find_entity('Test', None)).ueid
+    entity = next(declent.entityd_find_entity('Test', None))
+    assert entity.metype == 'Test'
     conf_file.write("""
         """)
     stat = os.stat(conf_file.strpath)
     os.utime(conf_file.strpath, times=(stat.st_atime+10, stat.st_mtime+10))
     declent._update_entities()
-    assert declent._deleted['Test'] == {last_ueid, }
-    found_ent = next(declent.entityd_find_entity('Test', None))
-    assert found_ent.ueid == last_ueid
-    assert found_ent.deleted is True
+    with pytest.raises(StopIteration):
+        _ = next(declent.entityd_find_entity('Test', None))
     assert 'Test' not in declent._conf_attrs.keys()
 
 
@@ -566,14 +525,14 @@ def test_remove_file(declent, session, config, tmpdir):
     config.args.declentity_dir = pathlib.Path(tmpdir.strpath)
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
-    last_ueid = next(declent.entityd_find_entity('Test', None)).ueid
+    entity = next(declent.entityd_find_entity('Test', None))
+    assert entity.metype == 'Test'
     os.remove(conf_file.strpath)
     while pathlib.Path(conf_file.strpath).exists():
         time.sleep(1)
-    found_ent = next(declent.entityd_find_entity('Test', None))
-    assert found_ent.ueid == last_ueid
-    assert found_ent.deleted is True
-    assert not declent._conf_attrs
+    with pytest.raises(StopIteration):
+        _ = next(declent.entityd_find_entity('Test', None))
+    assert 'Test' not in declent._conf_attrs.keys()
 
 
 class TestDecCfg:

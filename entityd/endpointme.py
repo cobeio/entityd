@@ -36,7 +36,6 @@ class EndpointEntity:
     prefix = 'entityd.endpointme:'
 
     def __init__(self):
-        self.active_endpoints = {}
         self.session = None
 
     @staticmethod
@@ -123,8 +122,6 @@ class EndpointEntity:
 
         :param pid: Optional. Find only connections for this process.
         """
-        previous_endpoints = self.active_endpoints
-        self.active_endpoints = {}
         connections = entityd.connections.Connections()
         for conn in connections.retrieve('inet', pid):
             update = self.create_update(conn)

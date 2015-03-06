@@ -41,7 +41,6 @@ Example entity declaration file:
         - type: Host
 """
 
-import base64
 import collections
 import logging
 import pathlib
@@ -92,9 +91,6 @@ class DeclarativeEntity:
     # _conf_attrs: A dictionary of lists, the key is the type of the entities
     #              and the list contains DeclCfg objects describing how to
     #              build an entity.
-    # _deleted: A dictionary of sets, with the key being the name of an entity
-    #           type, and the set being ueids of entities which are no longer
-    #           being monitored.
 
     prefix = 'entityd.declentity:'
 
@@ -103,7 +99,6 @@ class DeclarativeEntity:
         self._path = act.fsloc.sysconfdir.joinpath('entity_declarations')
         self.session = None
         self._conf_attrs = collections.defaultdict(list)
-        self._deleted = collections.defaultdict(set)
         self._files = {}
 
     @entityd.pm.hookimpl
@@ -124,29 +119,6 @@ class DeclarativeEntity:
         """
         self.session = session
         self._update_entities()
-        loaded_values = session.svc.kvstore.getmany(self.prefix)
-        for key, ent_type in loaded_values.items():
-            ueid = base64.b64decode(key.split(':', 1)[1])
-            data = DeclCfg(self._conf_attrs.get(ent_type, dict(type=ent_type)))
-            expected = self._create_declarative_entity(data).ueid
-            if ueid not in expected:
-                self._deleted[ent_type].add(ueid)
-
-    @entityd.pm.hookimpl(before='entityd.kvstore')
-    def entityd_sessionfinish(self):
-        """Called when the monitoring session ends to save UEIDs.
-
-        Save the UEID and type of known entities in the kvstore to be restored
-        when the session is next started.
-        """
-        self.session.svc.kvstore.deletemany(self.prefix)
-        to_add = dict()
-        for entity_type in self._conf_attrs:
-            for entity_desc in self._conf_attrs[entity_type]:
-                ueid = self._create_declarative_entity(entity_desc).ueid
-                key = self.prefix + base64.b64encode(ueid).decode('ascii')
-                to_add[key] = entity_type
-        self.session.svc.kvstore.addmany(to_add)
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs):
@@ -156,31 +128,12 @@ class DeclarativeEntity:
         :param attrs: A dictionary of attributes to filter return entities on.
         """
         self._update_entities()
-        if name in self._deleted.keys():
-            if attrs is not None:
-                raise LookupError('Attribute based filtering not supported'
-                                  ' for attrs {}'.format(attrs))
-            for ueid in self._deleted[name]:
-                yield self._deleted_entity(name, ueid)
-            self._deleted.pop(name)
         if name in self._conf_attrs.keys():
             if attrs is not None:
                 raise LookupError('Attribute based filtering not supported'
                                   ' for attrs {}'.format(attrs))
             for entity_desc in self._conf_attrs[name]:
                 yield self._create_declarative_entity(entity_desc)
-
-    @staticmethod
-    def _deleted_entity(name, ueid):
-        """Return a deleted entity with the type and ueid specified.
-
-        :param name: The type of entity to return
-        :param ueid: The ueid of the entity to return
-        """
-        # Not enough information to build the ueid, so set it explicitly
-        entity = entityd.entityupdate.EntityUpdate(name, ueid=ueid)
-        entity.delete()
-        return entity
 
     def _update_entities(self):
         """Load files, read the config data and add it to self._conf_attrs.
@@ -260,9 +213,7 @@ class DeclarativeEntity:
         Also removes that type key if appropriate and unregisters the type:
         """
 
-        ueid = self._create_declarative_entity(data).ueid
         self._conf_attrs[data.type].remove(data)
-        self._deleted[data.type].add(ueid)
         if not self._conf_attrs[data.type]:
             del self._conf_attrs[data.type]
             self.session.config.removeentity(

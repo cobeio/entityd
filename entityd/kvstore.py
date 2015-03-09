@@ -1,8 +1,8 @@
 """Key-Value Storage plugin"""
 
-import pathlib
 import sqlite3
 
+import act
 import msgpack
 
 import entityd.core
@@ -12,7 +12,7 @@ import entityd.pm
 @entityd.pm.hookimpl
 def entityd_sessionstart(session):
     """Register the kvstore service."""
-    dbpath = pathlib.Path(__file__).parent / 'entityd_kvstore.db'
+    dbpath = act.fsloc.statedir.joinpath('entityd_kvstore.db')
     kvstore = KVStore(dbpath)
     session.addservice('kvstore', kvstore)
 

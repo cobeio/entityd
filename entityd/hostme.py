@@ -63,6 +63,7 @@ class HostEntity:
         fqdn = socket.getfqdn()
         uptime = int(syskit.uptime())
         update = entityd.EntityUpdate('Host')
+        update.label = fqdn
         update.attrs.set('id', self.get_uuid(), 'id')
         update.attrs.set('fqdn', fqdn)
         update.attrs.set('uptime', uptime, 'perf:counter')

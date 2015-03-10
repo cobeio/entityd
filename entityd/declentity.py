@@ -288,6 +288,7 @@ class DeclarativeEntity:
         # Parents and children are generators, not sets, to delay evaluation
         # allowing for successful recursive relationships.
         entity = entityd.EntityUpdate(config_properties.type)
+        entity.label = config_properties.label
         entity.attrs.set('filepath',
                          str(config_properties.filepath),
                          attrtype='id')
@@ -343,7 +344,7 @@ class DeclarativeEntity:
 
 
 class DeclCfg:
-    """A decelarative entity configuration class
+    """A declarative entity configuration class
 
     This class holds the declarative entity data which is used to build a
     declarative entity.
@@ -354,6 +355,8 @@ class DeclCfg:
 
     Attributes
     :attr type: The type of the entity. Required, cannot contain '/' characters.
+    :attr label: The label for the entity. A short human-readable string for
+                displaying the entity.
     :attr filepath: The path of the file the declaration was read from.
     :attr attrs: A dictionary of static attributes, the keys of the dictionary
                  are the attribute names, the values are instances of
@@ -371,6 +374,10 @@ class DeclCfg:
             self.type = data['type']
         except KeyError:
             raise ValidationError('No type field found in entity.')
+        try:
+            self.label = data['label']
+        except KeyError:
+            self.label = self.type
         self.filepath = data.get('filepath', '')
         self.attrs = dict()
         for name, value in data.get('attrs', dict()).items():

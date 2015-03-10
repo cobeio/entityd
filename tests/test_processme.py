@@ -451,3 +451,16 @@ def test_cpu_usage_calculation(procent):
     proc.cputime = 1.0
     proc.start_time.timestamp.return_value = time.time() - 2
     assert 49.0 <= procent.get_cpu_usage(proc) <= 51.0
+
+
+def test_entity_has_label(procent, session, kvstore):  # pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
+    entities = procent.entityd_find_entity('Process', None)
+    count = 0
+    for entity in entities:
+        assert entity.metype == 'Process'
+        if entity.deleted:
+            continue
+        assert entity.label == entity.attrs.get('binary').value
+        count += 1
+    assert count

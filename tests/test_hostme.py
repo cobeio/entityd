@@ -1,3 +1,4 @@
+import socket
 import time
 
 import pytest
@@ -120,3 +121,14 @@ def test_loadavg(host_gen):
     for value in loadavg:
         assert isinstance(value, float)
         assert 0 < value < 16
+
+
+def test_entity_has_label():
+    hostgen = entityd.hostme.HostEntity()
+    hostgen.session = pytest.Mock()
+    hostgen.session.pluginmanager.hooks.entityd_kvstore_get.return_value \
+        = None
+
+    entity = next(hostgen.entityd_find_entity(name='Host', attrs=None))
+    assert entity.label == socket.getfqdn()
+

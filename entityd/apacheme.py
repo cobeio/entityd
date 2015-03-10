@@ -93,6 +93,7 @@ class ApacheEntity:
         """Return a generator of ApacheEntity objects"""
         apache = self.apache
         update = entityd.EntityUpdate('Apache')
+        update.label = 'Apache'
         if not apache.installed:
             if self._last_ueid:
                 update = entityd.EntityUpdate('Apache', self._last_ueid)

@@ -520,6 +520,40 @@ class TestHookCaller:
         with pytest.raises(ValueError):
             caller.addimpl(hook_b)
 
+    def test_addimpl_after_self(self, caller):
+        @entityd.pm.hookimpl(after='a')
+        def my_hook(ham):
+            return ham
+        mod = types.ModuleType('a')
+        mod.my_hook = my_hook
+        plugin_a = entityd.pm.Plugin(mod, 'a', 0)
+        hook_a = entityd.pm.HookImpl(my_hook, plugin_a)
+        with pytest.raises(ValueError):
+            caller.addimpl(hook_a)
+
+    def test_addimpl_before_self(self, caller):
+        @entityd.pm.hookimpl(before='a')
+        def my_hook(ham):
+            return ham
+        mod = types.ModuleType('a')
+        mod.my_hook = my_hook
+        plugin_a = entityd.pm.Plugin(mod, 'a', 0)
+        hook_a = entityd.pm.HookImpl(my_hook, plugin_a)
+        with pytest.raises(ValueError):
+            caller.addimpl(hook_a)
+
+    def test_addimpl_before_and_after(self, caller, impl_spam):
+        @entityd.pm.hookimpl(before='spamplugin', after='spamplugin')
+        def my_hook(ham):
+            return ham
+        mod = types.ModuleType('a')
+        mod.my_hook = my_hook
+        plugin_a = entityd.pm.Plugin(mod, 'a', 0)
+        hook_a = entityd.pm.HookImpl(my_hook, plugin_a)
+        caller.addimpl(impl_spam)
+        with pytest.raises(ValueError):
+            caller.addimpl(hook_a)
+
     def test_removeimpl(self, caller, impl_spam):
         caller._hooks = [impl_spam]
         caller.removeimpl(impl_spam)

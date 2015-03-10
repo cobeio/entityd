@@ -519,7 +519,8 @@ class HookCaller:
                 return sorted_hooks
             for hook, value, after in hook_values:
                 if after:
-                    max_value = max(h.value for h in hook_values if h.hook.plugin.name in after)
+                    max_value = max(h.value for h in
+                                    hook_values if h.hook.plugin.name in after)
                     value[0] = max_value[0] + 1
         raise ValueError('Impossible to sort.')
 
@@ -535,14 +536,14 @@ class HookCaller:
             before = hooks[:i] if i else []
             after = hooks[i + 1:]
             current = hooks[i]
-            assert current not in before
-            assert current not in after
-            for hook in before:
-                assert hook not in after
             for other in current.after:
+                if other == current.plugin.name:
+                    return False
                 if other in [h.plugin.name for h in after]:
                     return False
             for other in current.before:
+                if other == current.plugin.name:
+                    return False
                 if other in [h.plugin.name for h in before]:
                     return False
         return True

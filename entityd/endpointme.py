@@ -46,7 +46,7 @@ class EndpointEntity:
 
     @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
-        """Load up all the known endpoint UUIDs."""
+        """Store the session for later usage."""
         self.session = session
 
     @entityd.pm.hookimpl

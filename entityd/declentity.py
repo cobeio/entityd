@@ -106,16 +106,12 @@ class DeclarativeEntity:
         """Configure the declarative entity creator with the dir path."""
         self._path = config.args.declentity_dir
 
-    @entityd.pm.hookimpl(after='entityd.kvstore')
+    @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
-        """Read config files, and load previous UEIDs to find deleted entities.
+        """Read config files and load declarations.
 
-        This first reads all config files and loads the declarations into the
-        self._conf_attrs dictionary. It also loads previously known entity
-        UEIDs from the kvstore, and tests if a matching entity has been loaded
-        into the self._conf_attrs dictionary. If there is no matching entity
-        then the entitiy is marked as deleted and will be sent when entities
-        of it's type are next requested.
+        This reads all config files and loads the declarations into the
+        self._conf_attrs dictionary.
         """
         self.session = session
         self._update_entities()

@@ -25,7 +25,6 @@ class ProcessEntity:
     def __init__(self):
         self.active_processes = {}
         self.known_ueids = set()
-        self.loaded_ueids = set()
         self.session = None
         self._host_ueid = None
         self._process_times = {}
@@ -38,7 +37,7 @@ class ProcessEntity:
 
     @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
-        """Load known ProcessME UEIDs."""
+        """Store the session for later usage."""
         self.session = session
 
     @entityd.pm.hookimpl
@@ -134,7 +133,6 @@ class ProcessEntity:
             processed_ueids.add(update.ueid)
             yield update
 
-        self.loaded_ueids = set()
         self.active_processes = active
 
     @staticmethod

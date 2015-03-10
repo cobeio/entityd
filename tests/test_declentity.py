@@ -224,6 +224,21 @@ def test_invalid_relation(declent, config, session, tmpdir, caplog):
     assert 'Bad relation' in caplog.text()
 
 
+def test_entity_removed_on_file_remove(declent, session, config, conf_file):
+    config.args.declentity_dir = pathlib.Path(conf_file.strpath).parent
+    declent.entityd_configure(config)
+    declent.entityd_sessionstart(session)
+    read_ent = next(declent.entityd_find_entity('Test', None))
+    assert read_ent.attrs.get('owner').value == 'admin@default'
+    assert read_ent.deleted is False
+    os.remove(conf_file.strpath)
+    session.config.removeentity = pytest.Mock()
+    with pytest.raises(StopIteration):
+        _ = next(declent.entityd_find_entity('Test', None))
+    session.config.removeentity.assert_called_once_with(
+        'Test', 'entityd.declentity.DeclarativeEntity')
+
+
 @pytest.fixture
 def conf_attrs():
     conf = {

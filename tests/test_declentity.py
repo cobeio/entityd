@@ -246,7 +246,7 @@ def conf_attrs():
         'filepath': 'testFilePath',
         'attrs': {
             'owner': 'testOwner',
-            'a_dict':{
+            'a_dict': {
                 'value': 'a_value',
                 'type': 'a_type'
                 },
@@ -258,12 +258,13 @@ def conf_attrs():
     return entityd.declentity.DeclCfg(conf)
 
 
-def test_create_decelarative_me(declent, conf_attrs, session):
+def test_create_declarative_me(declent, conf_attrs, session):
     declent.entityd_sessionstart(session)
     entity = declent._create_declarative_entity(conf_attrs)
     assert entity.metype == 'testService'
+    assert entity.label == 'testService'
     assert entity.attrs.get('owner').value == 'testOwner'
-    assert entity.attrs.get('owner').type == None
+    assert entity.attrs.get('owner').type is None
     assert entity.attrs.get('hostueid').value == declent.host_ueid
     assert entity.attrs.get('hostueid').type == 'id'
     assert entity.attrs.get('filepath').value == 'testFilePath'
@@ -552,13 +553,26 @@ def test_remove_file(declent, session, config, tmpdir):
 
 class TestDecCfg:
 
-    def test_blank(self):
+    def test_blank_default_label(self):
         some_cfg = entityd.declentity.DeclCfg({'type': 'SomeType'})
         assert some_cfg.type == 'SomeType'
         assert some_cfg.filepath == ''
         assert some_cfg.parents == []
         assert some_cfg.children == []
         assert some_cfg.attrs == {}
+        assert some_cfg.label == 'SomeType'
+
+    def test_custom_label(self):
+        some_cfg = entityd.declentity.DeclCfg({
+            'type': 'SomeType',
+            'label': 'Custom Label',
+            'attrs': {}
+        })
+        assert some_cfg.type == 'SomeType'
+        assert some_cfg.filepath == ''
+        assert some_cfg.parents == []
+        assert some_cfg.children == []
+        assert some_cfg.label == 'Custom Label'
 
     def test_invalid_type(self):
         with pytest.raises(entityd.declentity.ValidationError):

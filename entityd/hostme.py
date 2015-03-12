@@ -63,6 +63,7 @@ class HostEntity:
         fqdn = socket.getfqdn()
         uptime = int(syskit.uptime())
         update = entityd.EntityUpdate('Host')
+        update.label = fqdn
         update.attrs.set('id', self.get_uuid(), 'id')
         update.attrs.set('fqdn', fqdn)
         update.attrs.set('uptime', uptime, 'perf:counter')
@@ -98,8 +99,11 @@ class HostEntity:
         total = sum(cputimes.values())
         for attr in attrs:
             update.attrs.set(attr, float(cputimes[attr]))
-            update.attrs.set(
-                attr + '%',
-                float(cputimes[attr]) / float(total) * 100)
+            if total == 0:
+                update.attrs.set(attr + '%', 0)
+            else:
+                update.attrs.set(
+                    attr + '%',
+                    float(cputimes[attr]) / float(total) * 100)
         self.cputimes = new_cputimes
         return None

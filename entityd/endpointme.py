@@ -72,6 +72,7 @@ class EndpointEntity:
         Useful for getting the UEID without constructing a complete update.
         """
         update = entityd.EntityUpdate('Endpoint')
+        update.label = '{}:{}'.format(conn.laddr[0], conn.laddr[1])
         update.attrs.set('addr', conn.laddr[0], attrtype='id')
         update.attrs.set('port', conn.laddr[1], attrtype='id')
 

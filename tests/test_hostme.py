@@ -1,3 +1,4 @@
+import socket
 import time
 
 import pytest
@@ -98,6 +99,19 @@ def test_cpu_usage(host_gen):
                                  'irq%', 'softirq%', 'steal%']]) <= 100.1
 
 
+def test_cpu_usage_zerodiv(host_gen, monkeypatch):
+    entities = list(host_gen.entityd_find_entity(name='Host', attrs=None))
+    host = entities[0]
+    assert host.attrs.get('usr').value > 0
+    assert host.attrs.get('usr%').value > 0
+    monkeypatch.setattr(syskit, 'cputimes',
+                        pytest.Mock(return_value=host_gen.cputimes))
+    entities = list(host_gen.entityd_find_entity(name='Host', attrs=None))
+    host = entities[0]
+    assert host.attrs.get('usr%').value == 0
+    assert host.attrs.get('usr').value == 0
+
+
 def test_loadavg(host_gen):
     entities = list(host_gen.hosts())
     host = entities[0]
@@ -107,3 +121,14 @@ def test_loadavg(host_gen):
     for value in loadavg:
         assert isinstance(value, float)
         assert 0 < value < 16
+
+
+def test_entity_has_label():
+    hostgen = entityd.hostme.HostEntity()
+    hostgen.session = pytest.Mock()
+    hostgen.session.pluginmanager.hooks.entityd_kvstore_get.return_value \
+        = None
+
+    entity = next(hostgen.entityd_find_entity(name='Host', attrs=None))
+    assert entity.label == socket.getfqdn()
+

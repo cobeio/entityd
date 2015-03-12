@@ -1,4 +1,5 @@
 import os
+import re
 import socket
 
 import pytest
@@ -209,3 +210,17 @@ def test_get_ueid_reuse(endpoint_gen, local_socket):  # pylint: disable=unused-a
     conn1 = conns.retrieve('all', os.getpid())[0]
     ueid1 = endpoint_gen.get_ueid(conn1)
     assert ueid0 == ueid1
+
+
+
+def test_entity_has_label(session, kvstore, endpoint_gen, local_socket):  # pylint: disable=unused-argument
+    endpoint_gen.entityd_sessionstart(session)
+    entities = endpoint_gen.entityd_find_entity(name='Endpoint', attrs=None)
+
+    for entity in entities:
+        label = entity.label
+        match = re.match(r'([0-9a-fA-F:\.]*):\d+', label)
+        if match.group(1).count(':') > 1:
+            assert socket.inet_pton(socket.AF_INET6, match.group(1))
+        else:
+            assert socket.inet_pton(socket.AF_INET, match.group(1))

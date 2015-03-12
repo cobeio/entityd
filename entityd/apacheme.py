@@ -98,6 +98,7 @@ class ApacheEntity:
         except ApacheNotFound:
             return
         update = entityd.EntityUpdate('Apache')
+        update.label = 'Apache'
         update.attrs.set('host', self.host_ueid, attrtype='id')
         update.attrs.set('version', apache.version)
         update.attrs.set('config_path', apache.config_path)

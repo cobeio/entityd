@@ -223,6 +223,18 @@ def test_entity_deleted_running(patched_entitygen, monkeypatch):
         _ = next(gen)
 
 
+def test_apache_entity_label(patched_entitygen):
+    entities = patched_entitygen.entityd_find_entity('Apache', None)
+    count = 0
+    for entity in entities:
+        assert entity.metype == 'Apache'
+        if entity.deleted:
+            continue
+        assert entity.label.startswith('Apache')
+        count += 1
+    assert count
+
+
 def test_relations(pm, session, kvstore, patched_entitygen):  # pylint: disable=unused-argument
     gen = patched_entitygen
     procent = entityd.processme.ProcessEntity()

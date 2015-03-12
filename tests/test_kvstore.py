@@ -28,13 +28,26 @@ def test_entityd_sessionstart(monkeypatch):
 def test_sessionstart_permissionerror(tmpdir, monkeypatch):
     session = pytest.Mock()
     dirpath = tmpdir.join('notallowed')
-    dirpath.ensure()
+    dirpath.ensure(dir=True)
     dirpath.chmod(0o000)
     dbpath = pathlib.Path(str(dirpath.join('entityd/kvstore.db')))
     monkeypatch.setattr(act.fsloc, 'statedir', pytest.Mock())
     monkeypatch.setattr(act.fsloc.statedir, 'joinpath', pytest.Mock(return_value=dbpath))
     with pytest.raises(PermissionError):
         entityd.kvstore.entityd_sessionstart(session)
+
+
+def test_sessionstart_mkdir(tmpdir, monkeypatch):
+    session = pytest.Mock()
+    dirpath = tmpdir.join('var')
+    dirpath.ensure(dir=True)
+    dbpath = pathlib.Path(str(dirpath.join('lib/entityd/kvstore.db')))
+    monkeypatch.setattr(act.fsloc, 'statedir', pytest.Mock())
+    monkeypatch.setattr(act.fsloc.statedir, 'joinpath',
+                        pytest.Mock(return_value=dbpath))
+    entityd.kvstore.entityd_sessionstart(session)
+    assert dbpath.parent.is_dir()
+    assert dbpath.is_file()
 
 
 def test_entityd_sessionfinish():

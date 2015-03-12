@@ -13,6 +13,13 @@ import entityd.pm
 def entityd_sessionstart(session):
     """Register the kvstore service."""
     dbpath = act.fsloc.statedir.joinpath('lib/entityd/kvstore.db')
+    try:
+        if not dbpath.parent.is_dir():
+            dbpath.parent.mkdir()
+    except (NotADirectoryError, PermissionError):
+        raise PermissionError("Cannot create kvstore.db in {}".format(
+            str(dbpath.parent)
+        ))
     kvstore = KVStore(dbpath)
     session.addservice('kvstore', kvstore)
 

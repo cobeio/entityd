@@ -1,6 +1,7 @@
 import pathlib
 import sqlite3
 
+import act
 import msgpack
 import pytest
 
@@ -19,8 +20,21 @@ def test_entityd_sessionstart(monkeypatch):
     entityd.kvstore.entityd_sessionstart(session)
     dbpath = init.call_args[0][0]
     assert isinstance(dbpath, pathlib.Path)
+    assert str(dbpath).endswith('/var/lib/entityd/kvstore.db')
     name, _ = session.addservice.call_args[0]
     assert name == 'kvstore'
+
+
+def test_sessionstart_permissionerror(tmpdir, monkeypatch):
+    session = pytest.Mock()
+    dirpath = tmpdir.join('notallowed')
+    dirpath.ensure()
+    dirpath.chmod(0o000)
+    dbpath = pathlib.Path(str(dirpath.join('entityd/kvstore.db')))
+    monkeypatch.setattr(act.fsloc, 'statedir', pytest.Mock())
+    monkeypatch.setattr(act.fsloc.statedir, 'joinpath', pytest.Mock(return_value=dbpath))
+    with pytest.raises(PermissionError):
+        entityd.kvstore.entityd_sessionstart(session)
 
 
 def test_entityd_sessionfinish():

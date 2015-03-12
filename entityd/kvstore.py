@@ -12,7 +12,7 @@ import entityd.pm
 @entityd.pm.hookimpl
 def entityd_sessionstart(session):
     """Register the kvstore service."""
-    dbpath = act.fsloc.statedir.joinpath('entityd_kvstore.db')
+    dbpath = act.fsloc.statedir.joinpath('lib/entityd/kvstore.db')
     kvstore = KVStore(dbpath)
     session.addservice('kvstore', kvstore)
 

@@ -5,8 +5,6 @@ import inspect
 import itertools
 import types
 
-import entityd.constraint
-
 
 def hookdef(*func, firstresult=False):
     """Declare decorated function as a hook definition.
@@ -483,125 +481,72 @@ class HookCaller:
         if unknown_args:
             raise TypeError('Hook {} accepts unknown arguments: {}'
                             .format(impl, ', '.join(unknown_args)))
-
-        # Sort the hooks by constraing checking.  The available hook
-        # positions are the variables, the available hooks are the
-        # domains.
-        all_positions = list(range(len(self._hooks) + 1))
         all_hooks = list(self._hooks) + [impl]
-        ba_solutions = self._solve_before_after(all_positions, all_hooks)
-        if not ba_solutions:
-            raise ValueError('Impossible to sort')
-        index_solution = self._solve_index(ba_solutions)
-        pairs = sorted(index_solution.items(), key=lambda x: x[0])
-        self._hooks = [x[1] for x in pairs]
+        self._hooks = self.sort_hooks(all_hooks)
         self._trace('Added hook: {}'.format(impl))
 
-    def _solve_before_after(self, positions, hooks):
-        """Solve the before/after contraints of the hooks.
+    def sort_hooks(self, hooks):
+        """Sort hooks by moving them according to their constraints.
 
-        Sort the hooks by contraint checking on the before/after
-        properties.  The available positions in the final sorted list
-        are the variables while all hooks are the problem domain for
-        each variable.
+        We give each hook a value. The most significant digit is determined by
+        the before and after hook constraints. The less significant digit is
+        the plugin index and gives a unique solution.
 
-        :param positions: The available positions, integers.
+        Before sorting them, we create equivalent 'after' constraints from
+        any 'before' constraints to simplify the code.
 
-        :param hooks: The HookImpl instances of all hooks to sort.
+        The original hooks are not modified.
 
-        :return: A list of possible solutions, each solution is a
-           mapping of a position to the hooks which can be in this
-           position.  Multiple hooks are still possible to be in one
-           position in which case the hook's plugin index needs to
-           sort them further, see ._solve_index().
-
+        :param hooks: List of hooks to sort.
+        :return: List of hooks in sorted order.
         """
-        problem = entityd.constraint.Problem()
-        problem.addVariables(positions, hooks)
-        problem.addConstraint(self._constraint_unique, positions)
-        problem.addConstraint(self._constraint_before_after, positions)
-        return problem.getSolutions()
+        HookValue = collections.namedtuple('HookValue', 'hook value after')  # pylint: disable=invalid-name
+        hook_values = [HookValue(hook,
+                                 [hook.plugin.index, hook.plugin.index],
+                                 set(hook.after)) for hook in hooks]
 
-    def _solve_index(self, solutions):
-        """Solve any remaining free hooks to be ordered by plugin index.
+        # Replace all 'before' entries with the equivalent 'after' constraint.
+        for hook, value, after in hook_values:
+            for other in hooks:
+                if hook.plugin.name in other.before:
+                    after.add(other.plugin.name)
 
-        :param solutions: The possible solutions as returned by
-           ._solve_before_after().
-
-        :returns: The remaining solution, a dictionary of positions
-           mapped to hooks.
-
-        """
-        problem = entityd.constraint.Problem()
-
-        # Collect sets of possible hooks for each position.
-        pos_hooks_map = collections.defaultdict(set)
-        for solution in solutions:
-            for pos, hook in solution.items():
-                pos_hooks_map[pos].add(hook)
-
-        # Add these as variables and domains to the problem.  And map
-        # frozensets of the hooks to the positions they can occur in.
-        pos_bag = collections.defaultdict(set)
-        for pos, hooks in pos_hooks_map.items():
-            problem.addVariable(pos, list(hooks))
-            hooks = frozenset(hooks)
-            pos_bag[hooks].add(pos)
-
-        # Finally for each set of hooks create an ordering contraint.
-        for hooks, pos in pos_bag.items():
-            if len(pos) > 1:
-                pos = sorted(pos)
-                problem.addConstraint(self._constraint_index, pos)
-
-        problem.addConstraint(self._constraint_unique, list(pos_hooks_map))
-        return problem.getSolution()
+        for _ in range(len(hooks) ** 2):
+            sorted_hooks = [hv.hook for hv in
+                            sorted(hook_values, key=lambda h: h.value)]
+            ordered = self.correctly_ordered(sorted_hooks)
+            if ordered:
+                return sorted_hooks
+            for hook, value, after in hook_values:
+                if after:
+                    max_value = max(h.value for h in
+                                    hook_values if h.hook.plugin.name in after)
+                    value[0] = max_value[0] + 1
+        raise ValueError('Impossible to sort.')
 
     @staticmethod
-    def _constraint_unique(*hooks):
-        """Unique constraint for the hook order problem.
+    def correctly_ordered(hooks):
+        """Check if `hooks` is correctly ordered according to before and after
+        constraints.
 
-        :param hooks: The hooks, in the order of their proposed
-           positions.
-
-        :return: True if all hooks are unique, False otherwise.
-
+        :param hooks: List of hooks in order to check.
+        :return: True if the hooks are correctly ordered, else False.
         """
-        return len(hooks) == len(set(hooks))
-
-    @staticmethod
-    def _constraint_before_after(*hooks):
-        """Before/after constraint for the hook order problem.
-
-        :param hooks: The hooks, in the order of their proposed
-           positions.
-
-        :return: True if all before and after constraints of the hooks
-           are statisfied, False otherwise.
-
-        """
-        for i, hook in enumerate(hooks):
-            preceding = set(h.plugin.name for h in hooks[:i])
-            following = set(h.plugin.name for h in hooks[i+1:])
-            if (hook.before.intersection(preceding) or
-                    hook.after.intersection(following)):
-                return False
+        for i in range(len(hooks)):
+            before = hooks[:i] if i else []
+            after = hooks[i + 1:]
+            current = hooks[i]
+            for other in current.after:
+                if other == current.plugin.name:
+                    return False
+                if other in [h.plugin.name for h in after]:
+                    return False
+            for other in current.before:
+                if other == current.plugin.name:
+                    return False
+                if other in [h.plugin.name for h in before]:
+                    return False
         return True
-
-    @staticmethod
-    def _constraint_index(*hooks):
-        """Plugin index order contraint for the hook order problem.
-
-        :param: hooks: The hooks in their proposed order.  The
-           absolute proposed positions of the hooks are unknown to
-           this constraint check, but relative ordering is all it
-           cares about.
-
-        :return: True if the hooks appear in plugin index order, False
-           otherwise.
-
-        """
-        return list(hooks) == sorted(hooks, key=lambda h: h.plugin.index)
 
     def removeimpl(self, impl):
         """Remove a hook implementation.

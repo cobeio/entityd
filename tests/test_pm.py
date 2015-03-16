@@ -425,6 +425,18 @@ class TestHookCaller:
         assert caller_firstresult.name == 'my_hook'
         assert caller_firstresult.firstresult
 
+    def test_incorrectly_ordered_before(self, caller, impl_spam, impl_before):
+        assert caller.correctly_ordered([impl_spam, impl_before]) is False
+
+    def test_incorrectly_ordered_after(self, caller, impl_spam, impl_after):
+        assert caller.correctly_ordered([impl_after, impl_spam]) is False
+
+    def test_correctly_ordered_before(self, caller, impl_spam, impl_before):
+        assert caller.correctly_ordered([impl_before, impl_spam]) is True
+
+    def test_correctly_ordered_after(self, caller, impl_spam, impl_after):
+        assert caller.correctly_ordered([impl_spam, impl_after]) is True
+
     def test_addimpl_single(self, caller, impl_spam):
         caller.addimpl(impl_spam)
         assert caller._hooks == [impl_spam]
@@ -507,6 +519,40 @@ class TestHookCaller:
         caller.addimpl(hook_a)
         with pytest.raises(ValueError):
             caller.addimpl(hook_b)
+
+    def test_addimpl_after_self(self, caller):
+        @entityd.pm.hookimpl(after='a')
+        def my_hook(ham):
+            return ham
+        mod = types.ModuleType('a')
+        mod.my_hook = my_hook
+        plugin_a = entityd.pm.Plugin(mod, 'a', 0)
+        hook_a = entityd.pm.HookImpl(my_hook, plugin_a)
+        with pytest.raises(ValueError):
+            caller.addimpl(hook_a)
+
+    def test_addimpl_before_self(self, caller):
+        @entityd.pm.hookimpl(before='a')
+        def my_hook(ham):
+            return ham
+        mod = types.ModuleType('a')
+        mod.my_hook = my_hook
+        plugin_a = entityd.pm.Plugin(mod, 'a', 0)
+        hook_a = entityd.pm.HookImpl(my_hook, plugin_a)
+        with pytest.raises(ValueError):
+            caller.addimpl(hook_a)
+
+    def test_addimpl_before_and_after(self, caller, impl_spam):
+        @entityd.pm.hookimpl(before='spamplugin', after='spamplugin')
+        def my_hook(ham):
+            return ham
+        mod = types.ModuleType('a')
+        mod.my_hook = my_hook
+        plugin_a = entityd.pm.Plugin(mod, 'a', 0)
+        hook_a = entityd.pm.HookImpl(my_hook, plugin_a)
+        caller.addimpl(impl_spam)
+        with pytest.raises(ValueError):
+            caller.addimpl(hook_a)
 
     def test_removeimpl(self, caller, impl_spam):
         caller._hooks = [impl_spam]

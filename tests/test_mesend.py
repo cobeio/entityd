@@ -38,12 +38,6 @@ def sender_receiver(request):
     return sender, sock
 
 
-def test_plugin_registered(pm):
-    name = 'entityd.mesend'
-    entityd.mesend.entityd_plugin_registered(pm, name)
-    assert pm.isregistered('entityd.mesend.MonitoredEntitySender')
-
-
 def test_option_default():
     parser = argparse.ArgumentParser()
     entityd.mesend.MonitoredEntitySender().entityd_addoption(parser)

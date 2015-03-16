@@ -60,12 +60,6 @@ def conn(local_socket):  # pylint: disable=unused-argument
     return conn0
 
 
-def test_plugin_registered(pm):
-    name = 'entityd.endpointme'
-    entityd.endpointme.entityd_plugin_registered(pm, name)
-    assert pm.isregistered('entityd.endpointme.EndpointEntity')
-
-
 def test_configure(endpoint_gen, config):
     endpoint_gen.entityd_configure(config)
     assert config.entities['Endpoint'].obj is endpoint_gen

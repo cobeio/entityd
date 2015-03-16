@@ -17,15 +17,6 @@ import entityd.pm
 log = logging.getLogger(__name__)
 
 
-@entityd.pm.hookimpl
-def entityd_plugin_registered(pluginmanager, name):
-    """Called to register the plugin."""
-    if name == 'entityd.mesend':
-        sender = MonitoredEntitySender()
-        pluginmanager.register(sender,
-                               name='entityd.mesend.MonitoredEntitySender')
-
-
 class MonitoredEntitySender:
     """Plugin to send entities to modeld."""
 

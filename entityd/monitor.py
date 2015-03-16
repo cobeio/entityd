@@ -13,15 +13,6 @@ import collections
 import entityd.pm
 
 
-@entityd.pm.hookimpl
-def entityd_plugin_registered(pluginmanager, name):
-    """Called to register the plugin."""
-    if name == 'entityd.monitor':
-        monitor = Monitor()
-        pluginmanager.register(monitor,
-                               name='entityd.monitor.Monitor')
-
-
 class Monitor:
     """Plugin responsible for collecting, monitoring and sending entities."""
 

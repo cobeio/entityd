@@ -21,15 +21,6 @@ PROTOCOLS = {
 }
 
 
-@entityd.pm.hookimpl
-def entityd_plugin_registered(pluginmanager, name):
-    """Called to register the plugin."""
-    if name == 'entityd.endpointme':
-        gen = EndpointEntity()
-        pluginmanager.register(gen,
-                               name='entityd.endpointme.EndpointEntity')
-
-
 class EndpointEntity:
     """Plugin to generate endpoint MEs."""
 

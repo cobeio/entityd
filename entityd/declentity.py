@@ -60,25 +60,6 @@ class ValidationError(Exception):
     pass
 
 
-@entityd.pm.hookimpl
-def entityd_plugin_registered(pluginmanager, name):
-    """Called to register the plugin."""
-    if name == 'entityd.declentity':
-        gen = DeclarativeEntity()
-        pluginmanager.register(gen, name='entityd.declentity.DeclarativeEntity')
-
-
-@entityd.pm.hookimpl
-def entityd_addoption(parser):
-    """Add command line options to the argparse parser."""
-    parser.add_argument(
-        '--declentity-dir',
-        default=act.fsloc.sysconfdir.joinpath('entity_declarations'),
-        type=pathlib.Path,
-        help=('Directory to scan for entity declaration files.'),
-    )
-
-
 RelDesc = collections.namedtuple('RelationDescription', ['type', 'attrs'])
 
 
@@ -100,6 +81,17 @@ class DeclarativeEntity:
         self.session = None
         self._conf_attrs = collections.defaultdict(list)
         self._files = {}
+
+    @staticmethod
+    @entityd.pm.hookimpl
+    def entityd_addoption(parser):
+        """Add command line options to the argparse parser."""
+        parser.add_argument(
+            '--declentity-dir',
+            default=act.fsloc.sysconfdir.joinpath('entity_declarations'),
+            type=pathlib.Path,
+            help=('Directory to scan for entity declaration files.'),
+        )
 
     @entityd.pm.hookimpl
     def entityd_configure(self, config):

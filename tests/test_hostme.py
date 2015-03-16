@@ -23,12 +23,6 @@ def host(host_gen):
     return entities[0]
 
 
-def test_plugin_registered(pm):
-    name = 'entityd.hostme'
-    entityd.hostme.entityd_plugin_registered(pm, name)
-    assert pm.isregistered('entityd.hostme.HostEntity')
-
-
 def test_configure():
     config = pytest.Mock()
     entityd.hostme.HostEntity().entityd_configure(config)

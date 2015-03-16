@@ -17,8 +17,15 @@ import entityd.version
 
 #: These plugins are always loaded first and in order.
 BUILTIN_PLUGIN_NAMES = ['entityd.' + n for n in
-                        ['core', 'mesend', 'kvstore', 'hostme', 'processme',
-                         'endpointme', 'apacheme', 'declentity', 'monitor']]
+                        ['core',
+                         'mesend:MonitoredEntitySender',
+                         'kvstore',
+                         'monitor:Monitor',
+                         'hostme:HostEntity',
+                         'processme:ProcessEntity',
+                         'endpointme:EndpointEntity',
+                         'apacheme:ApacheEntity',
+                         'declentity:DeclarativeEntity']]
 
 
 log = logging.getLogger('bootstrap')
@@ -40,13 +47,29 @@ def main(argv=None, plugins=None):
     register_cb = functools.partial(plugin_registered_cb, pluginmanager)
     pluginmanager.register_callback = register_cb
     for name in plugins:
+        classname = None
+        if ':' in name:
+            modname, classname = name.split(':')
+        else:
+            modname = name
         try:
-            plugin = importlib.import_module(name)
+            mod = importlib.import_module(modname)
         except Exception:       # pylint: disable=broad-except
-            log.exception('Failed to import plugin: %s', name)
+            log.exception('Failed to import plugin module: %s', name)
             continue
+        if classname:
+            try:
+                cls = getattr(mod, classname)
+            except AttributeError:
+                log.exception('Failed to get plugin class: %s', name)
+                continue
+            plugin = cls()
+            name = '.'.join([plugin.__module__, cls.__name__])
+        else:
+            plugin = mod
+            name = mod.__name__
         try:
-            pluginmanager.register(plugin)
+            pluginmanager.register(plugin, name=name)
         except Exception:       # pylint: disable=broad-except
             log.exception('Failed to register plugin: %s', name)
     return pluginmanager.hooks.entityd_main(

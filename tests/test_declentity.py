@@ -38,12 +38,6 @@ def declent(pm, mock_host, kvstore):
     return declent
 
 
-def test_plugin_registered(pm):
-    name = 'entityd.declentity'
-    entityd.declentity.entityd_plugin_registered(pm, name)
-    assert pm.isregistered('entityd.declentity.DeclarativeEntity')
-
-
 def test_configure(declent, config):
     config.args.declentity_dir = '/service/conf/path'
     declent.entityd_configure(config)
@@ -52,14 +46,14 @@ def test_configure(declent, config):
 
 def test_addoption():
     parser = argparse.ArgumentParser()
-    entityd.declentity.entityd_addoption(parser)
+    entityd.declentity.DeclarativeEntity.entityd_addoption(parser)
     args = parser.parse_args(['--declentity-dir', '/file/path'])
     assert args.declentity_dir == pathlib.Path('/file/path')
 
 
 def test_default_dir():
     parser = argparse.ArgumentParser()
-    entityd.declentity.entityd_addoption(parser)
+    entityd.declentity.DeclarativeEntity.entityd_addoption(parser)
     args = parser.parse_args([])
     assert args.declentity_dir.stem == 'entity_declarations'
 

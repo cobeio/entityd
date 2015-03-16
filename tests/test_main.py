@@ -8,12 +8,23 @@ import entityd.pm
 import entityd.__main__ as main
 
 
+def delete_plugins(plugins):
+    def inner():
+        for p in plugins:
+            try:
+                del sys.modules[p]
+            except KeyError:
+                pass
+    return inner
+
+
 def test_main_noplugins(monkeypatch):
     monkeypatch.setattr(main, 'BUILTIN_PLUGIN_NAMES', [])
     assert main.main() is None
 
 
-def test_main(tmpdir, monkeypatch):
+def test_main(request, tmpdir, monkeypatch):
+    request.addfinalizer(delete_plugins(['plugin']))
     plugin = tmpdir.join('plugin.py')
     plugin.write(textwrap.dedent("""\
         import entityd.pm
@@ -28,7 +39,8 @@ def test_main(tmpdir, monkeypatch):
     assert argv == ['--foo', 'bar']
 
 
-def test_main_register_cb(tmpdir, monkeypatch):
+def test_main_register_cb(request, tmpdir, monkeypatch):
+    request.addfinalizer(delete_plugins(['plugin']))
     plugin = tmpdir.join('plugin.py')
     plugin.write('# empty')
     monkeypatch.syspath_prepend(tmpdir)
@@ -43,7 +55,8 @@ def test_main_trace(monkeypatch):
     assert main.trace.called
 
 
-def test_main_importerror(tmpdir, monkeypatch):
+def test_main_importerror(request, tmpdir, monkeypatch):
+    request.addfinalizer(delete_plugins(['plugin_a', 'plugin_b']))
     plugin_a = tmpdir.join('plugin_a.py')
     plugin_a.write("raise Exception('oops')")
     plugin_b = tmpdir.join('plugin_b.py')
@@ -60,7 +73,27 @@ def test_main_importerror(tmpdir, monkeypatch):
     assert pm.isregistered('plugin_b')
 
 
-def test_main_registererror(tmpdir, monkeypatch):
+def test_main_attributeerror(request, tmpdir, monkeypatch):
+    request.addfinalizer(delete_plugins(['plugin_a', 'plugin_b']))
+    plugin_a = tmpdir.join('plugin_a.py')
+    plugin_a.write('# empty')
+    plugin_b = tmpdir.join('plugin_b.py')
+    plugin_b.write(textwrap.dedent("""\
+        import entityd.pm
+
+        @entityd.pm.hookimpl
+        def entityd_main(pluginmanager, argv):
+            return (pluginmanager, argv)
+    """))
+    monkeypatch.syspath_prepend(tmpdir)
+    pm, _ = main.main(argv=[], plugins=['plugin_a:NoClass', 'plugin_b'])
+    assert not pm.isregistered('plugin_a')
+    assert not pm.isregistered('plugin_a.NoClass')
+    assert pm.isregistered('plugin_b')
+
+
+def test_main_registererror(request, tmpdir, monkeypatch):
+    request.addfinalizer(delete_plugins(['plugin']))
     plugin = tmpdir.join('plugin.py')
     plugin.write('# empty')
     monkeypatch.syspath_prepend(tmpdir)
@@ -68,6 +101,51 @@ def test_main_registererror(tmpdir, monkeypatch):
                         pytest.Mock(side_effect=Exception('oops')))
     main.main(argv=[], plugins=['plugin'])
     assert entityd.pm.PluginManager.register.called
+
+
+def test_plugin_class(request, tmpdir, monkeypatch):
+    request.addfinalizer(delete_plugins(['plugin_a', 'plugin_b']))
+    plugin_a = tmpdir.join('plugin_a.py')
+    plugin_a.write(textwrap.dedent("""\
+        class A:
+            def __init__(self):
+                pass
+    """))
+    plugin_b = tmpdir.join('plugin_b.py')
+    plugin_b.write(textwrap.dedent("""\
+        import entityd.pm
+
+        @entityd.pm.hookimpl
+        def entityd_main(pluginmanager, argv):
+            return (pluginmanager, argv)
+    """))
+    monkeypatch.syspath_prepend(tmpdir)
+    pm, _ = main.main(argv=[], plugins=['plugin_a:A', 'plugin_b'])
+    assert pm.isregistered('plugin_a.A')
+    assert pm.isregistered('plugin_b')
+
+
+def test_plugin_class_with_args(request, tmpdir, monkeypatch):
+    request.addfinalizer(delete_plugins(['plugin_a', 'plugin_b']))
+    plugin_a = tmpdir.join('plugin_a.py')
+    plugin_a.write(textwrap.dedent("""\
+        class A:
+            def __init__(self, arg1):'
+                pass'
+    """))
+    plugin_b = tmpdir.join('plugin_b.py')
+    plugin_b.write(textwrap.dedent("""\
+        import entityd.pm
+
+        @entityd.pm.hookimpl
+        def entityd_main(pluginmanager, argv):
+            return (pluginmanager, argv)
+    """))
+    monkeypatch.syspath_prepend(tmpdir)
+    pm, _ = main.main(argv=[], plugins=['plugin_a:A', 'plugin_b'])
+    assert not pm.isregistered('plugin_a')
+    assert not pm.isregistered('plugin_a.A')
+    assert pm.isregistered('plugin_b')
 
 
 def test_plugin_registered_cb(tmpdir, pm, monkeypatch):

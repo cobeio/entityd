@@ -26,12 +26,6 @@ def procent(pm):
     return procent
 
 
-def test_plugin_registered(pm):
-    name = 'entityd.processme'
-    entityd.processme.entityd_plugin_registered(pm, name)
-    assert pm.isregistered('entityd.processme.ProcessEntity')
-
-
 def test_configure(procent, config):
     procent.entityd_configure(config)
     assert config.entities['Process'].obj is procent

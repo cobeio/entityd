@@ -146,12 +146,6 @@ def apache():
     return entityd.apacheme.Apache()
 
 
-def test_plugin_registered(pm):
-    name = 'entityd.apacheme'
-    entityd.apacheme.entityd_plugin_registered(pm, name)
-    assert pm.isregistered('entityd.apacheme.ApacheEntity')
-
-
 def test_configure(entitygen, config):
     entitygen.entityd_configure(config)
     assert config.entities['Apache'].obj is entitygen

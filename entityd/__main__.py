@@ -63,7 +63,11 @@ def main(argv=None, plugins=None):
             except AttributeError:
                 log.exception('Failed to get plugin class: %s', name)
                 continue
-            plugin = cls()
+            try:
+                plugin = cls()
+            except Exception:  # pylint: disable=broad-except
+                log.exception('Failed to instantiate class: %s', name)
+                continue
             name = '.'.join([plugin.__module__, cls.__name__])
         else:
             plugin = mod

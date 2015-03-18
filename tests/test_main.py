@@ -8,11 +8,17 @@ import entityd.pm
 import entityd.__main__ as main
 
 
-def delete_plugins(plugins):
+def delete_modules(mods):
+    """Return a function which, when called, will remove the given modules from
+    sys.modules.
+
+    :param mods: List of module names to remove.
+    """
+
     def inner():
-        for p in plugins:
+        for m in mods:
             try:
-                del sys.modules[p]
+                del sys.modules[m]
             except KeyError:
                 pass
     return inner
@@ -24,7 +30,7 @@ def test_main_noplugins(monkeypatch):
 
 
 def test_main(request, tmpdir, monkeypatch):
-    request.addfinalizer(delete_plugins(['plugin']))
+    request.addfinalizer(delete_modules(['plugin']))
     plugin = tmpdir.join('plugin.py')
     plugin.write(textwrap.dedent("""\
         import entityd.pm
@@ -40,7 +46,7 @@ def test_main(request, tmpdir, monkeypatch):
 
 
 def test_main_register_cb(request, tmpdir, monkeypatch):
-    request.addfinalizer(delete_plugins(['plugin']))
+    request.addfinalizer(delete_modules(['plugin']))
     plugin = tmpdir.join('plugin.py')
     plugin.write('# empty')
     monkeypatch.syspath_prepend(tmpdir)
@@ -56,7 +62,7 @@ def test_main_trace(monkeypatch):
 
 
 def test_main_importerror(request, tmpdir, monkeypatch):
-    request.addfinalizer(delete_plugins(['plugin_a', 'plugin_b']))
+    request.addfinalizer(delete_modules(['plugin_a', 'plugin_b']))
     plugin_a = tmpdir.join('plugin_a.py')
     plugin_a.write("raise Exception('oops')")
     plugin_b = tmpdir.join('plugin_b.py')
@@ -74,7 +80,7 @@ def test_main_importerror(request, tmpdir, monkeypatch):
 
 
 def test_main_attributeerror(request, tmpdir, monkeypatch):
-    request.addfinalizer(delete_plugins(['plugin_a', 'plugin_b']))
+    request.addfinalizer(delete_modules(['plugin_a', 'plugin_b']))
     plugin_a = tmpdir.join('plugin_a.py')
     plugin_a.write('# empty')
     plugin_b = tmpdir.join('plugin_b.py')
@@ -93,7 +99,7 @@ def test_main_attributeerror(request, tmpdir, monkeypatch):
 
 
 def test_main_registererror(request, tmpdir, monkeypatch):
-    request.addfinalizer(delete_plugins(['plugin']))
+    request.addfinalizer(delete_modules(['plugin']))
     plugin = tmpdir.join('plugin.py')
     plugin.write('# empty')
     monkeypatch.syspath_prepend(tmpdir)
@@ -104,12 +110,11 @@ def test_main_registererror(request, tmpdir, monkeypatch):
 
 
 def test_plugin_class(request, tmpdir, monkeypatch):
-    request.addfinalizer(delete_plugins(['plugin_a', 'plugin_b']))
+    request.addfinalizer(delete_modules(['plugin_a', 'plugin_b']))
     plugin_a = tmpdir.join('plugin_a.py')
     plugin_a.write(textwrap.dedent("""\
         class A:
-            def __init__(self):
-                pass
+            pass
     """))
     plugin_b = tmpdir.join('plugin_b.py')
     plugin_b.write(textwrap.dedent("""\
@@ -126,12 +131,12 @@ def test_plugin_class(request, tmpdir, monkeypatch):
 
 
 def test_plugin_class_with_args(request, tmpdir, monkeypatch):
-    request.addfinalizer(delete_plugins(['plugin_a', 'plugin_b']))
+    request.addfinalizer(delete_modules(['plugin_a', 'plugin_b']))
     plugin_a = tmpdir.join('plugin_a.py')
     plugin_a.write(textwrap.dedent("""\
         class A:
-            def __init__(self, arg1):'
-                pass'
+            def __init__(self, arg1):
+                pass
     """))
     plugin_b = tmpdir.join('plugin_b.py')
     plugin_b.write(textwrap.dedent("""\

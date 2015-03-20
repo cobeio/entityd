@@ -74,6 +74,7 @@ def test_sessionfinish():
 def test_send_entity(sender_receiver, deleted):
     sender, receiver = sender_receiver
     entity = entityd.EntityUpdate('MeType')
+    entity.label = 'entity label'
     if deleted:
         entity.delete()
     sender.entityd_send_entity(entity)
@@ -83,6 +84,8 @@ def test_send_entity(sender_receiver, deleted):
     assert protocol == 1
     message = msgpack.unpackb(message, encoding='utf-8')
     assert message['ueid'] == entity.ueid
+    if not deleted:
+        assert message['label'] == entity.label
     assert message.get('deleted', False) is deleted
 
 

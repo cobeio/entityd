@@ -109,7 +109,8 @@ class MonitoredEntitySender:
                 'timestamp': entity.timestamp,
                 'attrs': {},
                 'parents': list(entity.parents),
-                'children': list(entity.children)
+                'children': list(entity.children),
+                'label': entity.label,
             }
             for attr in entity.attrs:
                 data['attrs'][attr.name] = {'value': attr.value}

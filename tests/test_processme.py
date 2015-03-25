@@ -156,10 +156,10 @@ def test_get_parents_nohost_parent(procent, session, kvstore):  # pylint: disabl
     pproc = syskit.Process(os.getppid())
     rels = procent.get_parents(proc.pid, {proc.pid: proc, pproc.pid: pproc})
     parent, = rels
-    assert type(parent) == bytes
+    assert isinstance(parent, bytes)
 
 
-def test_get_parents_host_noparent(procent, session, kvstore, monkeypatch):  # pylint: disable=unused-argument
+def test_non_root_proc_has_no_host(procent, session, kvstore, monkeypatch):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
     hostupdate = entityd.EntityUpdate('Host')
     monkeypatch.setattr(session.pluginmanager.hooks,
@@ -167,8 +167,19 @@ def test_get_parents_host_noparent(procent, session, kvstore, monkeypatch):  # p
                         pytest.Mock(return_value=[[hostupdate]]))
     proc = syskit.Process(os.getpid())
     rels = procent.get_parents(proc.pid, {proc.pid: proc})
-    host, = rels
-    assert host == hostupdate.ueid
+    assert not list(rels)
+
+
+def test_root_process_has_host_parent(procent, session, kvstore, monkeypatch):  #pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
+    hostupdate = entityd.EntityUpdate('Host')
+    monkeypatch.setattr(session.pluginmanager.hooks,
+                        'entityd_find_entity',
+                        pytest.Mock(return_value=[[hostupdate]]))
+    proc = syskit.Process(1)
+    assert proc.ppid == 0
+    hostueid, = procent.get_parents(proc.pid, {proc.pid: proc})
+    assert hostueid == hostupdate.ueid
 
 
 @pytest.fixture

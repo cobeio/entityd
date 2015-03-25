@@ -88,10 +88,11 @@ class ProcessEntity:
         parents = []
         proc = procs[pid]
         ppid = proc.ppid
-        if ppid and ppid in procs:
-            pproc = procs[ppid]
-            parents.append(self.get_ueid(pproc))
-        if self.host_ueid:
+        if ppid:
+            if ppid in procs:
+                pproc = procs[ppid]
+                parents.append(self.get_ueid(pproc))
+        elif self.host_ueid:
             parents.append(self.host_ueid)
         return parents
 

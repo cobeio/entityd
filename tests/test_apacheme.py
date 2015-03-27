@@ -105,6 +105,24 @@ def patched_entitygen(monkeypatch, pm, session):
     pm.register(gen, 'entityd.apacheme.ApacheEntity')
     gen.entityd_sessionstart(session)
 
+    procgen = entityd.processme.ProcessEntity()
+    pm.register(procgen, 'entityd.processme.ProcessEntity')
+    procgen.entityd_sessionstart(session)
+    mock_apache_process = entityd.EntityUpdate('Process')
+    mock_apache_process.attrs.set('pid', 123, attrtype='id')
+    mock_apache_process.attrs.set('ppid', 1, attrtype='id')
+    mock_apache_process.attrs.set('starttime', 456, attrtype='id')
+    mock_apache_process.attrs.set('binary', 'apache2')
+
+    mock_apache_child_process = entityd.EntityUpdate('Process')
+    mock_apache_child_process.attrs.set('pid', 1234, attrtype='id')
+    mock_apache_child_process.attrs.set('ppid', 123, attrtype='id')
+    mock_apache_child_process.attrs.set('starttime', 456, attrtype='id')
+    mock_apache_child_process.attrs.set('binary', 'apache2')
+    monkeypatch.setattr(procgen,
+                        'filtered_processes',
+                        pytest.Mock(return_value=[mock_apache_process,
+                                                  mock_apache_child_process]))
     server_status_output = '\n'.join([
         'Total Accesses: 1081',
         'Total kBytes: 704',
@@ -130,14 +148,25 @@ def patched_entitygen(monkeypatch, pm, session):
                         '_get_apache_status',
                         get_func)
 
-    gen.apache._apachectl_binary = 'apachectl'
-    gen.apache._version = 'Apache/2.4.7 (Ubuntu)'
-    gen.apache._config_path = FULL_PATH_TO_CONF
-    gen.apache.check_config = pytest.Mock(
-        return_value=True
-    )
-    gen.apache.config_last_modified = pytest.Mock(
-        return_value=time.time())
+    monkeypatch.setattr(entityd.apacheme,
+                        '_apachectl_binary',
+                        pytest.Mock(return_value='apachectl'))
+    monkeypatch.setattr(entityd.apacheme,
+                        '_apache_binary',
+                        pytest.Mock(return_value='apache2'))
+
+    monkeypatch.setattr(entityd.apacheme,
+                        '_version',
+                        pytest.Mock(return_value='Apache/2.4.7 (Ubuntu)'))
+    monkeypatch.setattr(entityd.apacheme,
+                        '_apache_config',
+                        pytest.Mock(return_value=FULL_PATH_TO_CONF))
+    monkeypatch.setattr(entityd.apacheme.Apache,
+                        'check_config',
+                        pytest.Mock(return_value=True))
+    monkeypatch.setattr(entityd.apacheme.Apache,
+                        'config_last_modified',
+                        pytest.Mock(return_value=time.time()))
     return gen
 
 
@@ -154,6 +183,10 @@ def test_configure(entitygen, config):
 @running_apache
 @apachectl
 def test_find_entity(entitygen):
+    procgen = entityd.processme.ProcessEntity()
+    entitygen.session.pluginmanager.register(procgen,
+                                             'entityd.processme.ProcessEntity')
+    procgen.entityd_sessionstart(entitygen.session)
     entities = entitygen.entityd_find_entity('Apache', None)
     count = 0
     for entity in entities:
@@ -170,6 +203,8 @@ def test_find_entity_mocked_apache(patched_entitygen):
     for entity in entities:
         assert entity.metype == 'Apache'
         assert 'Apache/2' in entity.attrs.get('version').value
+        for id_attr in ['host', 'config_path']:
+            assert entity.attrs.get(id_attr).type == 'id'
         count += 1
     assert count
 
@@ -182,7 +217,11 @@ def test_find_entity_no_apache_running(patched_entitygen, monkeypatch):
 
 
 def test_find_entity_no_apache_installed(patched_entitygen, monkeypatch):
-    patched_entitygen.apache._apachectl_binary = None
+    procgen = patched_entitygen.session.pluginmanager.getplugin(
+        'entityd.processme.ProcessEntity').obj
+    monkeypatch.setattr(procgen,
+                        'filtered_processes',
+                        pytest.Mock(return_value=[]))
     monkeypatch.setattr(entityd.apacheme, '_apachectl_binary',
                         pytest.Mock(side_effect=ApacheNotFound))
     gen = patched_entitygen.entityd_find_entity('Apache', None)
@@ -198,9 +237,10 @@ def test_entity_deleted_installed(patched_entitygen, monkeypatch):
     gen = patched_entitygen.entityd_find_entity('Apache', None)
     last_entity = next(gen)
     assert last_entity.metype == 'Apache'
-    monkeypatch.setattr(entityd.apacheme, '_apachectl_binary',
-                        pytest.Mock(side_effect=ApacheNotFound))
-    patched_entitygen.apache._apachectl_binary = None
+    procgen = patched_entitygen.session.pluginmanager.getplugin(
+        'entityd.processme.ProcessEntity').obj
+    monkeypatch.setattr(procgen, 'filtered_processes',
+                        pytest.Mock(return_value=[]))
     gen = patched_entitygen.entityd_find_entity('Apache', None)
     with pytest.raises(StopIteration):
         _ = next(gen)
@@ -231,24 +271,22 @@ def test_apache_entity_label(patched_entitygen):
 
 def test_relations(pm, session, kvstore, patched_entitygen):  # pylint: disable=unused-argument
     gen = patched_entitygen
-    procent = entityd.processme.ProcessEntity()
-    pm.register(procent,
-                name='entityd.processme')
-    procent.entityd_sessionstart(session)
+
+    procent = patched_entitygen.session.pluginmanager.getplugin(
+        'entityd.processme.ProcessEntity').obj
 
     hostgen = entityd.hostme.HostEntity()
     pm.register(hostgen, name='entityd.hostme')
     hostgen.entityd_sessionstart(session)
     hosts = hostgen.entityd_find_entity('Host', None)
 
-    # Use py.test as a binary so we're not dependent on apache running.
-    gen.apache._apache_binary = 'py.test'
+    # The process entity is patched to return mocked processes
     processes = procent.entityd_find_entity(
-        'Process', attrs={'binary': 'py.test'})
+        'Process', attrs={'binary': 'apache2'})
     procs = set(processes)
     for p in procs:
         assert p.metype == 'Process'
-        assert p.attrs.get('binary').value == 'py.test'
+        assert p.attrs.get('binary').value == 'apache2'
 
     entity = next(gen.entityd_find_entity('Apache', attrs=None))
     assert len(entity.children._relations) == len(procs)
@@ -273,9 +311,42 @@ def test_config_path(apache, monkeypatch):
 
 def test_config_path_fails(monkeypatch):
     monkeypatch.setattr(subprocess, 'check_output', pytest.Mock(
-        return_value='no config file here'))
+        side_effect=subprocess.CalledProcessError(1, '')))
     with pytest.raises(ApacheNotFound):
-        entityd.apacheme._apache_config('httpd')
+        entityd.apacheme._apache_config('httpd', None)
+
+
+def test_config_path_not_set(monkeypatch):
+    monkeypatch.setattr(subprocess, 'check_output', pytest.Mock(
+        return_value='No useful output'))
+    with pytest.raises(ApacheNotFound):
+        entityd.apacheme._apache_config('httpd', None)
+
+def test_config_path_from_proc(monkeypatch):
+    monkeypatch.setattr(subprocess, 'check_output', pytest.Mock(
+        return_value=APACHECTL__V))
+    proc = entityd.EntityUpdate('Process')
+    proc.attrs.set('command', 'apache2 -f /path/to.conf')
+    apache = entityd.apacheme.Apache(proc)
+    assert apache.config_path == '/path/to.conf'
+
+
+def test_root_dir_from_proc(monkeypatch):
+    monkeypatch.setattr(subprocess, 'check_output', pytest.Mock(
+        return_value=APACHECTL__V))
+    proc = entityd.EntityUpdate('Process')
+    proc.attrs.set('command', 'apache2 -d /path/to/rootdir')
+    apache = entityd.apacheme.Apache(proc)
+    assert apache.config_path.startswith('/path/to/rootdir/')
+
+
+def test_conf_file_from_proc(monkeypatch):
+    monkeypatch.setattr(subprocess, 'check_output', pytest.Mock(
+        return_value=APACHECTL__V))
+    proc = entityd.EntityUpdate('Process')
+    proc.attrs.set('command', 'apache2 -f apacheconfig.conf')
+    apache = entityd.apacheme.Apache(proc)
+    assert apache.config_path.endswith('apacheconfig.conf')
 
 
 def test_config_check(apache, monkeypatch):
@@ -291,7 +362,7 @@ def test_config_check_fails(apache, monkeypatch):
     apache._config_path = FULL_PATH_TO_CONF
     monkeypatch.setattr(subprocess, 'check_call',
                         pytest.Mock(return_value=-1))
-
+    print(apache.check_config)
     assert apache.check_config() is False
 
     monkeypatch.setattr(
@@ -300,27 +371,37 @@ def test_config_check_fails(apache, monkeypatch):
     assert apache.check_config() is False
 
 
-def test_apachectl_binary_not_there(monkeypatch):
+def test_apachectl_binary_found(apache, monkeypatch):
+    monkeypatch.setattr(subprocess, 'check_call',
+                        pytest.Mock(return_value=0))
+    assert apache.apachectl_binary == 'apachectl'
+
+
+def test_apachectl_binary_not_there(apache, monkeypatch):
     monkeypatch.setattr(subprocess, 'check_call',
                         pytest.Mock(side_effect=FileNotFoundError))
-    with pytest.raises(ApacheNotFound):
-        entityd.apacheme._apachectl_binary()
+    assert apache.apachectl_binary is None
 
 
-def test_apachectl_binary_fails(monkeypatch):
+def test_apachectl_binary_fails(apache, monkeypatch):
     monkeypatch.setattr(
         subprocess, 'check_call',
         pytest.Mock(side_effect=subprocess.CalledProcessError(-1, ''))
     )
-    binary = entityd.apacheme._apachectl_binary()
+    binary = apache.apachectl_binary
     assert binary == 'apachectl'
 
 
-def test_apache_binary_not_there(monkeypatch):
+def test_apache_binary_found(apache, monkeypatch):
+    monkeypatch.setattr(subprocess, 'check_call',
+                        pytest.Mock(return_value=0))
+    assert apache.apache_binary == 'apache2'
+
+
+def test_apache_binary_not_there(apache, monkeypatch):
     monkeypatch.setattr(subprocess, 'check_call',
                         pytest.Mock(side_effect=FileNotFoundError))
-    with pytest.raises(ApacheNotFound):
-        entityd.apacheme._apache_binary()
+    assert apache.apache_binary is None
 
 
 def test_apache_binary_fails(monkeypatch):

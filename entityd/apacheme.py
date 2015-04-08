@@ -10,6 +10,10 @@ Ubuntu, but for CentOS a section needs to be added to httpd.conf:
         Require local
 </Location>
 
+If multiple Apache instances are running with different configurations
+(but the same executable) then they will be exposed as separate entities
+with different config_path values.
+
 """
 
 import argparse
@@ -58,7 +62,7 @@ class ApacheEntity:
 
     @property
     def host_ueid(self):
-        """Get and store the host entity."""
+        """Get and store the host ueid."""
         if self._host_ueid:
             return self._host_ueid
         results = self.session.pluginmanager.hooks.entityd_find_entity(
@@ -69,7 +73,7 @@ class ApacheEntity:
                 return self._host_ueid
 
     def entities(self):
-        """Return a generator of ApacheEntity objects"""
+        """Return a generator of ApacheEntity objects."""
         apache_instances = self.active_apaches()
         for apache in apache_instances:
             try:
@@ -105,7 +109,6 @@ class ApacheEntity:
 
     def active_apaches(self):
         """Return running apache instances on this machine."""
-
         return [Apache(proc) for proc in self.top_level_apache_processes()]
 
 
@@ -120,8 +123,8 @@ class Apache:
     Keeps track of relevant binaries and config files.
 
     By default, config path will be discovered via the apache binary.
-    If a path is passed in instead, then that will be passed to the
-    calls.
+    If a config path is set on the Apache process command line, then that
+    will be used instead.
     """
 
     def __init__(self, proc=None):
@@ -229,7 +232,7 @@ class Apache:
         return perfdata
 
 
-def _apache_config(binary, proc):
+def _apache_config(binary, proc=None):
     """Find the location of apache config files.
 
     :param binary: The path to the apachectl binary to use.

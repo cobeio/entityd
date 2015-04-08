@@ -358,7 +358,6 @@ def test_config_check_fails(apache, monkeypatch):
     apache._config_path = FULL_PATH_TO_CONF
     monkeypatch.setattr(subprocess, 'check_call',
                         pytest.Mock(return_value=-1))
-    print(apache.check_config)
     assert apache.check_config() is False
 
     monkeypatch.setattr(

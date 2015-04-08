@@ -53,7 +53,8 @@ Server compiled with....
 
 def has_running_apache():
     try:
-        entityd.apacheme.Apache().get_apache_status()
+        apache = entityd.apacheme.Apache()
+        apache.performance_data()
     except ApacheNotFound:
         return False
     else:
@@ -165,6 +166,9 @@ def patched_entitygen(monkeypatch, pm, session):
     monkeypatch.setattr(entityd.apacheme.Apache,
                         'config_last_modified',
                         pytest.Mock(return_value=time.time()))
+    monkeypatch.setattr(entityd.apacheme.Apache,
+                        'listening_addresses',
+                        pytest.Mock(return_value={('localhost', '80')}))
     return gen
 
 
@@ -486,10 +490,12 @@ def test_performance_data(apache, monkeypatch):
     monkeypatch.setattr(requests,
                         'get',
                         get_func)
-
+    monkeypatch.setattr(apache,
+                        'listening_addresses',
+                        pytest.Mock(return_value=[('localhost', 80)]))
     perfdata = apache.performance_data()
 
-    get_func.assert_called_with('http://localhost/server-status?auto')
+    get_func.assert_called_with('http://localhost:80/server-status?auto')
 
     assert perfdata['TotalAccesses'] == 1081
     assert perfdata['TotalkBytes'] == 704

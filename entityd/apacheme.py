@@ -21,6 +21,7 @@ import itertools
 import logging
 import os
 import pathlib
+import re
 import shlex
 import subprocess
 
@@ -91,6 +92,12 @@ class ApacheEntity:
             for name, value in perfdata.items():
                 update.attrs.set(name, value)
             update.children.add(apache.main_process)
+            for address, port in apache.listening_addresses():
+                vhost = entityd.EntityUpdate('VHost')
+                vhost.attrs.set('address', address, attrtype='id')
+                vhost.attrs.set('port', port, attrtype='id')
+                vhost.attrs.set('apache', update.ueid, attrtype='id')
+                update.children.add(vhost)
             if self.host_ueid:
                 update.parents.add(self.host_ueid)
             yield update
@@ -238,7 +245,14 @@ class Apache:
         :raises ApacheNotFound: If a running Apache server isn't present.
         """
         perfdata = {}
-        response = self.get_apache_status()
+        response = None
+        for addr, port in self.listening_addresses():
+            try:
+                response = self.get_apache_status()
+            except ApacheNotFound:
+                continue
+        if not response:
+            raise ApacheNotFound('Couldn\'t find an address for Apache status.')
         lines = response.text.split('\n')
         for line in lines:
             if line.startswith('Total Accesses'):
@@ -271,7 +285,29 @@ class Apache:
                     perfdata[desc] = scoreboard.count(symbol)
         return perfdata
 
-    def apache_config(self):
+    def listening_addresses(self):
+        """Get addresses where Apache is listening"""
+        patterns = [r'(?P<addr>\*):(?P<port>\d+)',
+                    r'port (?P<port>\d+) namevhost (?P<addr>[^ ]+)',
+                    r'(?P<addr>\d+\.\d+\.\d+\.\d+):(?P<port>\d+)']
+        lines = subprocess.check_output([self.apachectl_binary,
+                                         '-d', os.path.dirname(self.config_path),
+                                         '-f', self.config_path,
+                                         '-t', '-D', 'DUMP_VHOSTS'],
+                                        universal_newlines=True).split('\n')
+        addresses = set()
+        for line in lines:
+            for pattern in patterns:
+                match = re.search(pattern, line)
+                if match:
+                    port = match.group('port')
+                    addr = match.group('addr')
+                    if addr == '*':
+                        addr = 'localhost'
+                    addresses.add((addr, port))
+        return addresses
+
+ def apache_config(self):
         """Find the location of apache config files.
 
         :raises ApacheNotFound: If the Apache binary is not discovered.

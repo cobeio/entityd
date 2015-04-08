@@ -283,14 +283,10 @@ def test_relations(pm, session, kvstore, patched_entitygen):  # pylint: disable=
     # The process entity is patched to return mocked processes
     processes = procent.entityd_find_entity(
         'Process', attrs={'binary': 'apache2'})
-    procs = set(processes)
-    for p in procs:
-        assert p.metype == 'Process'
-        assert p.attrs.get('binary').value == 'apache2'
 
     entity = next(gen.entityd_find_entity('Apache', attrs=None))
-    assert len(entity.children._relations) == len(procs)
-    assert entity.children._relations == set(p.ueid for p in procs)
+    assert len(entity.children._relations) == 1
+    assert entity.children._relations == {processes[0].ueid}
 
     assert len(entity.parents._relations) == 1
     assert entity.parents._relations == set(host.ueid for host in hosts)

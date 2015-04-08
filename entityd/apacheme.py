@@ -85,8 +85,7 @@ class ApacheEntity:
             update.attrs.set('config_last_mod', apache.config_last_modified())
             for name, value in perfdata.items():
                 update.attrs.set(name, value)
-            for child in self.child_processes(apache.main_process):
-                update.children.add(child)
+            update.children.add(apache.main_process)
             if self.host_ueid:
                 update.parents.add(self.host_ueid)
             yield update
@@ -103,14 +102,6 @@ class ApacheEntity:
             top_level_processes = [process_table.get(pid) for pid in parents]
             return [proc for proc in top_level_processes if proc]
         return []
-
-    def child_processes(self, parent_process):
-        """Find child processes for the given parent process entity."""
-        results = self.session.pluginmanager.hooks.entityd_find_entity(
-            name='Process', attrs={'ppid': parent_process.attrs.get('pid').value}
-        )
-        for generator in results:
-            yield from generator
 
     def active_apaches(self):
         """Return running apache instances on this machine."""
@@ -250,7 +241,6 @@ def _apache_config(binary, proc):
     try:
         output = subprocess.check_output([binary, '-V'], universal_newlines=True)
     except subprocess.CalledProcessError:
-        output = None
         raise ApacheNotFound('Could not call apachectl binary {}.'.format(binary))
 
     if output:

@@ -96,16 +96,14 @@ class ApacheEntity:
 
     def top_level_apache_processes(self):
         """Find top level Apache processes."""
-        results = self.session.pluginmanager.hooks.entityd_find_entity(
+        processes = []
+        proc_gens = self.session.pluginmanager.hooks.entityd_find_entity(
             name='Process', attrs={'binary': _apache_binary()})
-        for generator in results:
+        for generator in proc_gens:
             process_table = {e.attrs.get('pid').value: e for e in generator}
-            if not process_table:
-                continue
-            parents = {e.attrs.get('ppid').value for e in process_table.values()}
-            top_level_processes = [process_table.get(pid) for pid in parents]
-            return [proc for proc in top_level_processes if proc]
-        return []
+            processes.extend([proc for proc in process_table.values() if
+                              proc.attrs.get('ppid').value not in process_table])
+        return processes
 
     def active_apaches(self):
         """Return running apache instances on this machine."""

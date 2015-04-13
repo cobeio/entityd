@@ -109,7 +109,7 @@ class DeclarativeEntity:
         self._update_entities()
 
     @entityd.pm.hookimpl
-    def entityd_find_entity(self, name, attrs):
+    def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
         """Return an iterator of Monitored Entities.
 
         :param name: The name of the entity type to return.

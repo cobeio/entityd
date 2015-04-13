@@ -41,7 +41,7 @@ class EndpointEntity:
         self.session = session
 
     @entityd.pm.hookimpl
-    def entityd_find_entity(self, name, attrs):
+    def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
         """Return an iterator of "Endpoint" Monitored Entities."""
         if name == 'Endpoint':
             if attrs is not None:

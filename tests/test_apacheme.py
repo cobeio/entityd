@@ -53,7 +53,7 @@ Server compiled with....
 
 def has_running_apache():
     try:
-        entityd.apacheme._get_apache_status()
+        entityd.apacheme.Apache().get_apache_status()
     except ApacheNotFound:
         return False
     else:
@@ -66,12 +66,13 @@ running_apache = pytest.mark.skipif(not has_running_apache(),
 
 def has_apachectl():
     try:
-        entityd.apacheme._apachectl_binary()
+        binary = entityd.apacheme.Apache().apachectl_binary
     except ApacheNotFound:
         return False
-    else:
+    if binary:
         return True
-
+    else:
+        return False
 
 apachectl = pytest.mark.skipif(not has_apachectl(),
                                reason="Local Apache binaries needed.")
@@ -144,22 +145,22 @@ def patched_entitygen(monkeypatch, pm, session):
 
     response_obj = pytest.Mock(text=server_status_output)
     get_func = pytest.Mock(return_value=response_obj)
-    monkeypatch.setattr(entityd.apacheme,
-                        '_get_apache_status',
+    monkeypatch.setattr(entityd.apacheme.Apache,
+                        'get_apache_status',
                         get_func)
 
-    monkeypatch.setattr(entityd.apacheme,
-                        '_apachectl_binary',
+    monkeypatch.setattr(entityd.apacheme.Apache,
+                        'apachectl_binary',
                         pytest.Mock(return_value='apachectl'))
-    monkeypatch.setattr(entityd.apacheme,
-                        '_apache_binary',
+    monkeypatch.setattr(entityd.apacheme.Apache,
+                        'apache_binary',
                         pytest.Mock(return_value='apache2'))
 
-    monkeypatch.setattr(entityd.apacheme,
-                        '_version',
-                        pytest.Mock(return_value='Apache/2.4.7 (Ubuntu)'))
-    monkeypatch.setattr(entityd.apacheme,
-                        '_apache_config',
+    monkeypatch.setattr(entityd.apacheme.Apache,
+                        'version',
+                        'Apache/2.4.7 (Ubuntu)')
+    monkeypatch.setattr(entityd.apacheme.Apache,
+                        'apache_config',
                         pytest.Mock(return_value=FULL_PATH_TO_CONF))
     monkeypatch.setattr(entityd.apacheme.Apache,
                         'check_config',
@@ -210,7 +211,7 @@ def test_find_entity_mocked_apache(patched_entitygen):
 
 
 def test_find_entity_no_apache_running(patched_entitygen, monkeypatch):
-    monkeypatch.setattr(entityd.apacheme, '_get_apache_status',
+    monkeypatch.setattr(entityd.apacheme.Apache, 'get_apache_status',
                         pytest.Mock(side_effect=ApacheNotFound))
     gen = patched_entitygen.entityd_find_entity('Apache', None)
     assert list(gen) == []
@@ -222,7 +223,7 @@ def test_find_entity_no_apache_installed(patched_entitygen, monkeypatch):
     monkeypatch.setattr(procgen,
                         'filtered_processes',
                         pytest.Mock(return_value=[]))
-    monkeypatch.setattr(entityd.apacheme, '_apachectl_binary',
+    monkeypatch.setattr(entityd.apacheme.Apache, 'apachectl_binary',
                         pytest.Mock(side_effect=ApacheNotFound))
     gen = patched_entitygen.entityd_find_entity('Apache', None)
     assert list(gen) == []
@@ -250,7 +251,7 @@ def test_entity_deleted_running(patched_entitygen, monkeypatch):
     gen = patched_entitygen.entityd_find_entity('Apache', None)
     last_entity = next(gen)
     assert last_entity.metype == 'Apache'
-    monkeypatch.setattr(entityd.apacheme, '_get_apache_status',
+    monkeypatch.setattr(entityd.apacheme.Apache, 'get_apache_status',
                         pytest.Mock(side_effect=ApacheNotFound))
     gen = patched_entitygen.entityd_find_entity('Apache', None)
     with pytest.raises(StopIteration):
@@ -300,23 +301,35 @@ def test_config_path_from_file(apache, monkeypatch):
 
 def test_config_path(apache, monkeypatch):
     apache._apachectl_binary = 'apachectl'
-    monkeypatch.setattr(entityd.apacheme, '_apache_config',
+    monkeypatch.setattr(apache, 'apache_config',
                         pytest.Mock(return_value=FULL_PATH_TO_CONF))
     assert apache.config_path == FULL_PATH_TO_CONF
 
 
-def test_config_path_fails(monkeypatch):
+def test_config_path_fails(apache, monkeypatch):
     monkeypatch.setattr(subprocess, 'check_output', pytest.Mock(
         side_effect=subprocess.CalledProcessError(1, '')))
+    apache._apachectl_binary = 'httpd'
+    apache.main_process = None
     with pytest.raises(ApacheNotFound):
-        entityd.apacheme._apache_config('httpd', None)
+        apache.apache_config()
+
+
+def test_config_path_nobinary(apache, monkeypatch):
+    monkeypatch.setattr(entityd.apacheme.Apache, 'apachectl_binary', None)
+    apache.main_process = None
+    with pytest.raises(ApacheNotFound):
+        apache.apache_config()
 
 
 def test_config_path_not_set(monkeypatch):
+    apache = entityd.apacheme.Apache()
     monkeypatch.setattr(subprocess, 'check_output', pytest.Mock(
         return_value='No useful output'))
+    apache._apachectl_binary = 'httpd'
     with pytest.raises(ApacheNotFound):
-        entityd.apacheme._apache_config('httpd', None)
+        _ = apache.config_path
+
 
 def test_config_path_from_proc(monkeypatch):
     monkeypatch.setattr(subprocess, 'check_output', pytest.Mock(
@@ -404,7 +417,7 @@ def test_apache_binary_fails(monkeypatch):
         subprocess, 'check_call',
         pytest.Mock(side_effect=subprocess.CalledProcessError(-1, ''))
     )
-    binary = entityd.apacheme._apache_binary()
+    binary = entityd.apacheme.Apache().apache_binary
     assert binary == 'apache2'
 
 
@@ -418,7 +431,7 @@ def test_apache_binary_fails_first(monkeypatch):
         subprocess, 'check_call',
         pytest.Mock(side_effect=fail_once_then_succeed)
     )
-    binary = entityd.apacheme._apache_binary()
+    binary = entityd.apacheme.Apache().apache_binary
     assert binary == 'httpd'
 
 
@@ -591,5 +604,7 @@ def test_get_all_includes(tmpdir):
             DocumentRoot /var/www/html
         </VirtualHost>
     """)
-    includes = entityd.apacheme._find_all_includes(str(conf))
+    apache = entityd.apacheme.Apache()
+    apache._config_path = str(conf)
+    includes = apache.find_all_includes()
     assert str(site) in includes

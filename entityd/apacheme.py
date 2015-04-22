@@ -98,7 +98,7 @@ class ApacheEntity:
         """Find top level Apache processes."""
         processes = []
         proc_gens = self.session.pluginmanager.hooks.entityd_find_entity(
-            name='Process', attrs={'binary': _apache_binary()})
+            name='Process', attrs={'binary': Apache().apache_binary})
         for generator in proc_gens:
             process_table = {e.attrs.get('pid').value: e for e in generator}
             processes.extend([proc for proc in process_table.values() if
@@ -136,35 +136,57 @@ class Apache:
     def apachectl_binary(self):
         """The binary to call to get apache status."""
         if not self._apachectl_binary:
-            try:
-                self._apachectl_binary = _apachectl_binary()
-            except ApacheNotFound:
-                return None
+            apache_binarys = ['apachectl', 'apache2ctl', 'httpd']
+            for name in apache_binarys:
+                try:
+                    subprocess.check_call([name, '-S'],
+                                          stdout=subprocess.DEVNULL,
+                                          stderr=subprocess.STDOUT)
+                except FileNotFoundError:
+                    continue
+                except subprocess.CalledProcessError:
+                    self._apachectl_binary = name
+                    break
+                else:
+                    self._apachectl_binary = name
+                    break
         return self._apachectl_binary
 
     @property
     def apache_binary(self):
         """The binary to check for in process lists."""
         if not self._apache_binary:
-            try:
-                self._apache_binary = _apache_binary()
-            except ApacheNotFound:
-                return None
+            apache_binarys = ['apache2', 'httpd']
+            for name in apache_binarys:
+                try:
+                    subprocess.check_call([name, '-S'],
+                                          stdout=subprocess.DEVNULL,
+                                          stderr=subprocess.STDOUT)
+                except FileNotFoundError:
+                    continue
+                except subprocess.CalledProcessError:
+                    self._apache_binary = name
+                    break
+                else:
+                    self._apache_binary = name
+                    break
         return self._apache_binary
 
     @property
     def config_path(self):
         """The root configuration file."""
         if not self._config_path:
-            self._config_path = _apache_config(self.apachectl_binary,
-                                               self.main_process)
+            self._config_path = self.apache_config()
         return self._config_path
 
     @property
     def version(self):
         """The Apache version as a string."""
         if not self._version:
-            self._version = _version(self.apachectl_binary)
+            output = subprocess.check_output([self.apachectl_binary, '-v'],
+                                             universal_newlines=True)
+            lines = output.split('\n')
+            self._version = lines[0].split(':')[1].strip()
         return self._version
 
     def check_config(self, path=None):
@@ -185,18 +207,17 @@ class Apache:
 
     def config_last_modified(self):
         """Return the most recent last modified date on config files."""
-        config_files = _find_all_includes(self.config_path)
+        config_files = self.find_all_includes()
         return max(os.path.getmtime(file) for file in
                    [self.config_path] + config_files)
 
-    @staticmethod
-    def performance_data():
+    def performance_data(self):
         """Apache performance information from mod_status.
 
         :returns: Dictionary with performance data.
         """
         perfdata = {}
-        response = _get_apache_status()
+        response = self.get_apache_status()
         lines = response.text.split('\n')
         for line in lines:
             if line.startswith('Total Accesses'):
@@ -229,120 +250,70 @@ class Apache:
                     perfdata[desc] = scoreboard.count(symbol)
         return perfdata
 
+    def apache_config(self):
+        """Find the location of apache config files.
 
-def _apache_config(binary, proc=None):
-    """Find the location of apache config files.
-
-    :param binary: The path to the apachectl binary to use.
-    :param proc: The main process. This is used to check the process command,
-       as Apache may be started with a config file or path argument specified.
-    :raises: ApacheNotFound if Apache configuration is not found.
-    """
-    config_file = config_path = None
-    try:
-        output = subprocess.check_output([binary, '-V'], universal_newlines=True)
-    except subprocess.CalledProcessError:
-        raise ApacheNotFound('Could not call apachectl binary {}.'.format(binary))
-
-    if output:
-        for line in output.split('\n'):
-            if line.startswith(' -D HTTPD_ROOT='):
-                config_path = line.split('"')[1]
-            if line.startswith(' -D SERVER_CONFIG_FILE='):
-                config_file = line.split('"')[1]
-    if proc:
-        parser = argparse.ArgumentParser()
-        parser.add_argument('-d')
-        parser.add_argument('-f')
-        args, _ = parser.parse_known_args(
-            shlex.split(proc.attrs.get('command').value))
-        if args.f:
-            config_file = args.f
-        if args.d:
-            config_path = args.d
-    if config_file and config_path:
-        return os.path.join(config_path, config_file)
-    raise ApacheNotFound('Apache config not found')
-
-
-def _apachectl_binary():
-    """Find the installed apachectl executable
-
-    :raises: ApacheNotFound if Apache binaries are not found.
-    """
-    apache_binarys = ['apachectl', 'apache2ctl', 'httpd']
-    for name in apache_binarys:
+        :raises: ApacheNotFound if Apache configuration is not found.
+        """
+        if self.apachectl_binary is None:
+            raise ApacheNotFound
+        config_file = config_path = None
         try:
-            subprocess.check_call([name, '-S'],
-                                  stdout=subprocess.DEVNULL,
-                                  stderr=subprocess.STDOUT)
-        except FileNotFoundError:
-            continue
+            output = subprocess.check_output([self.apachectl_binary, '-V'],
+                                             universal_newlines=True)
         except subprocess.CalledProcessError:
-            return name
-        else:
-            return name
-    raise ApacheNotFound('Apache executable not found.')
+            raise ApacheNotFound('Could not call apachectl binary {}.'.format(
+                self.apache_binary))
 
+        if output:
+            for line in output.split('\n'):
+                if line.startswith(' -D HTTPD_ROOT='):
+                    config_path = line.split('"')[1]
+                if line.startswith(' -D SERVER_CONFIG_FILE='):
+                    config_file = line.split('"')[1]
+        if self.main_process:
+            parser = argparse.ArgumentParser()
+            parser.add_argument('-d')
+            parser.add_argument('-f')
+            args, _ = parser.parse_known_args(
+                shlex.split(self.main_process.attrs.get('command').value))
+            if args.f:
+                config_file = args.f
+            if args.d:
+                config_path = args.d
+        if config_file and config_path:
+            return os.path.join(config_path, config_file)
+        raise ApacheNotFound('Apache config not found')
 
-def _apache_binary():
-    """Get the process that Apache will be running as.
+    def find_all_includes(self):
+        """Find all included config files in this file.
 
-    :param binary: The path to the apachectl binary to use.
-    """
-    apache_binarys = ['apache2', 'httpd']
-    for name in apache_binarys:
+        :returns: A list of string file paths.
+        """
+        include_globs = []
+        config_path = pathlib.Path(self.config_path)
+        with config_path.open() as config:
+            for line in config:
+                if line.strip().startswith('Include'):
+                    include_globs.append(line.split()[1].strip())
+
+        includes = []
+        for pattern in include_globs:
+            files = config_path.parent.glob(pattern)  # pylint: disable=no-member
+            includes.extend(map(str, files))
+        return includes
+
+    @staticmethod
+    def get_apache_status():
+        """Gets the response from Apache's server-status page.
+
+        :returns: requests.Response with the result.
+        """
+        status_url = 'http://localhost/server-status?auto'
         try:
-            subprocess.check_call([name, '-S'],
-                                  stdout=subprocess.DEVNULL,
-                                  stderr=subprocess.STDOUT)
-        except FileNotFoundError:
-            continue
-        except subprocess.CalledProcessError:
-            return name
+            response = requests.get(status_url)
+        except requests.exceptions.ConnectionError:
+            raise ApacheNotFound('Running Apache server with mod_status not found '
+                                 'at {}'.format(status_url))
         else:
-            return name
-    raise ApacheNotFound('Apache executable not found.')
-
-
-def _version(binary):
-    """Get the Apache version string."""
-    output = subprocess.check_output([binary, '-v'], universal_newlines=True)
-    lines = output.split('\n')
-    version = lines[0].split(':')[1].strip()
-    return version
-
-
-def _find_all_includes(config_file_path):
-    """Find all included config files in this file.
-
-    :param config_file_path: The path to check.
-    :returns: A list of string file paths.
-    """
-    include_globs = []
-    config_file_path = pathlib.Path(config_file_path)
-    with config_file_path.open() as config:
-        for line in config:
-            if line.strip().startswith(('Include', 'IncludeOptional')):
-                include_globs.append(line.split()[1].strip())
-
-    includes = []
-    for pattern in include_globs:
-        files = config_file_path.parent.glob(pattern)  # pylint: disable=no-member
-        includes.extend(map(str, files))
-    return includes
-
-
-def _get_apache_status():
-    """Gets the response from Apache's server-status page.
-
-    :returns: requests.Response with the result.
-    """
-    status_url = 'http://localhost/server-status?auto'
-    try:
-        response = requests.get(status_url)
-    except requests.exceptions.ConnectionError:
-        raise ApacheNotFound('Running Apache server with mod_status not found '
-                             'at {}'.format(status_url))
-    else:
-        return response
+            return response

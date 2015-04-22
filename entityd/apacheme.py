@@ -17,6 +17,7 @@ with different config_path values.
 """
 
 import argparse
+import itertools
 import logging
 import os
 import pathlib
@@ -96,14 +97,13 @@ class ApacheEntity:
 
     def top_level_apache_processes(self):
         """Find top level Apache processes."""
-        processes = []
+        processes = {}
         proc_gens = self.session.pluginmanager.hooks.entityd_find_entity(
             name='Process', attrs={'binary': Apache().apache_binary})
-        for generator in proc_gens:
-            process_table = {e.attrs.get('pid').value: e for e in generator}
-            processes.extend([proc for proc in process_table.values() if
-                              proc.attrs.get('ppid').value not in process_table])
-        return processes
+        for entity in itertools.chain.from_iterable(proc_gens):
+            processes[entity.attrs.get('pid').value] = entity
+        return [e for e in processes.values()
+                if e.attrs.get('ppid').value not in processes]
 
     def active_apaches(self):
         """Return running apache instances on this machine."""

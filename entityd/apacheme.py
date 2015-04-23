@@ -329,6 +329,9 @@ class Apache:
     def get_apache_status():
         """Gets the response from Apache's server-status page.
 
+        XXX: Currently just uses a default 'localhost' URL. Needs to be updated
+             to read this from the configured virtualhosts.
+
         :returns: requests.Response with the result.
         :raises ApacheNotFound: If the Apache binary is not discovered.
         """

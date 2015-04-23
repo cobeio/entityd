@@ -134,7 +134,10 @@ class Apache:
 
     @property
     def apachectl_binary(self):
-        """The binary to call to get apache status."""
+        """The binary to call to get apache status.
+
+        :raises ApacheNotFound: If the Apache binary is not discovered.
+        """
         if not self._apachectl_binary:
             apache_binarys = ['apachectl', 'apache2ctl', 'httpd']
             for name in apache_binarys:
@@ -150,11 +153,16 @@ class Apache:
                 else:
                     self._apachectl_binary = name
                     break
+            else:
+                raise ApacheNotFound("Couldn't find binary for Apache.")
         return self._apachectl_binary
 
     @property
     def apache_binary(self):
-        """The binary to check for in process lists."""
+        """The binary to check for in process lists.
+
+        :raises ApacheNotFound: If the Apache binary is not discovered.
+        """
         if not self._apache_binary:
             apache_binarys = ['apache2', 'httpd']
             for name in apache_binarys:
@@ -170,18 +178,26 @@ class Apache:
                 else:
                     self._apache_binary = name
                     break
+            else:
+                raise ApacheNotFound("Couldn't find binary for Apache.")
         return self._apache_binary
 
     @property
     def config_path(self):
-        """The root configuration file."""
+        """The root configuration file.
+
+        :raises ApacheNotFound: If the Apache binary is not discovered.
+        """
         if not self._config_path:
             self._config_path = self.apache_config()
         return self._config_path
 
     @property
     def version(self):
-        """The Apache version as a string."""
+        """The Apache version as a string.
+
+        :raises ApacheNotFound: If the Apache binary is not discovered.
+        """
         if not self._version:
             output = subprocess.check_output([self.apachectl_binary, '-v'],
                                              universal_newlines=True)
@@ -193,6 +209,7 @@ class Apache:
         """Check if the config passes basic checks.
 
         :param path: Optionally supply a config file path to check.
+        :raises ApacheNotFound: If the Apache binary is not discovered.
         """
         if path is None:
             path = self.config_path
@@ -206,7 +223,10 @@ class Apache:
             return False
 
     def config_last_modified(self):
-        """Return the most recent last modified date on config files."""
+        """Return the most recent last modified date on config files.
+
+        :raises ApacheNotFound: If the Apache binary is not discovered.
+        """
         config_files = self.find_all_includes()
         return max(os.path.getmtime(file) for file in
                    [self.config_path] + config_files)
@@ -215,6 +235,7 @@ class Apache:
         """Apache performance information from mod_status.
 
         :returns: Dictionary with performance data.
+        :raises ApacheNotFound: If a running Apache server isn't present.
         """
         perfdata = {}
         response = self.get_apache_status()
@@ -253,7 +274,7 @@ class Apache:
     def apache_config(self):
         """Find the location of apache config files.
 
-        :raises: ApacheNotFound if Apache configuration is not found.
+        :raises ApacheNotFound: If the Apache binary is not discovered.
         """
         if self.apachectl_binary is None:
             raise ApacheNotFound
@@ -289,6 +310,7 @@ class Apache:
         """Find all included config files in this file.
 
         :returns: A list of string file paths.
+        :raises ApacheNotFound: If the Apache binary is not discovered.
         """
         include_globs = []
         config_path = pathlib.Path(self.config_path)
@@ -308,6 +330,7 @@ class Apache:
         """Gets the response from Apache's server-status page.
 
         :returns: requests.Response with the result.
+        :raises ApacheNotFound: If the Apache binary is not discovered.
         """
         status_url = 'http://localhost/server-status?auto'
         try:

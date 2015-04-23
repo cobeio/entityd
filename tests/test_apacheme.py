@@ -65,10 +65,7 @@ running_apache = pytest.mark.skipif(not has_running_apache(),
 
 
 def has_apachectl():
-    try:
-        binary = entityd.apacheme.Apache().apachectl_binary
-    except ApacheNotFound:
-        return False
+    binary = entityd.apacheme.Apache().apachectl_binary
     if binary:
         return True
     else:
@@ -388,7 +385,8 @@ def test_apachectl_binary_found(apache, monkeypatch):
 def test_apachectl_binary_not_there(apache, monkeypatch):
     monkeypatch.setattr(subprocess, 'check_call',
                         pytest.Mock(side_effect=FileNotFoundError))
-    assert apache.apachectl_binary is None
+    with pytest.raises(ApacheNotFound):
+        _ = apache.apachectl_binary
 
 
 def test_apachectl_binary_fails(apache, monkeypatch):
@@ -409,7 +407,8 @@ def test_apache_binary_found(apache, monkeypatch):
 def test_apache_binary_not_there(apache, monkeypatch):
     monkeypatch.setattr(subprocess, 'check_call',
                         pytest.Mock(side_effect=FileNotFoundError))
-    assert apache.apache_binary is None
+    with pytest.raises(ApacheNotFound):
+        _ = apache.apache_binary
 
 
 def test_apache_binary_fails(monkeypatch):

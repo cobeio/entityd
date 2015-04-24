@@ -16,7 +16,8 @@ class FileEntity:
 
     This is an on demand entity. That is, by itself, no File entities will
     be emitted. Other entities may explicitly request File entities in order
-    to include them as part of their relations."""
+    to include them as part of their relations.
+    """
 
     def __init__(self):
         self.session = None

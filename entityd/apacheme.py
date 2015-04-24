@@ -248,7 +248,7 @@ class Apache:
         response = None
         for addr, port in self.listening_addresses():
             try:
-                response = self.get_apache_status()
+                response = self.get_apache_status(addr, port)
             except ApacheNotFound:
                 continue
         if not response:
@@ -304,10 +304,10 @@ class Apache:
                     addr = match.group('addr')
                     if addr == '*':
                         addr = 'localhost'
-                    addresses.add((addr, port))
+                    addresses.add((addr, int(port)))
         return addresses
 
- def apache_config(self):
+    def apache_config(self):
         """Find the location of apache config files.
 
         :raises ApacheNotFound: If the Apache binary is not discovered.
@@ -362,16 +362,13 @@ class Apache:
         return includes
 
     @staticmethod
-    def get_apache_status():
+    def get_apache_status(addr, port):
         """Gets the response from Apache's server-status page.
-
-        XXX: Currently just uses a default 'localhost' URL. Needs to be updated
-             to read this from the configured virtualhosts.
 
         :returns: requests.Response with the result.
         :raises ApacheNotFound: If the Apache binary is not discovered.
         """
-        status_url = 'http://localhost/server-status?auto'
+        status_url = 'http://{}:{}/server-status?auto'.format(addr, port)
         try:
             response = requests.get(status_url)
         except requests.exceptions.ConnectionError:

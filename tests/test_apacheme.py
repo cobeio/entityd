@@ -66,7 +66,10 @@ running_apache = pytest.mark.skipif(not has_running_apache(),
 
 
 def has_apachectl():
-    binary = entityd.apacheme.Apache().apachectl_binary
+    try:
+        binary = entityd.apacheme.Apache().apachectl_binary
+    except ApacheNotFound:
+        return False
     if binary:
         return True
     else:
@@ -168,7 +171,7 @@ def patched_entitygen(monkeypatch, pm, session):
                         pytest.Mock(return_value=time.time()))
     monkeypatch.setattr(entityd.apacheme.Apache,
                         'listening_addresses',
-                        pytest.Mock(return_value={('localhost', '80')}))
+                        pytest.Mock(return_value={('localhost', 80)}))
     return gen
 
 
@@ -287,8 +290,14 @@ def test_relations(pm, session, kvstore, patched_entitygen):  # pylint: disable=
         'Process', attrs={'binary': 'apache2'})
 
     entity = next(gen.entityd_find_entity('Apache', attrs=None))
-    assert len(entity.children._relations) == 1
-    assert entity.children._relations == {processes[0].ueid}
+    assert len(entity.children._relations) == 2
+    assert processes[0].ueid in entity.children._relations
+
+    vhost = entityd.EntityUpdate('VHost')
+    vhost.attrs.set('address', 'localhost', attrtype='id')
+    vhost.attrs.set('port', 80, attrtype='id')
+    vhost.attrs.set('apache', entity.ueid, attrtype='id')
+    assert vhost.ueid in entity.children._relations
 
     assert len(entity.parents._relations) == 1
     assert entity.parents._relations == set(host.ueid for host in hosts)
@@ -297,6 +306,7 @@ def test_relations(pm, session, kvstore, patched_entitygen):  # pylint: disable=
 def test_config_path_from_file(apache, monkeypatch):
     monkeypatch.setattr(subprocess, 'check_output',
                         pytest.Mock(return_value=APACHECTL__V))
+    apache._apachectl_binary = 'apachectl'
     assert apache.config_path == FULL_PATH_TO_CONF
 
 
@@ -310,7 +320,7 @@ def test_config_path(apache, monkeypatch):
 def test_config_path_fails(apache, monkeypatch):
     monkeypatch.setattr(subprocess, 'check_output', pytest.Mock(
         side_effect=subprocess.CalledProcessError(1, '')))
-    apache._apachectl_binary = 'httpd'
+    apache._apachectl_binary = 'apachectl'
     apache.main_process = None
     with pytest.raises(ApacheNotFound):
         apache.apache_config()
@@ -338,6 +348,7 @@ def test_config_path_from_proc(monkeypatch):
     proc = entityd.EntityUpdate('Process')
     proc.attrs.set('command', 'apache2 -f /path/to.conf')
     apache = entityd.apacheme.Apache(proc)
+    apache._apachectl_binary = 'apachectl'
     assert apache.config_path == '/path/to.conf'
 
 
@@ -347,6 +358,7 @@ def test_root_dir_from_proc(monkeypatch):
     proc = entityd.EntityUpdate('Process')
     proc.attrs.set('command', 'apache2 -d /path/to/rootdir')
     apache = entityd.apacheme.Apache(proc)
+    apache._apachectl_binary = 'apachectl'
     assert apache.config_path.startswith('/path/to/rootdir/')
 
 
@@ -356,6 +368,7 @@ def test_conf_file_from_proc(monkeypatch):
     proc = entityd.EntityUpdate('Process')
     proc.attrs.set('command', 'apache2 -f apacheconfig.conf')
     apache = entityd.apacheme.Apache(proc)
+    apache._apachectl_binary = 'apachectl'
     assert apache.config_path.endswith('apacheconfig.conf')
 
 
@@ -536,6 +549,17 @@ def test_performance_data_fails(apache, monkeypatch):
                             side_effect=requests.exceptions.ConnectionError))
     with pytest.raises(ApacheNotFound):
         apache.performance_data()
+
+
+def test_listening_addresses(apache, monkeypatch):
+    apache._apachectl_binary = 'apachectl'
+    apache._config_path = '/path/to.conf'
+    monkeypatch.setattr(subprocess, 'check_output',
+                        pytest.Mock(return_value='''\
+        VirtualHost configuration:
+            *:8881                 localhost (/etc/apache2/sites-enabled/001-default-copy.conf:2)
+    '''))
+    assert ('localhost', 8881) in apache.listening_addresses()
 
 
 def test_get_all_includes(tmpdir):

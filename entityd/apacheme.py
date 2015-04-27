@@ -27,6 +27,7 @@ import subprocess
 
 import requests
 
+import entityd.fileme
 import entityd.pm
 
 
@@ -54,13 +55,13 @@ class ApacheEntity:
         self.session = session
 
     @entityd.pm.hookimpl
-    def entityd_find_entity(self, name, attrs):
+    def entityd_find_entity(self, name, attrs, include_ondemand=False):
         """Return an iterator of "Apache" Monitored Entities."""
         if name == 'Apache':
             if attrs is not None:
                 raise LookupError('Attribute based filtering not supported '
                                   'for attrs {}'.format(attrs))
-            return self.entities()
+            return self.entities(include_ondemand=include_ondemand)
 
     @property
     def host_ueid(self):
@@ -74,8 +75,12 @@ class ApacheEntity:
                 self._host_ueid = host.ueid
                 return self._host_ueid
 
-    def entities(self):
-        """Return a generator of ApacheEntity objects."""
+    def entities(self, include_ondemand=False):
+        """Return a generator of ApacheEntity objects
+
+        :param include_ondemand: If True, return related `ondemand` entities
+           that wouldn't be emitted otherwise.
+       """
         apache_instances = self.active_apaches()
         for apache in apache_instances:
             try:
@@ -98,6 +103,15 @@ class ApacheEntity:
                 vhost.attrs.set('port', port, attrtype='id')
                 vhost.attrs.set('apache', update.ueid, attrtype='id')
                 update.children.add(vhost)
+                if include_ondemand:
+                    yield vhost
+
+            results = self.session.pluginmanager.hooks.entityd_find_entity(
+                name='File', attrs={'path': apache.config_path})
+            for entity in itertools.chain.from_iterable(results):
+                update.children.add(entity)
+                if include_ondemand:
+                    yield entity
             if self.host_ueid:
                 update.parents.add(self.host_ueid)
             yield update

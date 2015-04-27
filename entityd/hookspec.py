@@ -99,7 +99,7 @@ def entityd_unconfigure(config):
 
 
 @entityd.pm.hookdef
-def entityd_find_entity(name, attrs=None):
+def entityd_find_entity(name, attrs=None, include_ondemand=False):
     """Return an iterator of Monitored Entities.
 
     If there are no entities matching the provided name or attributes
@@ -111,6 +111,11 @@ def entityd_find_entity(name, attrs=None):
     item in this dict is a compiled regular expression then the
     attribute must match this regular expression to be included in the
     iterator.
+
+    By default, only entities of the type ``name`` will be returned.
+    To return related entities which would not usually be collected,
+    such as ``File`` entities, set ``include_ondemand`` to ``True``
+    and they will be returned in the iterator.
 
     """
 

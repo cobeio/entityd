@@ -19,7 +19,7 @@ def mock_host(pm, session, config):
     hostent = entityd.EntityUpdate('Host')
     class MockHost:
         @entityd.pm.hookimpl
-        def entityd_find_entity(self, name, attrs):
+        def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
             if name == 'Host':
                 yield hostent
     pm.register(MockHost(), 'entityd.hostme.MockHost')
@@ -348,14 +348,14 @@ def test_children_and_parents(declent, session, config, conf_file, pm):
 
     class MockFile:
         @entityd.pm.hookimpl
-        def entityd_find_entity(self, name, attrs):
+        def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
             if name == 'File':
                 yield fileent
     pm.register(MockFile(), 'entityd.fileme.MockFile')
 
     class MockProc:
         @entityd.pm.hookimpl
-        def entityd_find_entity(self, name, attrs):
+        def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
             if name == 'Process':
                 yield procent
                 yield procent2

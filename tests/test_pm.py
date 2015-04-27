@@ -574,17 +574,9 @@ class TestHookCaller:
         with pytest.raises(ValueError):
             caller.removeimpl(impl_spam)
 
-    def test_call_no_args(self, caller):
-        with pytest.raises(TypeError):
-            caller()
-
     def test_call_positional_args(self, caller):
         with pytest.raises(TypeError):
             caller(42, 43)
-
-    def test_call_missing_arg(self, caller):
-        with pytest.raises(TypeError):
-            caller(spam=42)
 
     def test_call_extra_arg(self, caller):
         with pytest.raises(TypeError):

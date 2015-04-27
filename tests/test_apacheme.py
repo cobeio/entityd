@@ -7,6 +7,7 @@ import requests
 
 import entityd.apacheme
 import entityd.core
+import entityd.fileme
 import entityd.hostme
 import entityd.processme
 from entityd.apacheme import ApacheNotFound
@@ -77,6 +78,24 @@ def has_apachectl():
 
 apachectl = pytest.mark.skipif(not has_apachectl(),
                                reason="Local Apache binaries needed.")
+
+
+@pytest.fixture
+def fileme(pm, session):
+    gen = entityd.fileme.FileEntity()
+    pm.register(gen, 'entityd.fileme.FileEntity')
+    gen.entityd_configure(session.config)
+    gen.entityd_sessionstart(session)
+    return gen
+
+
+@pytest.fixture
+def procent(pm, session):
+    procent = entityd.processme.ProcessEntity()
+    pm.register(procent,
+                name='entityd.processme')
+    procent.entityd_sessionstart(session)
+    return procent
 
 
 @pytest.fixture
@@ -273,8 +292,9 @@ def test_apache_entity_label(patched_entitygen):
         count += 1
     assert count
 
-
-def test_relations(pm, session, kvstore, patched_entitygen):  # pylint: disable=unused-argument
+# pylint: disable=too-many-locals
+def test_relations(monkeypatch, tmpdir, pm, session, kvstore, procent,  # pylint: disable=unused-argument
+                   fileme, patched_entitygen):
     gen = patched_entitygen
 
     procent = patched_entitygen.session.pluginmanager.getplugin(
@@ -286,12 +306,21 @@ def test_relations(pm, session, kvstore, patched_entitygen):  # pylint: disable=
     hosts = hostgen.entityd_find_entity('Host', None)
 
     # The process entity is patched to return mocked processes
-    processes = procent.entityd_find_entity(
-        'Process', attrs={'binary': 'apache2'})
+    procs = set(procent.entityd_find_entity(
+        'Process', attrs={'binary': 'apache2'}))
+
+    conf_file = tmpdir.join('apache2.conf')
+    with conf_file.open('w') as f:
+        f.write('test')
+    monkeypatch.setattr(entityd.apacheme.Apache, 'apache_config',
+                        pytest.Mock(return_value=str(conf_file)))
+
+    conf_ent = next(fileme.entityd_find_entity('File', attrs={'path': str(conf_file)}))
 
     entity = next(gen.entityd_find_entity('Apache', attrs=None))
-    assert len(entity.children._relations) == 2
-    assert processes[0].ueid in entity.children._relations
+    assert len(entity.children._relations) == 3
+    assert len([p for p in procs if p.ueid in entity.children._relations]) == 1
+    assert conf_ent.ueid in entity.children._relations
 
     vhost = entityd.EntityUpdate('VHost')
     vhost.attrs.set('address', 'localhost', attrtype='id')
@@ -301,6 +330,54 @@ def test_relations(pm, session, kvstore, patched_entitygen):  # pylint: disable=
 
     assert len(entity.parents._relations) == 1
     assert entity.parents._relations == set(host.ueid for host in hosts)
+
+
+def test_config_file_returned_separately(pm, session, kvstore, procent,  # pylint: disable=unused-argument
+                                         patched_entitygen, fileme, tmpdir, monkeypatch):
+    gen = patched_entitygen
+
+    hostgen = entityd.hostme.HostEntity()
+    pm.register(hostgen, name='entityd.hostme')
+    hostgen.entityd_sessionstart(session)
+
+    conf_file = tmpdir.join('apache2.conf')
+    with conf_file.open('w') as f:
+        f.write('test')
+    monkeypatch.setattr(entityd.apacheme.Apache, 'apache_config',
+                        pytest.Mock(return_value=str(conf_file)))
+    conf_ent = next(
+        fileme.entityd_find_entity('File', attrs={'path': str(conf_file)}))
+
+    # Use py.test as a binary so we're not dependent on apache running.
+    monkeypatch.setattr(entityd.apacheme.Apache, 'apache_binary',
+                        pytest.Mock(return_value='py.test'))
+    entities = list(gen.entityd_find_entity('Apache',
+                                            attrs=None,
+                                            include_ondemand=True))
+    assert conf_ent.ueid in [e.ueid for e in entities if e.metype == 'File']
+    assert [e for e in entities if e.metype == 'Apache']
+
+
+def test_vhost_returned_separately(pm, session, kvstore,  # pylint: disable=unused-argument
+                                   patched_entitygen):
+    gen = patched_entitygen
+
+    hostgen = entityd.hostme.HostEntity()
+    pm.register(hostgen, name='entityd.hostme')
+    hostgen.entityd_sessionstart(session)
+    apache = next(gen.entityd_find_entity('Apache',
+                                          attrs=None,
+                                          include_ondemand=False))
+    entities = list(gen.entityd_find_entity('Apache',
+                                            attrs=None,
+                                            include_ondemand=True))
+    vhost = entityd.EntityUpdate('VHost')
+    vhost.attrs.set('address', 'localhost', attrtype='id')
+    vhost.attrs.set('port', 80, attrtype='id')
+    vhost.attrs.set('apache', apache.ueid, attrtype='id')
+
+    assert vhost.ueid in [e.ueid for e in entities if e.metype == 'VHost']
+    assert [e for e in entities if e.metype == 'Apache']
 
 
 def test_config_path_from_file(apache, monkeypatch):
@@ -547,6 +624,8 @@ def test_performance_data_fails(apache, monkeypatch):
     monkeypatch.setattr(requests, 'get',
                         pytest.Mock(
                             side_effect=requests.exceptions.ConnectionError))
+    monkeypatch.setattr(apache, 'listening_addresses',
+                        pytest.Mock(return_value=set([('incorrect.com', 1111)])))
     with pytest.raises(ApacheNotFound):
         apache.performance_data()
 

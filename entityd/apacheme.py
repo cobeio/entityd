@@ -98,10 +98,7 @@ class ApacheEntity:
                 update.attrs.set(name, value)
             update.children.add(apache.main_process)
             for address, port in apache.listening_addresses():
-                vhost = entityd.EntityUpdate('VHost')
-                vhost.attrs.set('address', address, attrtype='id')
-                vhost.attrs.set('port', port, attrtype='id')
-                vhost.attrs.set('apache', update.ueid, attrtype='id')
+                vhost = self.create_vhost(address, port, apache=update)
                 update.children.add(vhost)
                 if include_ondemand:
                     yield vhost
@@ -129,6 +126,16 @@ class ApacheEntity:
     def active_apaches(self):
         """Return running apache instances on this machine."""
         return [Apache(proc) for proc in self.top_level_apache_processes()]
+
+    @staticmethod
+    def create_vhost(address, port, apache):
+        """Create a VHost Entity"""
+        vhost = entityd.EntityUpdate('VHost')
+        vhost.label = "{}:{}".format(address, port)
+        vhost.attrs.set('address', address, attrtype='id')
+        vhost.attrs.set('port', port, attrtype='id')
+        vhost.attrs.set('apache', apache.ueid, attrtype='id')
+        return vhost
 
 
 class ApacheNotFound(Exception):

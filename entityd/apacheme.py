@@ -99,7 +99,7 @@ class ApacheEntity:
         """Find top level Apache processes."""
         processes = {}
         proc_gens = self.session.pluginmanager.hooks.entityd_find_entity(
-            name='Process', attrs={'binary': Apache().apache_binary})
+            name='Process', attrs={'binary': Apache.apache_binary()})
         for entity in itertools.chain.from_iterable(proc_gens):
             processes[entity.attrs.get('pid').value] = entity
         return [e for e in processes.values()
@@ -125,20 +125,21 @@ class Apache:
     will be used instead.
     """
 
+    _apache_binary = None
+    _apachectl_binary = None
+
     def __init__(self, proc=None):
-        self._apachectl_binary = None
-        self._apache_binary = None
         self._version = None
         self._config_path = None
         self.main_process = proc
 
-    @property
-    def apachectl_binary(self):
+    @classmethod
+    def apachectl_binary(cls):
         """The binary to call to get apache status.
 
         :raises ApacheNotFound: If the Apache binary is not discovered.
         """
-        if not self._apachectl_binary:
+        if not cls._apachectl_binary:
             apache_binarys = ['apachectl', 'apache2ctl', 'httpd']
             for name in apache_binarys:
                 try:
@@ -148,22 +149,22 @@ class Apache:
                 except FileNotFoundError:
                     continue
                 except subprocess.CalledProcessError:
-                    self._apachectl_binary = name
+                    cls._apachectl_binary = name
                     break
                 else:
-                    self._apachectl_binary = name
+                    cls._apachectl_binary = name
                     break
             else:
                 raise ApacheNotFound("Couldn't find binary for Apache.")
-        return self._apachectl_binary
+        return cls._apachectl_binary
 
-    @property
-    def apache_binary(self):
+    @classmethod
+    def apache_binary(cls):
         """The binary to check for in process lists.
 
         :raises ApacheNotFound: If the Apache binary is not discovered.
         """
-        if not self._apache_binary:
+        if not cls._apache_binary:
             apache_binarys = ['apache2', 'httpd']
             for name in apache_binarys:
                 try:
@@ -173,14 +174,14 @@ class Apache:
                 except FileNotFoundError:
                     continue
                 except subprocess.CalledProcessError:
-                    self._apache_binary = name
+                    cls._apache_binary = name
                     break
                 else:
-                    self._apache_binary = name
+                    cls._apache_binary = name
                     break
             else:
                 raise ApacheNotFound("Couldn't find binary for Apache.")
-        return self._apache_binary
+        return cls._apache_binary
 
     @property
     def config_path(self):
@@ -199,7 +200,7 @@ class Apache:
         :raises ApacheNotFound: If the Apache binary is not discovered.
         """
         if not self._version:
-            output = subprocess.check_output([self.apachectl_binary, '-v'],
+            output = subprocess.check_output([self.apachectl_binary(), '-v'],
                                              universal_newlines=True)
             lines = output.split('\n')
             self._version = lines[0].split(':')[1].strip()
@@ -215,7 +216,7 @@ class Apache:
             path = self.config_path
         try:
             exit_code = subprocess.check_call(
-                [self.apachectl_binary, '-t', '-f', path],
+                [self.apachectl_binary(), '-t', '-f', path],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.STDOUT)
             return exit_code == 0
@@ -276,11 +277,11 @@ class Apache:
 
         :raises ApacheNotFound: If the Apache binary is not discovered.
         """
-        if self.apachectl_binary is None:
+        if self.apachectl_binary() is None:
             raise ApacheNotFound
         config_file = config_path = None
         try:
-            output = subprocess.check_output([self.apachectl_binary, '-V'],
+            output = subprocess.check_output([self.apachectl_binary(), '-V'],
                                              universal_newlines=True)
         except subprocess.CalledProcessError:
             raise ApacheNotFound('Could not call apachectl binary {}.'.format(

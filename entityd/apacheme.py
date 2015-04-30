@@ -107,7 +107,13 @@ class ApacheEntity:
 
     def active_apaches(self):
         """Return running apache instances on this machine."""
-        return [Apache(proc) for proc in self.top_level_apache_processes()]
+        for proc in self.top_level_apache_processes():
+            try:
+                apache = Apache(proc)
+            except ApacheNotFound:
+                continue
+            else:
+                yield apache
 
 
 class ApacheNotFound(Exception):
@@ -123,6 +129,9 @@ class Apache:
     By default, config path will be discovered via the apache binary.
     If a config path is set on the Apache process command line, then that
     will be used instead.
+
+    The Apache binaries will be shared across instances. If they cannot be
+    found, then instantiating an instance will fail.
     """
 
     _apache_binary = None
@@ -132,11 +141,14 @@ class Apache:
         self._version = None
         self._config_path = None
         self.main_process = proc
+        self._apache_binary = self.apache_binary()
+        self._apachectl_binary = self.apachectl_binary()
 
     @classmethod
     def apachectl_binary(cls):
         """The binary to call to get apache status.
 
+        :returns: String, the apachectl command
         :raises ApacheNotFound: If the Apache binary is not discovered.
         """
         if not cls._apachectl_binary:
@@ -162,6 +174,7 @@ class Apache:
     def apache_binary(cls):
         """The binary to check for in process lists.
 
+        :returns: String, the apache command
         :raises ApacheNotFound: If the Apache binary is not discovered.
         """
         if not cls._apache_binary:
@@ -185,20 +198,14 @@ class Apache:
 
     @property
     def config_path(self):
-        """The root configuration file.
-
-        :raises ApacheNotFound: If the Apache binary is not discovered.
-        """
+        """The root configuration file."""
         if not self._config_path:
             self._config_path = self.apache_config()
         return self._config_path
 
     @property
     def version(self):
-        """The Apache version as a string.
-
-        :raises ApacheNotFound: If the Apache binary is not discovered.
-        """
+        """The Apache version as a string."""
         if not self._version:
             output = subprocess.check_output([self.apachectl_binary(), '-v'],
                                              universal_newlines=True)
@@ -210,7 +217,6 @@ class Apache:
         """Check if the config passes basic checks.
 
         :param path: Optionally supply a config file path to check.
-        :raises ApacheNotFound: If the Apache binary is not discovered.
         """
         if path is None:
             path = self.config_path
@@ -224,10 +230,7 @@ class Apache:
             return False
 
     def config_last_modified(self):
-        """Return the most recent last modified date on config files.
-
-        :raises ApacheNotFound: If the Apache binary is not discovered.
-        """
+        """Return the most recent last modified date on config files."""
         config_files = self.find_all_includes()
         return max(os.path.getmtime(file) for file in
                    [self.config_path] + config_files)
@@ -236,7 +239,6 @@ class Apache:
         """Apache performance information from mod_status.
 
         :returns: Dictionary with performance data.
-        :raises ApacheNotFound: If a running Apache server isn't present.
         """
         perfdata = {}
         response = self.get_apache_status()
@@ -273,12 +275,7 @@ class Apache:
         return perfdata
 
     def apache_config(self):
-        """Find the location of apache config files.
-
-        :raises ApacheNotFound: If the Apache binary is not discovered.
-        """
-        if self.apachectl_binary() is None:
-            raise ApacheNotFound
+        """Find the location of apache config files."""
         config_file = config_path = None
         try:
             output = subprocess.check_output([self.apachectl_binary(), '-V'],
@@ -311,7 +308,6 @@ class Apache:
         """Find all included config files in this file.
 
         :returns: A list of string file paths.
-        :raises ApacheNotFound: If the Apache binary is not discovered.
         """
         include_globs = []
         config_path = pathlib.Path(self.config_path)

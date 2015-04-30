@@ -65,7 +65,10 @@ running_apache = pytest.mark.skipif(not has_running_apache(),
 
 
 def has_apachectl():
-    binary = entityd.apacheme.Apache().apachectl_binary
+    try:
+        binary = entityd.apacheme.Apache.apachectl_binary()
+    except ApacheNotFound:
+        return False
     if binary:
         return True
     else:
@@ -170,6 +173,8 @@ def patched_entitygen(monkeypatch, pm, session):
 
 @pytest.fixture
 def apache():
+    entityd.apacheme.Apache._apache_binary = 'apache2'
+    entityd.apacheme.Apache._apachectl_binary = 'apachectl'
     return entityd.apacheme.Apache()
 
 
@@ -267,6 +272,14 @@ def test_apache_entity_label(patched_entitygen):
     assert count
 
 
+def test_apache_not_found(patched_entitygen, monkeypatch):
+    monkeypatch.setattr(entityd.apacheme.Apache, '__init__',
+                        pytest.Mock(side_effect=ApacheNotFound))
+    entities = patched_entitygen.entityd_find_entity('Apache', None)
+    with pytest.raises(StopIteration):
+        next(entities)
+
+
 def test_relations(pm, session, kvstore, patched_entitygen):  # pylint: disable=unused-argument
     gen = patched_entitygen
 
@@ -314,7 +327,7 @@ def test_config_path_fails(apache, monkeypatch):
 
 def test_config_path_nobinary(apache, monkeypatch):
     monkeypatch.setattr(entityd.apacheme.Apache, 'apachectl_binary',
-                        pytest.Mock(return_value=None))
+                        pytest.Mock(side_effect=ApacheNotFound))
     apache.main_process = None
     with pytest.raises(ApacheNotFound):
         apache.apache_config()

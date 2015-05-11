@@ -141,8 +141,9 @@ class Apache:
         self._version = None
         self._config_path = None
         self.main_process = proc
-        self._apache_binary = self.apache_binary()
-        self._apachectl_binary = self.apachectl_binary()
+        # Call these so that if they are missing, we fail early.
+        self.apache_binary()
+        self.apachectl_binary()
 
     @classmethod
     def apachectl_binary(cls):

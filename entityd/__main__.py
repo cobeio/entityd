@@ -25,6 +25,7 @@ BUILTIN_PLUGIN_NAMES = ['entityd.' + n for n in
                          'processme:ProcessEntity',
                          'endpointme:EndpointEntity',
                          'apacheme:ApacheEntity',
+                         'fileme:FileEntity',
                          'declentity:DeclarativeEntity']]
 
 

@@ -51,25 +51,22 @@ class Monitor:
     def collect_entities(self):
         """Collect and send all Monitored Entities."""
         types = set(self.config.entities) | set(self.last_batch)
+        this_batch = collections.defaultdict(set)
         for metype in types:
             results = self.session.pluginmanager.hooks.entityd_find_entity(
-                name=metype, attrs=None)
-            this_batch = set()
+                name=metype, attrs=None, include_ondemand=True)
             for result in results:
                 for entity in result:
                     self.session.pluginmanager.hooks.entityd_send_entity(
                         session=self.session, entity=entity)
-                    this_batch.add(entity.ueid)
-
-            deleted_ueids = self.last_batch[metype] - this_batch
-
+                    this_batch[entity.metype].add(entity.ueid)
+        for metype in types:
+            deleted_ueids = self.last_batch[metype] - this_batch[metype]
             for ueid in deleted_ueids:
                 update = entityd.entityupdate.EntityUpdate(metype, ueid)
                 update.delete()
                 self.session.pluginmanager.hooks.entityd_send_entity(
                     session=self.session, entity=update)
-
-            if not this_batch:
-                del self.last_batch[metype]
-            else:
-                self.last_batch[metype] = this_batch
+            if not this_batch[metype]:
+                del this_batch[metype]
+        self.last_batch = this_batch

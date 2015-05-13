@@ -558,17 +558,13 @@ class HookCaller:
         self._hooks.remove(impl)
 
     def __call__(self, **kwargs):
-        missing_args = set(self._argnames) - set(kwargs.keys())
-        if missing_args:
-            raise TypeError('{!r} call has missing args: {}'
-                            .format(self, ' '.join(missing_args)))
         extra_args = set(kwargs.keys()) - set(self._argnames)
         if extra_args:
             raise TypeError('{!r} call has extra args: {}'
                             .format(self, ' '.join(extra_args)))
         results = []
         for hook in self._hooks:
-            args = [kwargs[argname] for argname in hook.argnames()]
+            args = [kwargs.get(argname) for argname in hook.argnames()]
             self._trace('Calling hook: {}'.format(hook))
             res = hook.routine(*args)  # pylint: disable=star-args
             if res is not None:

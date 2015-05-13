@@ -32,7 +32,7 @@ class ProcessEntity:
         self.session = session
 
     @entityd.pm.hookimpl
-    def entityd_find_entity(self, name, attrs):
+    def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
         """Return an iterator of "Process" Monitored Entities."""
         if name == 'Process':
             if attrs is not None:

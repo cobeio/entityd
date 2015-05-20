@@ -29,7 +29,7 @@ class HostEntity:
         config.addentity('Host', 'entityd.hostme.HostEntity')
 
     @entityd.pm.hookimpl
-    def entityd_find_entity(self, name, attrs):
+    def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
         """Return an iterator of "Host" Monitored Entities."""
         if name == 'Host':
             if attrs is not None:

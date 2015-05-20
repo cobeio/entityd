@@ -1,10 +1,10 @@
 package:
   name: entityd
-  version: "0.1.0"
+  version: "0.2.0"
 
 source:
   hg_url: https://bitbucket.org/abilisoft/entityd
-  hg_tag: "rel/0.1.0"
+  hg_tag: "rel/0.2.0"
 
 build:
   number: 1

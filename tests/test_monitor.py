@@ -71,7 +71,7 @@ def test_collect_entities(pm, session, monitor, hookrec):
 
     class FooPlugin:
         @entityd.pm.hookimpl
-        def entityd_find_entity(self, name, attrs):
+        def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
             return [update]
 
     plugin = pm.register(FooPlugin(), 'foo')
@@ -128,7 +128,7 @@ def test_collect_unregistered_type(pm, session, monitor, hookrec):
 def test_collect_multiple_entities(pm, session, monitor, hookrec):
     class FooPlugin:
         @entityd.pm.hookimpl
-        def entityd_find_entity(self, name, attrs):
+        def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
             yield entityd.entityupdate.EntityUpdate(name)
 
     plugin1 = pm.register(FooPlugin(), 'foo1')
@@ -142,3 +142,33 @@ def test_collect_multiple_entities(pm, session, monitor, hookrec):
             expected = call[1]['name']
         elif call[0] == 'entityd_send_entity':
             assert call[1]['entity'].metype == expected
+
+
+def test_collect_ondemand_entities(pm, session, monitor, hookrec):
+    class FooPlugin:
+        @entityd.pm.hookimpl
+        def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
+            yield entityd.entityupdate.EntityUpdate(name)
+            yield entityd.entityupdate.EntityUpdate('ondemand')
+
+    class OnDemandPlugin:
+        @entityd.pm.hookimpl
+        def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
+            if False:
+                yield entityd.entityupdate.EntityUpdate(name)
+
+    fooplugin = pm.register(FooPlugin(), 'foo')
+    ondemandplugin = pm.register(OnDemandPlugin(), 'ondemand')
+    session.config.addentity('foo', fooplugin)
+    session.config.addentity('ondemand', ondemandplugin)
+    session.svc.monitor.collect_entities()
+    for call in hookrec.calls:
+        if call[0] == 'entityd_find_entity':
+            expected = call[1]['name']
+        elif call[0] == 'entityd_send_entity':
+            assert call[1]['entity'].metype == expected
+            expected = 'ondemand'
+    # assert len(session.svc.monitor.last_batch)
+    assert len(session.svc.monitor.last_batch['ondemand'])
+
+

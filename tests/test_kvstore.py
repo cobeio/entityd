@@ -20,7 +20,7 @@ def test_entityd_sessionstart(monkeypatch):
     entityd.kvstore.entityd_sessionstart(session)
     dbpath = init.call_args[0][0]
     assert isinstance(dbpath, pathlib.Path)
-    assert str(dbpath).endswith('/var/lib/entityd/kvstore.db')
+    assert str(dbpath).endswith('/var/lib/entityd/kvstore/store.db')
     name, _ = session.addservice.call_args[0]
     assert name == 'kvstore'
 

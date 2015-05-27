@@ -68,7 +68,7 @@ running_apache = pytest.mark.skipif(not has_running_apache(),
 
 def has_apachectl():
     try:
-        binary = entityd.apacheme.Apache().apachectl_binary
+        binary = entityd.apacheme.Apache.apachectl_binary()
     except ApacheNotFound:
         return False
     if binary:
@@ -196,6 +196,8 @@ def patched_entitygen(monkeypatch, pm, session):
 
 @pytest.fixture
 def apache():
+    entityd.apacheme.Apache._apache_binary = 'apache2'
+    entityd.apacheme.Apache._apachectl_binary = 'apachectl'
     return entityd.apacheme.Apache()
 
 
@@ -293,7 +295,14 @@ def test_apache_entity_label(patched_entitygen):
     assert count
 
 # pylint: disable=too-many-locals
-def test_relations(monkeypatch, tmpdir, pm, session, kvstore, procent,  # pylint: disable=unused-argument
+def test_apache_not_found(patched_entitygen, monkeypatch):
+    monkeypatch.setattr(entityd.apacheme.Apache, '__init__',
+                        pytest.Mock(side_effect=ApacheNotFound))
+    entities = patched_entitygen.entityd_find_entity('Apache', None)
+    with pytest.raises(StopIteration):
+        next(entities)
+
+def test_relations(monkeypatch, tmpdir, pm, session, kvstore,  # pylint: disable=unused-argument
                    fileme, patched_entitygen):
     gen = patched_entitygen
 
@@ -317,6 +326,16 @@ def test_relations(monkeypatch, tmpdir, pm, session, kvstore, procent,  # pylint
 
     conf_ent = next(fileme.entityd_find_entity('File', attrs={'path': str(conf_file)}))
 
+    conf_file = tmpdir.join('apache2.conf')
+    with conf_file.open('w') as f:
+        f.write('test')
+
+    monkeypatch.setattr(entityd.apacheme.Apache,
+                        'apache_config',
+                        pytest.Mock(return_value=str(conf_file)))
+
+    conf_ent = next(fileme.entityd_find_entity('File', attrs={'path': str(conf_file)}))
+
     entity = next(gen.entityd_find_entity('Apache', attrs=None))
     assert len(entity.children._relations) == 3
     assert len([p for p in procs if p.ueid in entity.children._relations]) == 1
@@ -333,7 +352,8 @@ def test_relations(monkeypatch, tmpdir, pm, session, kvstore, procent,  # pylint
 
 
 def test_config_file_returned_separately(pm, session, kvstore, procent,  # pylint: disable=unused-argument
-                                         patched_entitygen, fileme, tmpdir, monkeypatch):
+                                         patched_entitygen, fileme, tmpdir,
+                                         monkeypatch):
     gen = patched_entitygen
 
     hostgen = entityd.hostme.HostEntity()
@@ -343,20 +363,19 @@ def test_config_file_returned_separately(pm, session, kvstore, procent,  # pylin
     conf_file = tmpdir.join('apache2.conf')
     with conf_file.open('w') as f:
         f.write('test')
-    monkeypatch.setattr(entityd.apacheme.Apache, 'apache_config',
+
+    monkeypatch.setattr(entityd.apacheme.Apache,
+                        'apache_config',
                         pytest.Mock(return_value=str(conf_file)))
+
     conf_ent = next(
         fileme.entityd_find_entity('File', attrs={'path': str(conf_file)}))
 
-    # Use py.test as a binary so we're not dependent on apache running.
-    monkeypatch.setattr(entityd.apacheme.Apache, 'apache_binary',
-                        pytest.Mock(return_value='py.test'))
     entities = list(gen.entityd_find_entity('Apache',
                                             attrs=None,
                                             include_ondemand=True))
     assert conf_ent.ueid in [e.ueid for e in entities if e.metype == 'File']
     assert [e for e in entities if e.metype == 'Apache']
-
 
 def test_vhost_returned_separately(pm, session, kvstore,  # pylint: disable=unused-argument
                                    patched_entitygen):
@@ -404,7 +423,8 @@ def test_config_path_fails(apache, monkeypatch):
 
 
 def test_config_path_nobinary(apache, monkeypatch):
-    monkeypatch.setattr(entityd.apacheme.Apache, 'apachectl_binary', None)
+    monkeypatch.setattr(entityd.apacheme.Apache, 'apachectl_binary',
+                        pytest.Mock(side_effect=ApacheNotFound))
     apache.main_process = None
     with pytest.raises(ApacheNotFound):
         apache.apache_config()
@@ -470,51 +490,58 @@ def test_config_check_fails(apache, monkeypatch):
     assert apache.check_config() is False
 
 
-def test_apachectl_binary_found(apache, monkeypatch):
+def test_apachectl_binary_found(monkeypatch):
+    entityd.apacheme.Apache._apachectl_binary = None
     monkeypatch.setattr(subprocess, 'check_call',
                         pytest.Mock(return_value=0))
-    assert apache.apachectl_binary == 'apachectl'
+    assert entityd.apacheme.Apache.apachectl_binary() == 'apachectl'
 
 
-def test_apachectl_binary_not_there(apache, monkeypatch):
+def test_apachectl_binary_not_there(monkeypatch):
+    entityd.apacheme.Apache._apachectl_binary = None
     monkeypatch.setattr(subprocess, 'check_call',
                         pytest.Mock(side_effect=FileNotFoundError))
     with pytest.raises(ApacheNotFound):
-        _ = apache.apachectl_binary
+        _ = entityd.apacheme.Apache.apachectl_binary()
 
 
-def test_apachectl_binary_fails(apache, monkeypatch):
+def test_apachectl_binary_fails(monkeypatch):
+    entityd.apacheme.Apache._apachectl_binary = None
     monkeypatch.setattr(
         subprocess, 'check_call',
         pytest.Mock(side_effect=subprocess.CalledProcessError(-1, ''))
     )
-    binary = apache.apachectl_binary
+    binary = entityd.apacheme.Apache.apachectl_binary()
     assert binary == 'apachectl'
 
 
-def test_apache_binary_found(apache, monkeypatch):
+def test_apache_binary_found(monkeypatch):
+    entityd.apacheme.Apache._apache_binary = None
     monkeypatch.setattr(subprocess, 'check_call',
                         pytest.Mock(return_value=0))
-    assert apache.apache_binary == 'apache2'
+    assert entityd.apacheme.Apache.apache_binary() == 'apache2'
 
 
-def test_apache_binary_not_there(apache, monkeypatch):
+def test_apache_binary_not_there(monkeypatch):
+    entityd.apacheme.Apache._apache_binary = None
     monkeypatch.setattr(subprocess, 'check_call',
                         pytest.Mock(side_effect=FileNotFoundError))
     with pytest.raises(ApacheNotFound):
-        _ = apache.apache_binary
+        _ = entityd.apacheme.Apache.apache_binary()
 
 
 def test_apache_binary_fails(monkeypatch):
+    entityd.apacheme.Apache._apache_binary = None
     monkeypatch.setattr(
         subprocess, 'check_call',
         pytest.Mock(side_effect=subprocess.CalledProcessError(-1, ''))
     )
-    binary = entityd.apacheme.Apache().apache_binary
+    binary = entityd.apacheme.Apache.apache_binary()
     assert binary == 'apache2'
 
 
 def test_apache_binary_fails_first(monkeypatch):
+    entityd.apacheme.Apache._apache_binary = None
     def fail_once_then_succeed(*args, **kwargs):  # pylint: disable=unused-argument
         monkeypatch.setattr(subprocess, 'check_call',
                             pytest.Mock(return_value=0))
@@ -524,7 +551,7 @@ def test_apache_binary_fails_first(monkeypatch):
         subprocess, 'check_call',
         pytest.Mock(side_effect=fail_once_then_succeed)
     )
-    binary = entityd.apacheme.Apache().apache_binary
+    binary = entityd.apacheme.Apache.apache_binary()
     assert binary == 'httpd'
 
 

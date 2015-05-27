@@ -117,7 +117,7 @@ class ApacheEntity:
         """Find top level Apache processes."""
         processes = {}
         proc_gens = self.session.pluginmanager.hooks.entityd_find_entity(
-            name='Process', attrs={'binary': Apache().apache_binary})
+            name='Process', attrs={'binary': Apache.apache_binary()})
         for entity in itertools.chain.from_iterable(proc_gens):
             processes[entity.attrs.get('pid').value] = entity
         return [e for e in processes.values()
@@ -125,7 +125,13 @@ class ApacheEntity:
 
     def active_apaches(self):
         """Return running apache instances on this machine."""
-        return [Apache(proc) for proc in self.top_level_apache_processes()]
+        for proc in self.top_level_apache_processes():
+            try:
+                apache = Apache(proc)
+            except ApacheNotFound:
+                continue
+            else:
+                yield apache
 
     @staticmethod
     def create_vhost(address, port, apache):
@@ -151,22 +157,30 @@ class Apache:
     By default, config path will be discovered via the apache binary.
     If a config path is set on the Apache process command line, then that
     will be used instead.
+
+    The Apache binaries will be shared across instances. If they cannot be
+    found, then instantiating an instance will fail.
     """
 
+    _apache_binary = None
+    _apachectl_binary = None
+
     def __init__(self, proc=None):
-        self._apachectl_binary = None
-        self._apache_binary = None
         self._version = None
         self._config_path = None
         self.main_process = proc
+        # Call these so that if they are missing, we fail early.
+        self.apache_binary()
+        self.apachectl_binary()
 
-    @property
-    def apachectl_binary(self):
+    @classmethod
+    def apachectl_binary(cls):
         """The binary to call to get apache status.
 
+        :returns: String, the apachectl command
         :raises ApacheNotFound: If the Apache binary is not discovered.
         """
-        if not self._apachectl_binary:
+        if not cls._apachectl_binary:
             apache_binarys = ['apachectl', 'apache2ctl', 'httpd']
             for name in apache_binarys:
                 try:
@@ -176,22 +190,23 @@ class Apache:
                 except FileNotFoundError:
                     continue
                 except subprocess.CalledProcessError:
-                    self._apachectl_binary = name
+                    cls._apachectl_binary = name
                     break
                 else:
-                    self._apachectl_binary = name
+                    cls._apachectl_binary = name
                     break
             else:
                 raise ApacheNotFound("Couldn't find binary for Apache.")
-        return self._apachectl_binary
+        return cls._apachectl_binary
 
-    @property
-    def apache_binary(self):
+    @classmethod
+    def apache_binary(cls):
         """The binary to check for in process lists.
 
+        :returns: String, the apache command
         :raises ApacheNotFound: If the Apache binary is not discovered.
         """
-        if not self._apache_binary:
+        if not cls._apache_binary:
             apache_binarys = ['apache2', 'httpd']
             for name in apache_binarys:
                 try:
@@ -201,33 +216,27 @@ class Apache:
                 except FileNotFoundError:
                     continue
                 except subprocess.CalledProcessError:
-                    self._apache_binary = name
+                    cls._apache_binary = name
                     break
                 else:
-                    self._apache_binary = name
+                    cls._apache_binary = name
                     break
             else:
                 raise ApacheNotFound("Couldn't find binary for Apache.")
-        return self._apache_binary
+        return cls._apache_binary
 
     @property
     def config_path(self):
-        """The root configuration file.
-
-        :raises ApacheNotFound: If the Apache binary is not discovered.
-        """
+        """The root configuration file."""
         if not self._config_path:
             self._config_path = self.apache_config()
         return self._config_path
 
     @property
     def version(self):
-        """The Apache version as a string.
-
-        :raises ApacheNotFound: If the Apache binary is not discovered.
-        """
+        """The Apache version as a string."""
         if not self._version:
-            output = subprocess.check_output([self.apachectl_binary, '-v'],
+            output = subprocess.check_output([self.apachectl_binary(), '-v'],
                                              universal_newlines=True)
             lines = output.split('\n')
             self._version = lines[0].split(':')[1].strip()
@@ -237,13 +246,12 @@ class Apache:
         """Check if the config passes basic checks.
 
         :param path: Optionally supply a config file path to check.
-        :raises ApacheNotFound: If the Apache binary is not discovered.
         """
         if path is None:
             path = self.config_path
         try:
             exit_code = subprocess.check_call(
-                [self.apachectl_binary, '-t', '-f', path],
+                [self.apachectl_binary(), '-t', '-f', path],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.STDOUT)
             return exit_code == 0
@@ -251,10 +259,7 @@ class Apache:
             return False
 
     def config_last_modified(self):
-        """Return the most recent last modified date on config files.
-
-        :raises ApacheNotFound: If the Apache binary is not discovered.
-        """
+        """Return the most recent last modified date on config files."""
         config_files = self.find_all_includes()
         return max(os.path.getmtime(file) for file in
                    [self.config_path] + config_files)
@@ -263,7 +268,6 @@ class Apache:
         """Apache performance information from mod_status.
 
         :returns: Dictionary with performance data.
-        :raises ApacheNotFound: If a running Apache server isn't present.
         """
         perfdata = {}
         response = None
@@ -311,7 +315,7 @@ class Apache:
         patterns = [r'(?P<addr>\*):(?P<port>\d+)',
                     r'port (?P<port>\d+) namevhost (?P<addr>[^ ]+)',
                     r'(?P<addr>\d+\.\d+\.\d+\.\d+):(?P<port>\d+)']
-        lines = subprocess.check_output([self.apachectl_binary,
+        lines = subprocess.check_output([self.apachectl_binary(),
                                          '-d', os.path.dirname(self.config_path),
                                          '-f', self.config_path,
                                          '-t', '-D', 'DUMP_VHOSTS'],
@@ -329,15 +333,10 @@ class Apache:
         return addresses
 
     def apache_config(self):
-        """Find the location of apache config files.
-
-        :raises ApacheNotFound: If the Apache binary is not discovered.
-        """
-        if self.apachectl_binary is None:
-            raise ApacheNotFound
+        """Find the location of apache config files."""
         config_file = config_path = None
         try:
-            output = subprocess.check_output([self.apachectl_binary, '-V'],
+            output = subprocess.check_output([self.apachectl_binary(), '-V'],
                                              universal_newlines=True)
         except subprocess.CalledProcessError:
             raise ApacheNotFound('Could not call apachectl binary {}.'.format(
@@ -367,7 +366,6 @@ class Apache:
         """Find all included config files in this file.
 
         :returns: A list of string file paths.
-        :raises ApacheNotFound: If the Apache binary is not discovered.
         """
         include_globs = []
         config_path = pathlib.Path(self.config_path)

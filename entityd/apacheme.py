@@ -80,7 +80,7 @@ class ApacheEntity:
 
         :param include_ondemand: If True, return related `ondemand` entities
            that wouldn't be emitted otherwise.
-       """
+        """
         apache_instances = self.active_apaches()
         for apache in apache_instances:
             try:

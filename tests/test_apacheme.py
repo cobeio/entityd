@@ -302,6 +302,7 @@ def test_apache_not_found(patched_entitygen, monkeypatch):
     with pytest.raises(StopIteration):
         next(entities)
 
+
 def test_relations(monkeypatch, tmpdir, pm, session, kvstore,  # pylint: disable=unused-argument
                    fileme, patched_entitygen):
     gen = patched_entitygen
@@ -376,6 +377,7 @@ def test_config_file_returned_separately(pm, session, kvstore, procent,  # pylin
                                             include_ondemand=True))
     assert conf_ent.ueid in [e.ueid for e in entities if e.metype == 'File']
     assert [e for e in entities if e.metype == 'Apache']
+
 
 def test_vhost_returned_separately(pm, session, kvstore,  # pylint: disable=unused-argument
                                    patched_entitygen):

@@ -136,7 +136,7 @@ class ApacheEntity:
     @staticmethod
     def create_vhost(address, port, apache):
         """Create a VHost Entity"""
-        vhost = entityd.EntityUpdate('VHost')
+        vhost = entityd.EntityUpdate('ApacheVHost')
         vhost.label = "{}:{}".format(address, port)
         vhost.attrs.set('address', address, attrtype='id')
         vhost.attrs.set('port', port, attrtype='id')

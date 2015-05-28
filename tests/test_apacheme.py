@@ -342,7 +342,7 @@ def test_relations(monkeypatch, tmpdir, pm, session, kvstore,  # pylint: disable
     assert len([p for p in procs if p.ueid in entity.children._relations]) == 1
     assert conf_ent.ueid in entity.children._relations
 
-    vhost = entityd.EntityUpdate('VHost')
+    vhost = entityd.EntityUpdate('ApacheVHost')
     vhost.attrs.set('address', 'localhost', attrtype='id')
     vhost.attrs.set('port', 80, attrtype='id')
     vhost.attrs.set('apache', entity.ueid, attrtype='id')
@@ -392,12 +392,12 @@ def test_vhost_returned_separately(pm, session, kvstore,  # pylint: disable=unus
     entities = list(gen.entityd_find_entity('Apache',
                                             attrs=None,
                                             include_ondemand=True))
-    vhost = entityd.EntityUpdate('VHost')
+    vhost = entityd.EntityUpdate('ApacheVHost')
     vhost.attrs.set('address', 'localhost', attrtype='id')
     vhost.attrs.set('port', 80, attrtype='id')
     vhost.attrs.set('apache', apache.ueid, attrtype='id')
 
-    assert vhost.ueid in [e.ueid for e in entities if e.metype == 'VHost']
+    assert vhost.ueid in [e.ueid for e in entities if e.metype == 'ApacheVHost']
     assert [e for e in entities if e.metype == 'Apache']
 
 

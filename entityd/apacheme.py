@@ -274,6 +274,7 @@ class Apache:
         for addr, port in self.listening_addresses():
             try:
                 response = self.get_apache_status(addr, port)
+                break
             except ApacheNotFound:
                 continue
         if not response:

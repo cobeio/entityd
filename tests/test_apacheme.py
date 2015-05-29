@@ -11,6 +11,7 @@ import entityd.fileme
 import entityd.hostme
 import entityd.processme
 from entityd.apacheme import ApacheNotFound
+from entityd.apacheme import VHost
 
 
 CONF_FILE = "made_up_conf.conf"
@@ -189,8 +190,9 @@ def patched_entitygen(monkeypatch, pm, session):
                         'config_last_modified',
                         pytest.Mock(return_value=time.time()))
     monkeypatch.setattr(entityd.apacheme.Apache,
-                        'listening_addresses',
-                        pytest.Mock(return_value={('localhost', 80)}))
+                        'vhosts',
+                        pytest.Mock(return_value={VHost('localhost', 80,
+                                                        '/etc/apache2/apache2.conf')}))
     return gen
 
 
@@ -610,8 +612,8 @@ def test_performance_data(apache, monkeypatch):
                         'get',
                         get_func)
     monkeypatch.setattr(apache,
-                        'listening_addresses',
-                        pytest.Mock(return_value=[('localhost', 80)]))
+                        'vhosts',
+                        pytest.Mock(return_value=[VHost('localhost', 80, '')]))
     perfdata = apache.performance_data()
 
     get_func.assert_called_with('http://localhost:80/server-status?auto')
@@ -653,8 +655,8 @@ def test_performance_data_fails(apache, monkeypatch):
     monkeypatch.setattr(requests, 'get',
                         pytest.Mock(
                             side_effect=requests.exceptions.ConnectionError))
-    monkeypatch.setattr(apache, 'listening_addresses',
-                        pytest.Mock(return_value=set([('incorrect.com', 1111)])))
+    monkeypatch.setattr(apache, 'vhosts',
+                        pytest.Mock(return_value=set([VHost('incorrect.com', 1111, '')])))
     with pytest.raises(ApacheNotFound):
         apache.performance_data()
 
@@ -667,7 +669,8 @@ def test_listening_addresses(apache, monkeypatch):
         VirtualHost configuration:
             *:8881                 localhost (/etc/apache2/sites-enabled/001-default-copy.conf:2)
     '''))
-    assert ('localhost', 8881) in apache.listening_addresses()
+    assert VHost('localhost', 8881,
+                 '/etc/apache2/sites-enabled/001-default-copy.conf') in apache.vhosts()
 
 
 def test_get_all_includes(tmpdir):

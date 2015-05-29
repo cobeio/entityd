@@ -17,6 +17,7 @@ with different config_path values.
 """
 
 import argparse
+import collections
 import itertools
 import logging
 import os
@@ -97,10 +98,17 @@ class ApacheEntity:
             for name, value in perfdata.items():
                 update.attrs.set(name, value)
             update.children.add(apache.main_process)
-            for address, port in apache.listening_addresses():
+            for address, port, path in apache.vhosts():
                 vhost = self.create_vhost(address, port, apache=update)
                 update.children.add(vhost)
                 if include_ondemand:
+                    files = list(
+                        itertools.chain.from_iterable(
+                            self.session.pluginmanager.hooks.entityd_find_entity(
+                                name='File', attrs={'path': path})))
+                    if files:
+                        vhost.children.add(files[0])
+                        yield files[0]
                     yield vhost
 
             results = self.session.pluginmanager.hooks.entityd_find_entity(
@@ -142,6 +150,9 @@ class ApacheEntity:
         vhost.attrs.set('port', port, attrtype='id')
         vhost.attrs.set('apache', apache.ueid, attrtype='id')
         return vhost
+
+
+VHost = collections.namedtuple('VHost', ['address', 'port', 'config_path'])
 
 
 class ApacheNotFound(Exception):
@@ -271,7 +282,8 @@ class Apache:
         """
         perfdata = {}
         response = None
-        for addr, port in self.listening_addresses():
+        for vhost in self.vhosts():
+            addr, port = vhost.address, vhost.port
             try:
                 response = self.get_apache_status(addr, port)
                 break
@@ -311,7 +323,7 @@ class Apache:
                     perfdata[desc] = scoreboard.count(symbol)
         return perfdata
 
-    def listening_addresses(self):
+    def vhosts(self):
         """Get addresses where Apache is listening"""
         patterns = [r'(?P<addr>\*):(?P<port>\d+)',
                     r'port (?P<port>\d+) namevhost (?P<addr>[^ ]+)',
@@ -321,7 +333,7 @@ class Apache:
                                          '-f', self.config_path,
                                          '-t', '-D', 'DUMP_VHOSTS'],
                                         universal_newlines=True).split('\n')
-        addresses = set()
+        vhosts = set()
         for line in lines:
             for pattern in patterns:
                 match = re.search(pattern, line)
@@ -330,8 +342,12 @@ class Apache:
                     addr = match.group('addr')
                     if addr == '*':
                         addr = 'localhost'
-                    addresses.add((addr, int(port)))
-        return addresses
+                    path = re.search(r'\(([^:]+):(\d+)\)', line)
+                    config_file = ''
+                    if path:
+                        config_file = path.group(1)
+                    vhosts.add(VHost(addr, int(port), config_file))
+        return vhosts
 
     def apache_config(self):
         """Find the location of apache config files."""

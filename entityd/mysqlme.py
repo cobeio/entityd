@@ -1,64 +1,24 @@
-"""Plugin providing MySQL monitored entities"""
+"""Plugin providing MySQL monitored entities
 
+Supporting multiple instances on a host, identified by the configuration
+file location.
+
+MySQL entities are related to top-level processes, configuration file
+entity and the parent host.
+
+Assumes that the MySQL binary is called 'mysqld' for discovery.
+"""
+
+import argparse
 import itertools
+import os
+import shlex
 
 import entityd.pm
 
 
 class MySQLEntity:
-    """Monitor for MySQL instances.
-
-       Multiple instances per-host - same kinds of problems as Apache.
-       Different:
-        - datadir, port, socket, basedir...
-
-
-       What does an entity contain?
-
-       Processes => mysqld
-       mysql    20685  0.1  5.8 1069340 457056 ?      Ssl  16:00   0:01 /usr/sbin/mysqld
-
-       Config files mysqld --print-defaults # gives a bunch of config defaults read from conf (
-       may have been changed since mysql restart)
-
-       Do we handle mariadb as well as mysql? Looks like maria uses mysql binaries (on centos)
-       but different locs for logs, /var/pid etc
-
-       Authentication is a big deal if we want to get any more monitoring information out.
-       - Otherwise, there's nothing here that we can't get from Process/Endpoint/File info
-         (Except maybe files, which we're not sending... Could be a declentity?)
-
-       If we did have an authenticated user - we could do things like 'SHOW STATUS'
-       which gives lots of useful info e.g.
-       Bytes_received, Aborted_connects, Uptime etc etc
-
-       Without this, a specialised entity may be a little bit pointless. May just need "process"
-       privilege
-
-       Datadir?
-
-       # Connected clients should be possible from connections, knowing where we're listening
-
-        # Creating a mysql user for entityd:
-        mysql> create user 'entityd'@'localhost' identified by 'entityd';
-        Query OK, 0 rows affected (0.35 sec)
-        ## This grant might not even be needed actually
-        mysql> grant process on *.* to 'entityd'@'localhost';
-        Query OK, 0 rows affected (0.00 sec)
-
-        $ echo 'show status' | mysql -u entityd -pentityd or $ mysqladmin status -uentityd
-        -pentityd # can also do extended-status Uptime: 412502  Threads: 1  Questions: 947  Slow
-        queries: 0  Opens: 758  Flush tables: 1  Open tables: 80  Queries per second avg: 0.002
-
-        This gives a tonne of info. Who decides what we send? Could be a massive
-        entity. Apache just sends everything. At least there's not going to be
-        loads of mysql instances (probably).
-
-        Privileges on centos seem odd; a new user can read all the tables?
-
-        Assumptions:
-         - The MySQL process is called mysqld
-    """
+    """Monitor for MySQL instances."""
 
     def __init__(self):
         self.session = None
@@ -119,7 +79,6 @@ class MySQLEntity:
     def top_level_mysql_processes(self):
         """Find top level MySQL processes.
 
-        Assumes that we are looking for processes named 'mysqld'.
         :return: List of Process ``EntityUpdate``s whose parent is not
            also 'mysqld'.
         """
@@ -132,6 +91,11 @@ class MySQLEntity:
                 if e.attrs.get('ppid').value not in processes]
 
 
+class MySQLNotFound(Exception):
+    """Thrown if the MySQL instance cannot be found"""
+    pass
+
+
 class MySQL:
     """Abstract MySQL instance.
 
@@ -141,7 +105,22 @@ class MySQL:
     def __init__(self, process):
         self.process = process
 
-    @staticmethod
-    def config_path():
-        """Get the path for our my.cnf"""
-        return '/etc/mysql/my.cnf'  # TODO: This shouldn't be hardcoded
+    def config_path(self):
+        """Get the path for our my.cnf
+
+
+        """
+        # Default options are read from the following files in the given order (on Linux):
+        paths = ['/etc/my.cnf', '/etc/mysql/my.cnf', '/usr/etc/my.cnf', '~/.my.cnf']
+        command = self.process.attrs.get('command').value
+        print(command)
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--defaults-file', dest='config')
+        args, _ = parser.parse_known_args(shlex.split(command))
+        if args.config:
+            return args.config
+        else:
+            for path in paths:
+                if os.path.isfile(path):
+                    return path
+        raise MySQLNotFound('Could not find config path for MySQL.')

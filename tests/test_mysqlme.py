@@ -13,6 +13,7 @@ def procent(pm, session, monkeypatch):
     proc.attrs.set('pid', 123)
     proc.attrs.set('ppid', 0)
     proc.attrs.set('binary', 'mysqld')
+    proc.attrs.set('command', 'mysqld')
     pm.register(procent,
                 name='entityd.processme')
     monkeypatch.setattr(procent,
@@ -44,14 +45,17 @@ def test_multiple_processes(monkeypatch, procent, mock_mysql):
     p1.attrs.set('pid', 123)
     p1.attrs.set('ppid', 0)
     p1.attrs.set('binary', 'mysqld')
+    p1.attrs.set('command', 'mysqld')
     p2 = entityd.EntityUpdate('Process')
     p2.attrs.set('pid', 456)
     p2.attrs.set('ppid', 123)
     p2.attrs.set('binary', 'mysqld')
+    p2.attrs.set('command', 'mysqld')
     p3 = entityd.EntityUpdate('Process')
     p3.attrs.set('pid', 789)
     p3.attrs.set('ppid', 0)
     p3.attrs.set('binary', 'mysqld')
+    p3.attrs.set('command', 'mysqld')
     monkeypatch.setattr(procent, 'filtered_processes',
                         pytest.Mock(return_value=[p1, p2, p3]))
     entities = mock_mysql.entityd_find_entity(name='MySQL', attrs=None, include_ondemand=False)
@@ -88,3 +92,42 @@ def test_config_file(pm, session, mock_mysql):
     entities = mock_mysql.entityd_find_entity(name='MySQL', attrs=None, include_ondemand=True)
     file, mysql = sorted(entities, key=lambda e: e.metype)
     assert file.ueid in mysql.children._relations
+
+
+@pytest.mark.parametrize('path',
+                         ['/etc/my.cnf', '/etc/mysql/my.cnf', '/usr/etc/my.cnf', '~/.my.cnf'])
+def test_config_path_defaults(monkeypatch, path):
+    """MySQL should use the first file that exists from a given list"""
+
+    def isfile(test_path):
+        if test_path == path:
+            return True
+        else:
+            return False
+
+    proc = entityd.EntityUpdate('Process')
+    proc.attrs.set('command', 'mysqld')
+    mysql = entityd.mysqlme.MySQL(proc)
+    monkeypatch.setattr(entityd.mysqlme.os.path, 'isfile', isfile)
+    assert mysql.config_path() == path
+
+
+def test_config_path_not_found(monkeypatch):
+    monkeypatch.setattr(entityd.mysqlme.os.path, 'isfile', pytest.Mock(return_value=False))
+    proc = entityd.EntityUpdate('Process')
+    proc.attrs.set('command', 'mysqld')
+    mysql = entityd.mysqlme.MySQL(proc)
+    with pytest.raises(entityd.mysqlme.MySQLNotFound):
+        mysql.config_path()
+
+
+@pytest.mark.parametrize('command, path', [
+    ('--defaults-file=/path/to/my.cnf', '/path/to/my.cnf'),
+    ('--defaults-file /path/2/my.cnf', '/path/2/my.cnf'),
+
+])
+def test_config_pathoverride(command, path):
+    proc = entityd.EntityUpdate('Process')
+    proc.attrs.set('command', command)
+    mysql = entityd.mysqlme.MySQL(proc)
+    assert mysql.config_path() == path

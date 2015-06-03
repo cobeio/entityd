@@ -106,14 +106,10 @@ class MySQL:
         self.process = process
 
     def config_path(self):
-        """Get the path for our my.cnf
-
-
-        """
+        """Get the path for our my.cnf"""
         # Default options are read from the following files in the given order (on Linux):
         paths = ['/etc/my.cnf', '/etc/mysql/my.cnf', '/usr/etc/my.cnf', '~/.my.cnf']
         command = self.process.attrs.get('command').value
-        print(command)
         parser = argparse.ArgumentParser()
         parser.add_argument('--defaults-file', dest='config')
         args, _ = parser.parse_known_args(shlex.split(command))

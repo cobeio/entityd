@@ -223,10 +223,10 @@ def test_processes_deleted(procent, proctable, monkeypatch, session, kvstore):  
 
     # Delete py.test process from process table and check deleted ME
     del proctable[os.getpid()]
-    monkeypatch.setattr(procent,
-                        'update_process_table',
-                        pytest.Mock(return_value=(proctable,
-                                                  {os.getpid(): this_process})))
+    monkeypatch.setattr(
+        procent,
+        'update_process_table',
+        pytest.Mock(return_value=(proctable, {os.getpid(): this_process})))
     gen = procent.processes()
     pprocme2, = gen
     assert pprocme2.ueid == pprocme.ueid

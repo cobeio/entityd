@@ -6,9 +6,11 @@ good-names = i,j,k,ex,Run,_,cb,fd,ip
 const-rgx = (([A-Z_][A-Z0-9_]*)|(__.*__)|(log))$
 bad-functions = filter,apply
 
+[FORMAT]
+max-line-length = 79
+
 [REPORTS]
 reports = no
 
 [MASTER]
-ignore = constraint.py
 load-plugins = pylint_abilisoft

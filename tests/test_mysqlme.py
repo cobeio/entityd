@@ -34,7 +34,8 @@ def mock_mysql(pm, config, session, procent):  # pylint: disable=unused-argument
 
 
 def test_get_entities(mock_mysql):
-    entities = mock_mysql.entityd_find_entity(name='MySQL', attrs=None, include_ondemand=False)
+    entities = mock_mysql.entityd_find_entity(name='MySQL', attrs=None,
+                                              include_ondemand=False)
     entity = next(entities)
     assert entity.metype == 'MySQL'
     assert entity.attrs.get('process_id').value == 123
@@ -58,8 +59,10 @@ def test_multiple_processes(monkeypatch, procent, mock_mysql):
     p3.attrs.set('command', 'mysqld')
     monkeypatch.setattr(procent, 'filtered_processes',
                         pytest.Mock(return_value=[p1, p2, p3]))
-    entities = mock_mysql.entityd_find_entity(name='MySQL', attrs=None, include_ondemand=False)
-    assert sorted(e.attrs.get('process_id').value for e in entities) == [123, 789]
+    entities = mock_mysql.entityd_find_entity(name='MySQL', attrs=None,
+                                              include_ondemand=False)
+    pids = sorted(e.attrs.get('process_id').value for e in entities)
+    assert pids == [123, 789]
 
 
 def test_attrs_must_be_none(mock_mysql):
@@ -73,11 +76,13 @@ def test_host_stored_and_returned(pm, session, kvstore, mock_mysql):  # pylint: 
     pm.register(hostgen, name='entityd.hostme')
     hostgen.entityd_sessionstart(session)
 
-    entities = mock_mysql.entityd_find_entity(name='MySQL', attrs=None, include_ondemand=False)
+    entities = mock_mysql.entityd_find_entity(name='MySQL', attrs=None,
+                                              include_ondemand=False)
     next(entities)
     ueid = mock_mysql._host_ueid
     assert ueid
-    entities = mock_mysql.entityd_find_entity(name='MySQL', attrs=None, include_ondemand=False)
+    entities = mock_mysql.entityd_find_entity(name='MySQL', attrs=None,
+                                              include_ondemand=False)
     entity = next(entities)
     assert ueid is mock_mysql._host_ueid
     assert entity.attrs.get('host').value == ueid
@@ -89,13 +94,16 @@ def test_config_file(pm, session, mock_mysql):
     pm.register(filegen, 'entityd.fileme.FileEntity')
     filegen.entityd_sessionstart(session)
 
-    entities = mock_mysql.entityd_find_entity(name='MySQL', attrs=None, include_ondemand=True)
+    entities = mock_mysql.entityd_find_entity(name='MySQL', attrs=None,
+                                              include_ondemand=True)
     file, mysql = sorted(entities, key=lambda e: e.metype)
     assert file.ueid in mysql.children._relations
 
 
-@pytest.mark.parametrize('path',
-                         ['/etc/my.cnf', '/etc/mysql/my.cnf', '/usr/etc/my.cnf', '~/.my.cnf'])
+@pytest.mark.parametrize('path', ['/etc/my.cnf',
+                                  '/etc/mysql/my.cnf',
+                                  '/usr/etc/my.cnf',
+                                  '~/.my.cnf'])
 def test_config_path_defaults(monkeypatch, path):
     """MySQL should use the first file that exists from a given list"""
 
@@ -113,7 +121,8 @@ def test_config_path_defaults(monkeypatch, path):
 
 
 def test_config_path_not_found(monkeypatch):
-    monkeypatch.setattr(entityd.mysqlme.os.path, 'isfile', pytest.Mock(return_value=False))
+    monkeypatch.setattr(entityd.mysqlme.os.path,
+                        'isfile', pytest.Mock(return_value=False))
     proc = entityd.EntityUpdate('Process')
     proc.attrs.set('command', 'mysqld')
     mysql = entityd.mysqlme.MySQL(proc)

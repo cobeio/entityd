@@ -85,6 +85,7 @@ class PluginManager:
        ``pluginmanager.hooks.my_hook(param=val)``.
 
     """
+    # pylint: disable=too-many-instance-attributes
 
     def __init__(self, hookspec=None):
         """Create a new PluginManager instance.

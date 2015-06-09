@@ -102,10 +102,10 @@ class ApacheEntity:
                 vhost = self.create_vhost(address, port, apache=update)
                 update.children.add(vhost)
                 if include_ondemand:
-                    files = list(
-                        itertools.chain.from_iterable(
-                            self.session.pluginmanager.hooks.entityd_find_entity(
-                                name='File', attrs={'path': path})))
+                    files = itertools.chain.from_iterable(
+                        self.session.pluginmanager.hooks.entityd_find_entity(
+                            name='File', attrs={'path': path}))
+                    files = list(files)
                     if files:
                         vhost.children.add(files[0])
                         yield files[0]
@@ -290,7 +290,7 @@ class Apache:
             except ApacheNotFound:
                 continue
         if not response:
-            raise ApacheNotFound('Couldn\'t find an address for Apache status.')
+            raise ApacheNotFound('Could not find address for Apache status')
         lines = response.text.split('\n')
         for line in lines:
             if line.startswith('Total Accesses'):
@@ -303,7 +303,8 @@ class Apache:
                 perfdata[line.split(':')[0]] = int(line.split(':')[1].strip())
             elif line.startswith(('CPULoad', 'ReqPerSec', 'BytesPerSec',
                                   'BytesPerReq')):
-                perfdata[line.split(':')[0]] = float(line.split(':')[1].strip())
+                perfdata[line.split(':')[0]] = float(
+                    line.split(':')[1].strip())
             elif line.startswith('Scoreboard:'):
                 scoreboard = line.split(':')[1].strip()
                 names = {
@@ -328,11 +329,12 @@ class Apache:
         patterns = [r'(?P<addr>\*):(?P<port>\d+)',
                     r'port (?P<port>\d+) namevhost (?P<addr>[^ ]+)',
                     r'(?P<addr>\d+\.\d+\.\d+\.\d+):(?P<port>\d+)']
-        lines = subprocess.check_output([self.apachectl_binary(),
-                                         '-d', os.path.dirname(self.config_path),
-                                         '-f', self.config_path,
-                                         '-t', '-D', 'DUMP_VHOSTS'],
-                                        universal_newlines=True).split('\n')
+        lines = subprocess.check_output(
+            [self.apachectl_binary(),
+             '-d', os.path.dirname(self.config_path),
+             '-f', self.config_path,
+             '-t', '-D', 'DUMP_VHOSTS'],
+            universal_newlines=True).split('\n')
         vhosts = set()
         for line in lines:
             for pattern in patterns:
@@ -408,7 +410,8 @@ class Apache:
         try:
             response = requests.get(status_url)
         except requests.exceptions.ConnectionError:
-            raise ApacheNotFound('Running Apache server with mod_status not found '
-                                 'at {}'.format(status_url))
+            raise ApacheNotFound(
+                'Running Apache server with mod_status not found at {}'
+                .format(status_url))
         else:
             return response

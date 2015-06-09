@@ -292,8 +292,10 @@ class DeclCfg:
 
     Raises ValidationError if any of the elements cannot be validated.
 
-    Attributes
-    :attr type: The type of the entity. Required, cannot contain '/' characters.
+    Attributes:
+
+    :attr type: The type of the entity. Required, cannot contain '/'
+       characters.
     :attr label: The label for the entity. A short human-readable string for
                 displaying the entity.
     :attr filepath: The path of the file the declaration was read from.
@@ -305,6 +307,7 @@ class DeclCfg:
                     ueids of the children of the entity.
     :attr parents: A list of RelDesc named tuples which are used to find the
                    ueids of the parents of the entity.
+
     """
 
     def __init__(self, data):
@@ -351,13 +354,15 @@ class DeclCfg:
 
         :param rel_list: A list of relations which will be validated
 
-        Returns a list of RelDesc tuples matching the dictionaries in the
-        original rel_list. A RelDesc tuple has two fields, `type` is required
-        and specifies the type of entitiy to find; `attrs` is a dictionary
-        whose keys are attribute names, and whose values are regular expressions
-        used to match on the attribute values for entitiy matching.
+        Returns a list of RelDesc tuples matching the dictionaries in
+        the original rel_list. A RelDesc tuple has two fields, `type`
+        is required and specifies the type of entitiy to find; `attrs`
+        is a dictionary whose keys are attribute names, and whose
+        values are regular expressions used to match on the attribute
+        values for entitiy matching.
 
         Raises ValidationError if any of the relations cannot be validated.
+
         """
         if isinstance(relation, RelDesc):
             return relation

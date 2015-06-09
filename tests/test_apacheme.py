@@ -189,10 +189,11 @@ def patched_entitygen(monkeypatch, pm, session):
     monkeypatch.setattr(entityd.apacheme.Apache,
                         'config_last_modified',
                         pytest.Mock(return_value=time.time()))
-    monkeypatch.setattr(entityd.apacheme.Apache,
-                        'vhosts',
-                        pytest.Mock(return_value={VHost('localhost', 80,
-                                                        '/etc/apache2/apache2.conf')}))
+    monkeypatch.setattr(
+        entityd.apacheme.Apache,
+        'vhosts',
+        pytest.Mock(return_value={VHost('localhost', 80,
+                                        '/etc/apache2/apache2.conf')}))
     return gen
 
 
@@ -327,7 +328,9 @@ def test_relations(monkeypatch, tmpdir, pm, session, kvstore,  # pylint: disable
     monkeypatch.setattr(entityd.apacheme.Apache, 'apache_config',
                         pytest.Mock(return_value=str(conf_file)))
 
-    conf_ent = next(fileme.entityd_find_entity('File', attrs={'path': str(conf_file)}))
+    conf_ent = next(
+        fileme.entityd_find_entity('File', attrs={'path': str(conf_file)})
+    )
 
     conf_file = tmpdir.join('apache2.conf')
     with conf_file.open('w') as f:
@@ -337,7 +340,9 @@ def test_relations(monkeypatch, tmpdir, pm, session, kvstore,  # pylint: disable
                         'apache_config',
                         pytest.Mock(return_value=str(conf_file)))
 
-    conf_ent = next(fileme.entityd_find_entity('File', attrs={'path': str(conf_file)}))
+    conf_ent = next(
+        fileme.entityd_find_entity('File', attrs={'path': str(conf_file)})
+    )
 
     entity = next(gen.entityd_find_entity('Apache', attrs=None))
     assert len(entity.children._relations) == 3
@@ -399,7 +404,8 @@ def test_vhost_returned_separately(pm, session, kvstore,  # pylint: disable=unus
     vhost.attrs.set('port', 80, attrtype='id')
     vhost.attrs.set('apache', apache.ueid, attrtype='id')
 
-    assert vhost.ueid in [e.ueid for e in entities if e.metype == 'ApacheVHost']
+    ueids = [e.ueid for e in entities if e.metype == 'ApacheVHost']
+    assert vhost.ueid in ueids
     assert [e for e in entities if e.metype == 'Apache']
 
 
@@ -655,22 +661,25 @@ def test_performance_data_fails(apache, monkeypatch):
     monkeypatch.setattr(requests, 'get',
                         pytest.Mock(
                             side_effect=requests.exceptions.ConnectionError))
-    monkeypatch.setattr(apache, 'vhosts',
-                        pytest.Mock(return_value=set([VHost('incorrect.com', 1111, '')])))
+    monkeypatch.setattr(
+        apache, 'vhosts',
+        pytest.Mock(return_value=set([VHost('incorrect.com', 1111, '')])))
     with pytest.raises(ApacheNotFound):
         apache.performance_data()
 
 
 def test_listening_addresses(apache, monkeypatch):
+    # pylint: disable=line-too-long
     apache._apachectl_binary = 'apachectl'
     apache._config_path = '/path/to.conf'
     monkeypatch.setattr(subprocess, 'check_output',
-                        pytest.Mock(return_value='''\
+                        pytest.Mock(return_value="""\
         VirtualHost configuration:
             *:8881                 localhost (/etc/apache2/sites-enabled/001-default-copy.conf:2)
-    '''))
-    assert VHost('localhost', 8881,
-                 '/etc/apache2/sites-enabled/001-default-copy.conf') in apache.vhosts()
+    """))
+    vhost = VHost('localhost', 8881,
+                  '/etc/apache2/sites-enabled/001-default-copy.conf')
+    assert vhost in apache.vhosts()
 
 
 def test_get_all_includes(tmpdir):

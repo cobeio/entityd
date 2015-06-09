@@ -4,5 +4,8 @@ disable = locally-disabled,missing-docstring,no-init,no-member,protected-access,
 [BASIC]
 good-names = i,j,k,ex,Run,_,cb,foo,bar
 
+[FORMAT]
+max-line-length = 79
+
 [REPORTS]
 reports = no

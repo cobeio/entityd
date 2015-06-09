@@ -601,7 +601,8 @@ class TestDecCfg:
     def test_relation(self, data):
         data['children'] = [{'type': 'EntType'}]
         test_cfg = entityd.declentity.DeclCfg(data)
-        assert test_cfg.children[0] == entityd.declentity.RelDesc('EntType', {})
+        ent = entityd.declentity.RelDesc('EntType', {})
+        assert test_cfg.children[0] == ent
 
     def test_relation_attrs(self, data):
         data['children'] = [{'type': 'child', 'command': 'cmd'}]

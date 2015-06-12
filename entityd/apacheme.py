@@ -124,8 +124,12 @@ class ApacheEntity:
     def top_level_apache_processes(self):
         """Find top level Apache processes."""
         processes = {}
+        try:
+            binary = Apache.apache_binary()
+        except ApacheNotFound:
+            return []
         proc_gens = self.session.pluginmanager.hooks.entityd_find_entity(
-            name='Process', attrs={'binary': Apache.apache_binary()})
+            name='Process', attrs={'binary': binary})
         for entity in itertools.chain.from_iterable(proc_gens):
             processes[entity.attrs.get('pid').value] = entity
         return [e for e in processes.values()

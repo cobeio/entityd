@@ -245,13 +245,25 @@ def test_find_entity_no_apache_running(patched_entitygen, monkeypatch):
     assert list(gen) == []
 
 
-def test_find_entity_no_apache_installed(patched_entitygen, monkeypatch):
+def test_find_entity_no_apachectl_binary(patched_entitygen, monkeypatch):
     procgen = patched_entitygen.session.pluginmanager.getplugin(
         'entityd.processme.ProcessEntity').obj
     monkeypatch.setattr(procgen,
                         'filtered_processes',
                         pytest.Mock(return_value=[]))
     monkeypatch.setattr(entityd.apacheme.Apache, 'apachectl_binary',
+                        pytest.Mock(side_effect=ApacheNotFound))
+    gen = patched_entitygen.entityd_find_entity('Apache', None)
+    assert list(gen) == []
+
+
+def test_find_entity_no_apache_binary(patched_entitygen, monkeypatch):
+    procgen = patched_entitygen.session.pluginmanager.getplugin(
+        'entityd.processme.ProcessEntity').obj
+    monkeypatch.setattr(procgen,
+                        'filtered_processes',
+                        pytest.Mock(return_value=[]))
+    monkeypatch.setattr(entityd.apacheme.Apache, 'apache_binary',
                         pytest.Mock(side_effect=ApacheNotFound))
     gen = patched_entitygen.entityd_find_entity('Apache', None)
     assert list(gen) == []

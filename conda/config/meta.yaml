@@ -5,11 +5,12 @@ package:
   version: {{ version }}
 
 source:
-  hg_url: https://bitbucket.org/abilisoft/entityd
-  hg_tag: "rel/{{ version }}"
+  path: ../
+  #hg_url: https://bitbucket.org/abilisoft/entityd
+  #hg_tag: "rel/{{ version }}"
 
 build:
-  number: 1
+  number: 10
 
 requirements:
   build:

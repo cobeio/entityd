@@ -1,7 +1,7 @@
 {% set version="0.3.1" %}
 
 package:
-  name: entityd-conf
+  name: entityd-config
   version: {{ version }}
 
 source:
@@ -9,7 +9,7 @@ source:
   hg_tag: "rel/{{ version }}"
 
 build:
-  number: 10
+  number: 2
 
 requirements:
   build:

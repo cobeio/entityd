@@ -23,7 +23,7 @@ requirements:
     - requests
     - pyyaml
     - act
-    - entityd-conf
+    - entityd-config
 
 test:
   requires:

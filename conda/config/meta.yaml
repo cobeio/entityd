@@ -1,12 +1,12 @@
-{% set version="0.3.1" %}
+{% set version = '0.3.1' %}
 
 package:
   name: entityd-config
-  version: {{ version }}
+  version: {{version}}
 
 source:
   hg_url: https://bitbucket.org/abilisoft/entityd
-  hg_tag: "rel/{{ version }}"
+  hg_tag: rel/{{version}}
 
 build:
   number: 0
@@ -18,5 +18,5 @@ requirements:
     - config-files
 
 about:
-  home: https://abilisoft.com
-  license: proprietary
+  home: https://abilisoft.com/
+  license: Proprietary

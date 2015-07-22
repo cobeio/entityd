@@ -1,5 +1,5 @@
 #!/bin/bash
 
 for path in conda/config/* ; do
-    config-files build $path etc/recipes/entityd-config/$(basename $path)
+    config-files build "$path" "share/recipes/entityd-config/$(basename $path)"
 done

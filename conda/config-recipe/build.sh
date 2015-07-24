@@ -1,5 +1,8 @@
 #!/bin/bash
 
+dest=$PREFIX/share/recipes/entityd-config/
+mkdir -p $dest
+
 for path in conda/config/* ; do
-    config-files build "$path" "share/recipes/entityd-config/$(basename $path)"
+    cp -f "$path" "$dest/$(basename $path)"
 done

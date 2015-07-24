@@ -5,17 +5,11 @@ package:
   version: {{version}}
 
 source:
-  hg_url: https://bitbucket.org/abilisoft/entityd
+  hg_url: ssh://hg@bitbucket.org/abilisoft/entityd
   hg_tag: rel/{{version}}
 
 build:
   number: 0
-
-requirements:
-  build:
-    - config-files
-  run:
-    - config-files
 
 about:
   home: https://abilisoft.com/

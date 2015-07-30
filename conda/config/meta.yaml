@@ -1,3 +1,10 @@
+{# This recipe provides the Supervisor configuration for entityd.
+
+This recipe is built both directly and by Edd. Any use of Edd-provided
+variables should always have reasonable defaults for when the recipe is
+built outside of an Edd context.
+#}
+
 {% set version = '0.3.1' %}
 
 package:
@@ -5,15 +12,25 @@ package:
   version: {{version}}
 
 source:
-  hg_url: https://bitbucket.org/abilisoft/entityd
+  hg_url: ssh://hg@bitbucket.org/abilisoft/entityd
   hg_tag: rel/{{version}}
 
 build:
   number: 0
+  {% if 'EDD_X_TOPOLOGY' in environ %}
+  string: {{environ['EDD_X_TOPOLOGY']}}
+  {% endif %}
+  script_env:
+    {% for variable in environ %}
+    {% if variable.startswith('EDD_') %}
+    - {{variable}}
+    {% endif %}
+    {% endfor %}
 
 requirements:
   build:
     - config-files
+    - edd
   run:
     - config-files
 

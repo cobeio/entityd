@@ -6,8 +6,10 @@ destination.
 """
 
 import logging
+import pathlib
 import struct
 
+import act
 import msgpack
 import zmq
 
@@ -24,7 +26,32 @@ class MonitoredEntitySender:
         self.context = None
         self.session = None
         self.packed_protocol_version = struct.pack('!I', 1)
-        self.socket = None
+        self._socket = None
+
+    @property
+    def socket(self):
+        """Return the sender socket, creating it first if necessary.
+
+        If the socket does not yet exist it will be created and have any
+        default socket options set before connecting to the destination
+        given in the config.args and being returned.
+        """
+        if not self._socket:
+            log.debug("Creating new socket to %s",
+                      self.session.config.args.dest)
+            keydir = self.session.config.args.keydir
+            modeld_public, _ = zmq.auth.load_certificate(
+                str(keydir.joinpath('modeld.key')))
+            entityd_public, entityd_secret = zmq.auth.load_certificate(
+                str(keydir.joinpath('entityd.key_secret')))
+            self._socket = self.context.socket(zmq.PUSH)
+            self._socket.SNDHWM = 500
+            self._socket.LINGER = 0
+            self._socket.CURVE_PUBLICKEY = entityd_public
+            self._socket.CURVE_SECRETKEY = entityd_secret
+            self._socket.CURVE_SERVERKEY = modeld_public
+            self._socket.connect(self.session.config.args.dest)
+        return self._socket
 
     @staticmethod
     @entityd.pm.hookimpl
@@ -36,6 +63,14 @@ class MonitoredEntitySender:
             type=str,
             help='ZeroMQ address of modeld destination.',
         )
+        parser.add_argument(
+            '--keydir',
+            default=act.fsloc.sysconfdir.joinpath('entityd', 'keys'),
+            type=pathlib.Path,
+            help=('Location of directory holding certificates to authenticate '
+                  'communication with server.')
+        )
+
 
     @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
@@ -49,7 +84,7 @@ class MonitoredEntitySender:
 
         Allows 500ms for any buffered messages to be sent.
         """
-        if self.socket:
+        if self._socket:
             self.socket.close(linger=500)
         self.context.term()
         self.context = None
@@ -66,13 +101,6 @@ class MonitoredEntitySender:
         full, rather than blocking on send.
         Uses linger=0 and closes the socket in order to empty the buffers.
         """
-        if not self.socket:
-            log.debug("Creating new socket to %s",
-                      self.session.config.args.dest)
-            self.socket = self.context.socket(zmq.PUSH)
-            self.socket.set(zmq.SNDHWM, 500)
-            self.socket.set(zmq.LINGER, 0)
-            self.socket.connect(self.session.config.args.dest)
         if isinstance(entity, entityd.EntityUpdate):
             packed_entity = self.encode_entity(entity)
         else:
@@ -85,7 +113,7 @@ class MonitoredEntitySender:
             log.warning("Could not send, message buffers are full. "
                         "Discarding buffer.")
             self.socket.close()
-            self.socket = None
+            self._socket = None
 
     @staticmethod
     def encode_entity(entity):

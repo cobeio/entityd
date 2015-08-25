@@ -1,9 +1,13 @@
 """Local py.test plugin."""
 
+import py
+import tempfile
 import types
 import unittest.mock
 
+import act
 import pytest
+import zmq.auth
 
 import entityd.core
 import entityd.hookspec
@@ -100,3 +104,24 @@ def hookrec(request, pm):
     rec = HookRecorder(pm)
     request.addfinalizer(rec.close)
     return rec
+
+
+@pytest.fixture(scope='session')
+def certificates(request):
+    """Generate auth certificates that can be used for testing.
+
+    Also copy the public key for modeld to the entityd keys directory, and
+    vice-versa.
+    """
+    conf_dir = py.path.local(tempfile.mkdtemp())
+    request.addfinalizer(lambda: conf_dir.remove(rec=1))
+    modeld_keys = conf_dir.ensure('modeld/keys', dir=True)
+    entityd_keys = conf_dir.ensure('entityd/keys', dir=True)
+    modeld_public, _ = zmq.auth.create_certificates(
+        modeld_keys.strpath, 'modeld')
+    entityd_public, _ = zmq.auth.create_certificates(
+        entityd_keys.strpath, 'entityd')
+    py.path.local(modeld_public).copy(entityd_keys)
+    py.path.local(entityd_public).copy(modeld_keys)
+
+    return conf_dir

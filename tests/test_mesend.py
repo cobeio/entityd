@@ -1,41 +1,80 @@
 import argparse
+import pathlib
 import struct
+import time
 
+import act
 import msgpack
 import pytest
 import zmq
+import zmq.auth
+import zmq.auth.thread
 
 import entityd
 import entityd.mesend
 
 
+def get_receiver(address, request, keydir):
+    # Create a receiver socket, intiailize it with default options and
+    # authentication if a key directory has been provided. Install finalizers
+    # to clean everything up at the end then wait for the socket to be fully
+    # bound before returning it.
+    context = zmq.Context()
+    sock = context.socket(zmq.PULL)
+    sock.LINGER = 300
+    if keydir:
+        server_public, server_secret = zmq.auth.load_certificate(
+            keydir.join('modeld.key_secret').strpath)
+        auth = zmq.auth.thread.ThreadAuthenticator(context)
+        auth.start()
+        auth.configure_curve(domain='*', location=keydir.strpath)
+        sock.CURVE_PUBLICKEY = server_public
+        sock.CURVE_SECRETKEY = server_secret
+        sock.CURVE_SERVER = True
+
+    # Must call sock.close first, else context.term will block.
+    def term():
+        if keydir:
+            auth.stop()
+        sock.close(linger=0)
+        context.term()
+    request.addfinalizer(term)
+    sock.bind(address)
+    for _ in range(100):
+        if sock.LAST_ENDPOINT != b'':
+            break
+        time.sleep(0.01)
+    else:
+        assert False, 'Socket is not bound'
+    return sock
+
+
 @pytest.fixture
-def sender():
+def receiver(request, certificates):
+    keydir = certificates.join('modeld', 'keys')
+    return get_receiver('tcp://*:*', request, keydir)
+
+
+def get_sender(address, keydir):
     session = pytest.Mock()
     sender = entityd.mesend.MonitoredEntitySender()
     sender.entityd_sessionstart(session)
-    session.config.args.dest = 'tcp://127.0.0.1:25010'
+    session.config.args.dest = address
+    session.config.args.keydir = pathlib.Path(str(keydir))
     return sender
 
 
 @pytest.fixture
-def sender_receiver(request):
-    """Get an ME Sender with a matched receiving socket with random port."""
-    context = zmq.Context()
-    sock = context.socket(zmq.PULL)
-    port_selected = sock.bind_to_random_port('tcp://127.0.0.1')
+def sender(certificates):
+    keydir = certificates.join('entityd', 'keys')
+    return get_sender('tcp://127.0.0.1:25010', keydir)
 
-    # Must call sock.close first, else context.term will block.
-    def term():
-        sock.close()
-        context.term()
-    request.addfinalizer(term)
-    session = pytest.Mock()
-    sender = entityd.mesend.MonitoredEntitySender()
-    sender.entityd_sessionstart(session)
-    session.config.args.dest = 'tcp://127.0.0.1:{}'.format(
-        port_selected)
-    return sender, sock
+
+@pytest.fixture
+def sender_receiver(certificates, receiver, request):
+    """Get an ME Sender with a matched receiving socket with random port."""
+    keydir = certificates.join('entityd', 'keys')
+    return get_sender(receiver.LAST_ENDPOINT, keydir), receiver
 
 
 def test_option_default():
@@ -43,6 +82,7 @@ def test_option_default():
     entityd.mesend.MonitoredEntitySender().entityd_addoption(parser)
     args = parser.parse_args([])
     assert args.dest == 'tcp://127.0.0.1:25010'
+    assert args.keydir == act.fsloc.sysconfdir.joinpath('entityd', 'keys')
 
 
 def test_addoption():
@@ -63,7 +103,7 @@ def test_sessionstart():
 def test_sessionfinish():
     sender = entityd.mesend.MonitoredEntitySender()
     sender.entityd_sessionstart(pytest.Mock())
-    sender.socket = pytest.Mock()
+    sender._socket = pytest.Mock()
     context = sender.context
     sender.entityd_sessionfinish()
     sender.socket.close.assert_called_once_with(linger=500)
@@ -78,7 +118,9 @@ def test_send_entity(sender_receiver, deleted):
     if deleted:
         entity.delete()
     sender.entityd_send_entity(entity)
-    assert sender.socket is not None
+    assert sender._socket is not None
+    if not receiver.poll(1000):
+        assert False, "No message received"
     protocol, message = receiver.recv_multipart()
     protocol = struct.unpack('!I', protocol)[0]
     assert protocol == 1
@@ -87,6 +129,55 @@ def test_send_entity(sender_receiver, deleted):
     if not deleted:
         assert message['label'] == entity.label
     assert message.get('deleted', False) is deleted
+
+
+def test_wrong_server_certificate(sender_receiver, request, certificates):
+    keypath = certificates.join('entityd/keys')
+    keypath.join('modeld.key').rename(keypath.join('modeld.bkp'))
+    keypath.join('entityd.key').rename(keypath.join('modeld.key'))
+
+    def fin():
+        keypath.join('modeld.key').rename(keypath.join('entityd.key'))
+        keypath.join('modeld.bkp').rename(keypath.join('modeld.key'))
+    request.addfinalizer(fin)
+
+    sender, receiver = sender_receiver
+    entity = entityd.EntityUpdate('MeType')
+    entity.label = 'entity label'
+    sender.entityd_send_entity(entity)
+    assert sender._socket is not None
+    assert receiver.poll(100) == 0
+
+
+def test_unknown_client(request, certificates):
+    keypath = certificates.join('modeld/keys')
+    keypath.join('entityd.key').rename(keypath.join('entityd.bkp'))
+
+    def fin():
+        keypath.join('entityd.bkp').rename(keypath.join('entityd.key'))
+    request.addfinalizer(fin)
+
+    receiver = get_receiver('tcp://*:*', request, keypath)
+    sender = get_sender(
+        receiver.LAST_ENDPOINT,
+        pathlib.Path(str(certificates.join('entityd/keys')))
+        )
+    entity = entityd.EntityUpdate('MeType')
+    entity.label = 'entity label'
+    sender.entityd_send_entity(entity)
+    assert sender._socket is not None
+    assert receiver.poll(100) == 0
+
+
+def test_no_auth(request, certificates):
+    receiver = get_receiver('tcp://*:*', request, keydir=None)
+    keydir = certificates.join('entityd', 'keys')
+    sender = get_sender(receiver.LAST_ENDPOINT, keydir)
+    entity = entityd.EntityUpdate('MeType')
+    entity.label = 'entity label'
+    sender.entityd_send_entity(entity)
+    assert sender._socket is not None
+    assert receiver.poll(100) == 0
 
 
 def test_send_unserializable(sender):
@@ -102,7 +193,7 @@ def test_buffers_full(caplog, sender):
     assert [rec for rec in caplog.records() if
             rec.levelname == 'WARNING' and
             'Could not send, message buffers are full' in rec.msg]
-    assert sender.socket is None
+    assert sender._socket is None
 
 
 def test_attribute():

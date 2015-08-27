@@ -14,7 +14,7 @@ import entityd
 import entityd.mesend
 
 
-def get_receiver(address, request, keydir):
+def get_receiver(endpoint, request, keydir):
     # Create a receiver socket, intiailize it with default options and
     # authentication if a key directory has been provided. Install finalizers
     # to clean everything up at the end then wait for the socket to be fully
@@ -39,7 +39,7 @@ def get_receiver(address, request, keydir):
         sock.close(linger=0)
         context.term()
     request.addfinalizer(term)
-    sock.bind(address)
+    sock.bind(endpoint)
     for _ in range(100):
         if sock.LAST_ENDPOINT != b'':
             break
@@ -55,12 +55,12 @@ def receiver(request, certificates):
     return get_receiver('tcp://*:*', request, keydir)
 
 
-def get_sender(address, keydir):
+def get_sender(endpoint, keydir):
     session = pytest.Mock()
     sender = entityd.mesend.MonitoredEntitySender()
     sender.entityd_sessionstart(session)
-    session.config.args.dest = address
-    session.config.args.keydir = pathlib.Path(str(keydir))
+    session.config.args.dest = endpoint
+    session.config.keydir = pathlib.Path(str(keydir))
     return sender
 
 
@@ -82,7 +82,6 @@ def test_option_default():
     entityd.mesend.MonitoredEntitySender().entityd_addoption(parser)
     args = parser.parse_args([])
     assert args.dest == 'tcp://127.0.0.1:25010'
-    assert args.keydir == act.fsloc.sysconfdir.joinpath('entityd', 'keys')
 
 
 def test_addoption():
@@ -90,6 +89,11 @@ def test_addoption():
     entityd.mesend.MonitoredEntitySender().entityd_addoption(parser)
     args = parser.parse_args(['--dest', 'tcp://192.168.0.1:7890'])
     assert args.dest == 'tcp://192.168.0.1:7890'
+
+
+def test_configure(sender, config):
+    sender.entityd_configure(config)
+    assert config.keydir == act.fsloc.sysconfdir.joinpath('entityd', 'keys')
 
 
 def test_sessionstart():

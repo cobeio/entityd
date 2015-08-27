@@ -6,7 +6,6 @@ destination.
 """
 
 import logging
-import pathlib
 import struct
 
 import act
@@ -39,7 +38,7 @@ class MonitoredEntitySender:
         if not self._socket:
             log.debug("Creating new socket to %s",
                       self.session.config.args.dest)
-            keydir = self.session.config.args.keydir
+            keydir = self.session.config.keydir
             modeld_public, _ = zmq.auth.load_certificate(
                 str(keydir.joinpath('modeld.key')))
             entityd_public, entityd_secret = zmq.auth.load_certificate(
@@ -63,14 +62,12 @@ class MonitoredEntitySender:
             type=str,
             help='ZeroMQ address of modeld destination.',
         )
-        parser.add_argument(
-            '--keydir',
-            default=act.fsloc.sysconfdir.joinpath('entityd', 'keys'),
-            type=pathlib.Path,
-            help=('Location of directory holding certificates to authenticate '
-                  'communication with server.')
-        )
 
+    @staticmethod
+    @entityd.pm.hookdef
+    def entityd_configure(config):
+        """Add the key directory to the config."""
+        config.keydir = act.fsloc.sysconfdir.joinpath('entityd', 'keys')
 
     @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):

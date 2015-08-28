@@ -62,7 +62,6 @@ def certificates(dirpath=None, force=False, dry_run=False):
     """Create certificates for ZMQ authentication."""
     dirpath = os.path.expanduser(dirpath) if dirpath else act.fsloc.sysconfdir
     dirpath = pathlib.Path(dirpath).absolute().joinpath('entityd', 'keys')
-
     for parent in [dirpath] + list(dirpath.parents):
         if parent.exists() and not parent.is_dir():
             print('Abort. Path exists and is not a directory: '
@@ -78,6 +77,5 @@ def certificates(dirpath=None, force=False, dry_run=False):
             print('Use --force to overwrite any existing keys.')
             return
     if not dry_run:
-        modeld_public, _ = zmq.auth.create_certificates(str(dirpath),
-                                                        'entityd')
+        zmq.auth.create_certificates(str(dirpath), 'entityd')
     print('Created entityd.key and entityd.key_secret in {}'.format(dirpath))

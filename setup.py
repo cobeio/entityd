@@ -1,21 +1,26 @@
 """Distutils build script for entityd."""
 
-import pathlib
-from distutils.core import setup
-
-# pylint: disable=invalid-name
+import setuptools
 
 
-version_module = pathlib.Path(__file__).parent / 'entityd' / 'version.py'
-version_ns = {}
-with version_module.open() as fp:
-    exec(fp.read(), version_ns)  # pylint: disable=exec-used
-version = version_ns['__version__']
+def get_version():
+    """Retrieve the version number from conda/meta.yaml."""
+    with open('conda/entityd/meta.yaml') as fp:
+        for line in fp:
+            if 'set version =' in line:
+                break
+        else:
+            raise ValueError('Version number not found in meta.yaml')
+    try:
+        version = line.split('=')[1].split()[0].strip('"\'')  # pylint: disable=undefined-loop-variable
+    except Exception as err:
+        raise ValueError('Failed to parse version from meta.yaml') from err
+    return version
 
 
-setup(
+setuptools.setup(
     name='entityd',
-    version=version,
+    version=get_version(),
     author='Abilisoft Ltd.',
     author_email='info@abilisoft.com',
     license='Proprietary',

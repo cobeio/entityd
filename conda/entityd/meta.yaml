@@ -1,13 +1,15 @@
+{% set version = '0.3.1' %}
+
 package:
   name: entityd
-  version: "0.3.1"
+  version: {{version}}
 
 source:
   hg_url: https://bitbucket.org/abilisoft/entityd
-  hg_tag: "rel/0.3.1"
+  hg_tag: rel/{{version}}
 
 build:
-  number: 1
+  number: 0
 
 requirements:
   build:

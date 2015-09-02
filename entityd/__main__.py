@@ -12,7 +12,6 @@ import sys
 
 import entityd.hookspec
 import entityd.pm
-import entityd.version
 
 
 #: These plugins are always loaded first and in order.

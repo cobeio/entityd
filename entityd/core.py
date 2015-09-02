@@ -17,8 +17,8 @@ import sys
 import time
 import types
 
+import pkg_resources
 import entityd.pm
-import entityd.version
 
 
 log = logging.getLogger(__name__)
@@ -57,10 +57,11 @@ def entityd_cmdline_parse(pluginmanager, argv):
 @entityd.pm.hookimpl
 def entityd_addoption(parser):
     """Add command line options to the argparse parser."""
+    version = pkg_resources.require('entityd')[0].version  # pylint: disable=not-callable
     parser.add_argument(
         '--version',
         action='version',
-        version='%(prog)s {}'.format(entityd.version.__version__),
+        version='%(prog)s {}'.format(version),
     )
     parser.add_argument(
         '-l', '--log-level',

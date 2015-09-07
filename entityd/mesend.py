@@ -11,6 +11,7 @@ import struct
 import act
 import msgpack
 import zmq
+import zmq.auth
 
 import entityd.pm
 
@@ -64,7 +65,7 @@ class MonitoredEntitySender:
         )
 
     @staticmethod
-    @entityd.pm.hookdef
+    @entityd.pm.hookimpl
     def entityd_configure(config):
         """Add the key directory to the config."""
         config.keydir = act.fsloc.sysconfdir.joinpath('entityd', 'keys')

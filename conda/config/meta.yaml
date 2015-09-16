@@ -5,7 +5,7 @@ variables should always have reasonable defaults for when the recipe is
 built outside of an Edd context.
 #}
 
-{% set version = '0.4.1' %}
+{% set version = '0.4.2' %}
 
 package:
   name: entityd-config

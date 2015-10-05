@@ -25,6 +25,7 @@ BUILTIN_PLUGIN_NAMES = ['entityd.' + n for n in
                          'endpointme:EndpointEntity',
                          'apacheme:ApacheEntity',
                          'mysqlme:MySQLEntity',
+                         'postgresme:PostgreSQLEntity',
                          'fileme:FileEntity',
                          'declentity:DeclarativeEntity']]
 

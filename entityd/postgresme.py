@@ -1,12 +1,12 @@
-"""Plugin providing MySQL monitored entities
+"""Plugin providing PostgreSQL monitored entities
 
 Supporting multiple instances on a host, identified by the configuration
 file location.
 
-MySQL entities are related to top-level processes, configuration file
+PostrgesSQL entities are related to top-level processes, configuration file
 entity and the parent host.
 
-Assumes that the MySQL binary is called 'mysqld' for discovery.
+Assumes that the PostgreSQL binary is called 'postgresql.conf' for discovery.
 """
 
 import argparse
@@ -17,8 +17,8 @@ import shlex
 import entityd.pm
 
 
-class MySQLEntity:
-    """Monitor for MySQL instances."""
+class PostgreSQLEntity:
+    """Monitor for PostgreSQL instances."""
 
     def __init__(self):
         self.session = None
@@ -27,8 +27,8 @@ class MySQLEntity:
     @staticmethod
     @entityd.pm.hookimpl
     def entityd_configure(config):
-        """Register the MySQL Monitored Entity."""
-        config.addentity('MySQL', 'entityd.mysqlme.MySQLEntity')
+        """Register the PostgreSQL Monitored Entity."""
+        config.addentity('PostgreSQL', 'entityd.postgresme.PostgreSQLEntity')
 
     @entityd.pm.hookimpl()
     def entityd_sessionstart(self, session):
@@ -37,8 +37,8 @@ class MySQLEntity:
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs, include_ondemand=False):
-        """Return an iterator of "MySQL" Monitored Entities."""
-        if name == 'MySQL':
+        """Return an iterator of "PostgreSQL" Monitored Entities."""
+        if name == 'PostgreSQL':
             if attrs is not None:
                 raise LookupError('Attribute based filtering not supported '
                                   'for attrs {}'.format(attrs))
@@ -57,17 +57,18 @@ class MySQLEntity:
                 return self._host_ueid
 
     def entities(self, include_ondemand):
-        """Return MySQLEntity objects."""
-        for proc in self.top_level_mysql_processes():
-            mysql = MySQL(proc)
-            update = entityd.EntityUpdate('MySQL')
+        """Return PostgreSQLEntity objects."""
+        for proc in self.top_level_postgresql_processes():
+            postgres = PostgreSQL(proc)
+            update = entityd.EntityUpdate('PostgreSQL')
             update.attrs.set('host', self.host_ueid, attrtype='id')
-            update.attrs.set('config_path', mysql.config_path(), attrtype='id')
+            update.attrs.set('config_path',
+                             postgres.config_path(), attrtype='id')
             update.attrs.set('process_id', proc.attrs.get('pid').value)
             if include_ondemand:
                 files = list(itertools.chain.from_iterable(
                     self.session.pluginmanager.hooks.entityd_find_entity(
-                        name='File', attrs={'path': mysql.config_path()})
+                        name='File', attrs={'path': postgres.config_path()})
                 ))
                 if files:
                     update.children.add(files[0])
@@ -76,51 +77,55 @@ class MySQLEntity:
             update.parents.add(self.host_ueid)
             yield update
 
-    def top_level_mysql_processes(self):
-        """Find top level MySQL processes.
+    def top_level_postgresql_processes(self):
+        """Find top level PostgreSQL processes.
 
         :return: List of Process ``EntityUpdate``s whose parent is not
-           also 'mysqld'.
+           also 'PostgreSQL'.
         """
         processes = {}
         proc_gens = self.session.pluginmanager.hooks.entityd_find_entity(
-            name='Process', attrs={'binary': 'mysqld'})
+            name='Process', attrs={'binary': 'postgres'})
         for entity in itertools.chain.from_iterable(proc_gens):
             processes[entity.attrs.get('pid').value] = entity
         return [e for e in processes.values()
                 if e.attrs.get('ppid').value not in processes]
 
 
-class MySQLNotFound(Exception):
-    """Thrown if the MySQL instance cannot be found"""
+class PostgreSQLNotFound(Exception):
+    """Thrown if the PostgreSQL instance cannot be found"""
     pass
 
 
-class MySQL:
-    """Abstract MySQL instance.
+class PostgreSQL:
+    """Abstract PostgreSQL instance.
 
-    :ivar process: The main MySQL process as an EntityUpdate
+    :ivar process: The main PostgreSQL process as an EntityUpdate
     """
-
     def __init__(self, process):
         self.process = process
 
     def config_path(self):
-        """Get the path for our my.cnf"""
-        # Default options are read from the following files in the
-        # given order (on Linux):
-        paths = ['/etc/my.cnf',
-                 '/etc/mysql/my.cnf',
-                 '/usr/etc/my.cnf',
-                 os.path.expanduser('~/') + '/.my.cnf']
+        """Get the path for postgresql.conf"""
+        # Test obtaining config file from the most likely generic paths,
+        # incl. format ``/etc/postgresql/*.*/main/postgresql.conf``
+        # where *.* is postgres version nr, testing for paths for versions from
+        # 8.0 to 12.9. This should cover next ~17 years(!), present being 9.4
+        paths = ['/var/lib/pgsql/data/postgresql.conf'] + \
+                ['/etc/postgresql/' + str(8.0 + n/10) +
+                 '/main/postgresql.conf' for n in range(50)] + \
+                [os.path.expanduser('~/') + 'postgresql.conf']
         command = self.process.attrs.get('command').value
         parser = argparse.ArgumentParser()
-        parser.add_argument('--defaults-file', dest='config')
+        parser.add_argument('-c', dest='config')
         args, _ = parser.parse_known_args(shlex.split(command))
-        if args.config:
-            return args.config
+        if (args.config and
+                args.config[:12] == 'config_file=' and
+                args.config[-15:] == 'postgresql.conf'):
+            path = args.config.split('=')[1]
+            return path
         else:
             for path in paths:
                 if os.path.isfile(path):
                     return path
-        raise MySQLNotFound('Could not find config path for MySQL.')
+        raise PostgreSQLNotFound('Could not find config path for PostgreSQL.')

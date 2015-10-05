@@ -62,7 +62,7 @@ class HookRecorder:
     """Recorder for hook calls.
 
     Each hook call performed is recorded in the ``calls`` attribute as
-    a tuple of the hook name and dictiontary of it's keyword
+    a tuple of the hook name and dictionary of it's keyword
     arguments.
 
     Only hooks already present when the recorder is applied will be

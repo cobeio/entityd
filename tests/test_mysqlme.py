@@ -4,6 +4,7 @@ import entityd.mysqlme
 import entityd.processme
 
 import pytest
+import os
 
 
 @pytest.fixture
@@ -24,7 +25,22 @@ def procent(pm, session, monkeypatch):
 
 
 @pytest.fixture
-def mock_mysql(pm, config, session, procent):  # pylint: disable=unused-argument
+def create_temp_mycnf(request, text=''):
+    """ Ensure there's a my.cnf file for testing on m/c with no mySQL"""
+    if os.path.isfile('/usr/etc/my.cnf'):
+        return True
+    else:
+        mycnf_path = os.path.expanduser('~/')+'/.my.cnf'
+        with open(mycnf_path, 'w') as file:
+            file.write(text)
+        def delfile():
+            os.remove(mycnf_path)
+        request.addfinalizer(delfile)
+        return True
+
+
+@pytest.fixture
+def mock_mysql(create_temp_mycnf, pm, config, session, procent):  # pylint: disable=unused-argument
     mysql = entityd.mysqlme.MySQLEntity()
     pm.register(mysql,
                 name='entityd.mysqlme.MySQLEntity')
@@ -103,7 +119,7 @@ def test_config_file(pm, session, mock_mysql):
 @pytest.mark.parametrize('path', ['/etc/my.cnf',
                                   '/etc/mysql/my.cnf',
                                   '/usr/etc/my.cnf',
-                                  '~/.my.cnf'])
+                                  os.path.expanduser('~/') + '/.my.cnf'])
 def test_config_path_defaults(monkeypatch, path):
     """MySQL should use the first file that exists from a given list"""
 
@@ -133,7 +149,6 @@ def test_config_path_not_found(monkeypatch):
 @pytest.mark.parametrize('command, path', [
     ('--defaults-file=/path/to/my.cnf', '/path/to/my.cnf'),
     ('--defaults-file /path/2/my.cnf', '/path/2/my.cnf'),
-
 ])
 def test_config_pathoverride(command, path):
     proc = entityd.EntityUpdate('Process')

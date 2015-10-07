@@ -9,10 +9,10 @@ entity and the parent host.
 Assumes that the PostgreSQL binary is called 'postgresql.conf' for discovery.
 """
 
-import argparse
 import itertools
 import os
 import shlex
+import re
 
 import entityd.pm
 
@@ -62,8 +62,8 @@ class PostgreSQLEntity:
             postgres = PostgreSQL(proc)
             update = entityd.EntityUpdate('PostgreSQL')
             update.attrs.set('host', self.host_ueid, attrtype='id')
-            update.attrs.set('config_path',
-                             postgres.config_path(), attrtype='id')
+            update.attrs.set(
+                'config_path', postgres.config_path(), attrtype='id')
             update.attrs.set('process_id', proc.attrs.get('pid').value)
             if include_ondemand:
                 files = list(itertools.chain.from_iterable(
@@ -92,9 +92,8 @@ class PostgreSQLEntity:
                 if e.attrs.get('ppid').value not in processes]
 
 
-class PostgreSQLNotFound(Exception):
-    """Thrown if the PostgreSQL instance cannot be found"""
-    pass
+class PostgreSQLNotFoundError(Exception):
+    """Thrown if the PostgreSQL instance cannot be found."""
 
 
 class PostgreSQL:
@@ -106,26 +105,32 @@ class PostgreSQL:
         self.process = process
 
     def config_path(self):
-        """Get the path for postgresql.conf"""
-        # Test obtaining config file from the most likely generic paths,
+        """Get the path for postgresql.conf."""
+
+        # Create list of most likely generic paths for postgresql.conf file,
         # incl. format ``/etc/postgresql/*.*/main/postgresql.conf``
-        # where *.* is postgres version nr, testing for paths for versions from
-        # 8.0 to 12.9. This should cover next ~17 years(!), present being 9.4
-        paths = ['/var/lib/pgsql/data/postgresql.conf'] + \
-                ['/etc/postgresql/' + str(8.0 + n/10) +
-                 '/main/postgresql.conf' for n in range(50)] + \
-                [os.path.expanduser('~/') + 'postgresql.conf']
+        # where *.* is postgres version nr
+        paths = ['/var/lib/pgsql/data/postgresql.conf']
+        if os.path.isdir('/etc/postgresql/'):
+            for directory in os.listdir('/etc/postgresql/'):
+                match = re.findall(r'[0-9].[0-9]', directory)
+                if match and os.path.isdir(
+                        '/etc/postgresql/'+match[0]+'/main'):
+                    paths.append(
+                        '/etc/postgresql/'+match[0]+'/main/postgresql.conf')
+        paths.append(os.path.expanduser('~/postgresql.conf'))
         command = self.process.attrs.get('command').value
-        parser = argparse.ArgumentParser()
-        parser.add_argument('-c', dest='config')
-        args, _ = parser.parse_known_args(shlex.split(command))
-        if (args.config and
-                args.config[:12] == 'config_file=' and
-                args.config[-15:] == 'postgresql.conf'):
-            path = args.config.split('=')[1]
-            return path
-        else:
-            for path in paths:
-                if os.path.isfile(path):
-                    return path
-        raise PostgreSQLNotFound('Could not find config path for PostgreSQL.')
+        comm = shlex.split(command)
+        # Simple approach to search multiple '-c' command instances in postgres
+        for nbr, param in enumerate(comm):
+            if (param == '-c' and
+                    comm[nbr+1:] and
+                    comm[nbr+1].startswith('config_file=') and
+                    comm[nbr+1].endswith('postgresql.conf')):
+                path = comm[nbr+1].split('=', 1)[1]
+                return path
+        for path in paths:
+            if os.path.isfile(path):
+                return path
+        raise PostgreSQLNotFoundError(
+            'Could not find config path for PostgreSQL.')

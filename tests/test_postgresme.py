@@ -25,33 +25,28 @@ def procent(pm, session, monkeypatch):
 
 
 @pytest.fixture
-def create_temp_pgconf(request):
-    """ Ensure file postgresql.conf for testing on m/c with no postgreSQL"""
-    if os.path.isfile(os.path.expanduser('~/') + 'postgresql.conf'):
-        return True
-    else:
-        pgconf_path = os.path.expanduser('~/')+'postgresql.conf'
+def temp_pgconf(request):
+    """Ensure file postgresql.conf for testing on m/c with no postgreSQL."""
+    pgconf_path = os.path.expanduser('~/postgresql.conf')
+    if not os.path.isfile(pgconf_path):
         with open(pgconf_path, 'w') as file:
             file.write('')
-        def delfile():
-            os.remove(pgconf_path)
-        request.addfinalizer(delfile)
-        return True
+        request.addfinalizer(lambda: os.remove(pgconf_path))
 
 
 @pytest.fixture
-def mock_postgres(create_temp_pgconf, pm, config, session, procent):  # pylint: disable=unused-argument
+def mock_postgres(temp_pgconf, pm, config, session, procent):  # pylint: disable=unused-argument
     postgres = entityd.postgresme.PostgreSQLEntity()
-    pm.register(postgres,
-                name='entityd.postgresme.PostgreSQLEntity')
+    pm.register(
+        postgres, name='entityd.postgresme.PostgreSQLEntity')
     postgres.entityd_sessionstart(session)
     postgres.entityd_configure(config)
     return postgres
 
 
 def test_get_entities(mock_postgres):
-    entities = mock_postgres.entityd_find_entity(name='PostgreSQL', attrs=None,
-                                              include_ondemand=False)
+    entities = mock_postgres.entityd_find_entity(
+        name='PostgreSQL', attrs=None, include_ondemand=False)
     entity = next(entities)
     assert entity.metype == 'PostgreSQL'
     assert entity.attrs.get('process_id').value == 123
@@ -73,18 +68,18 @@ def test_multiple_processes(monkeypatch, procent, mock_postgres):
     p3.attrs.set('ppid', 0)
     p3.attrs.set('binary', 'postgres')
     p3.attrs.set('command', 'postgres')
-    monkeypatch.setattr(procent, 'filtered_processes',
-                        pytest.Mock(return_value=[p1, p2, p3]))
-    entities = mock_postgres.entityd_find_entity(name='PostgreSQL', attrs=None,
-                                              include_ondemand=False)
+    monkeypatch.setattr(
+        procent, 'filtered_processes', pytest.Mock(return_value=[p1, p2, p3]))
+    entities = mock_postgres.entityd_find_entity(
+        name='PostgreSQL', attrs=None, include_ondemand=False)
     pids = sorted(e.attrs.get('process_id').value for e in entities)
     assert pids == [123, 789]
 
 
 def test_attrs_must_be_none(mock_postgres):
     with pytest.raises(LookupError):
-        mock_postgres.entityd_find_entity(name='PostgreSQL', attrs={'not': None},
-                                       include_ondemand=False)
+        mock_postgres.entityd_find_entity(
+            name='PostgreSQL', attrs={'not': None}, include_ondemand=False)
 
 
 def test_host_stored_and_returned(pm, session, kvstore, mock_postgres):  # pylint: disable=unused-argument
@@ -92,13 +87,13 @@ def test_host_stored_and_returned(pm, session, kvstore, mock_postgres):  # pylin
     pm.register(hostgen, name='entityd.hostme')
     hostgen.entityd_sessionstart(session)
 
-    entities = mock_postgres.entityd_find_entity(name='PostgreSQL', attrs=None,
-                                              include_ondemand=False)
+    entities = mock_postgres.entityd_find_entity(
+        name='PostgreSQL', attrs=None, include_ondemand=False)
     next(entities)
     ueid = mock_postgres._host_ueid
     assert ueid
-    entities = mock_postgres.entityd_find_entity(name='PostgreSQL', attrs=None,
-                                              include_ondemand=False)
+    entities = mock_postgres.entityd_find_entity(
+        name='PostgreSQL', attrs=None, include_ondemand=False)
     entity = next(entities)
     assert ueid is mock_postgres._host_ueid
     assert entity.attrs.get('host').value == ueid
@@ -110,17 +105,16 @@ def test_config_file(pm, session, mock_postgres):
     pm.register(filegen, 'entityd.fileme.FileEntity')
     filegen.entityd_sessionstart(session)
 
-    entities = mock_postgres.entityd_find_entity(name='PostgreSQL', attrs=None,
-                                              include_ondemand=True)
+    entities = mock_postgres.entityd_find_entity(
+        name='PostgreSQL', attrs=None, include_ondemand=True)
     file, postgres = sorted(entities, key=lambda e: e.metype)
     assert file.ueid in postgres.children._relations
 
 
-@pytest.mark.parametrize('path', ['/var/lib/pgsql/data/postgresql.conf'] + \
-                                ['/etc/postgresql/' + str(8.0 + n/10) +
-                                '/main/postgresql.conf' for n in range(50)])
+@pytest.mark.parametrize('path', ['/var/lib/pgsql/data/postgresql.conf',
+                                  '/etc/postgresql/2.7/main/postgresql.conf'])
 def test_config_path_defaults(monkeypatch, path):
-    """PostgreSQL should use the first file that exists from a given list"""
+    """Test the 2 different location types. """
 
     def isfile(test_path):
         if test_path == path:
@@ -132,21 +126,27 @@ def test_config_path_defaults(monkeypatch, path):
     proc.attrs.set('command', 'postgres')
     postgres = entityd.postgresme.PostgreSQL(proc)
     monkeypatch.setattr(entityd.postgresme.os.path, 'isfile', isfile)
+    # Patches for code looking for /etc/postgresql/x.x/main/postgresql.conf
+    if path == '/etc/postgresql/2.7/main/postgresql.conf':
+        monkeypatch.setattr(
+            entityd.postgresme.os.path, 'isdir', lambda x: True)
+        monkeypatch.setattr(
+            entityd.postgresme.os, 'listdir', lambda x: ['2.7'])
     assert postgres.config_path() == path
 
 
 def test_config_path_not_found(monkeypatch):
-    monkeypatch.setattr(entityd.postgresme.os.path,
-                        'isfile', pytest.Mock(return_value=False))
+    monkeypatch.setattr(
+        entityd.postgresme.os.path, 'isfile', pytest.Mock(return_value=False))
     proc = entityd.EntityUpdate('Process')
     proc.attrs.set('command', 'postgres')
     postgres = entityd.postgresme.PostgreSQL(proc)
-    with pytest.raises(entityd.postgresme.PostgreSQLNotFound):
+    with pytest.raises(entityd.postgresme.PostgreSQLNotFoundError):
         postgres.config_path()
 
 
 @pytest.mark.parametrize('command, path', [
-    ('-c config_file=/etc/postgresql/9.3/main/postgresql.conf',
+    ('-c this=another -c config_file=/etc/postgresql/9.3/main/postgresql.conf',
      '/etc/postgresql/9.3/main/postgresql.conf'),
     ('-c config_file=/etc/postgresql/8.3/main/postgresql.conf',
      '/etc/postgresql/8.3/main/postgresql.conf'),

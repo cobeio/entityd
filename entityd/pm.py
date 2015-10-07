@@ -560,7 +560,6 @@ class HookCaller:
 
     def __call__(self, **kwargs):
         extra_args = set(kwargs.keys()) - set(self._argnames)
-        # todo: check for too few args also? - this only checks for too many
         if extra_args:
             raise TypeError('{!r} call has extra args: {}'
                             .format(self, ' '.join(extra_args)))

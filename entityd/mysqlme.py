@@ -91,9 +91,8 @@ class MySQLEntity:
                 if e.attrs.get('ppid').value not in processes]
 
 
-class MySQLNotFound(Exception):
-    """Thrown if the MySQL instance cannot be found"""
-    pass
+class MySQLNotFoundError(Exception):
+    """Thrown if the MySQL instance cannot be found."""
 
 
 class MySQL:
@@ -112,7 +111,7 @@ class MySQL:
         paths = ['/etc/my.cnf',
                  '/etc/mysql/my.cnf',
                  '/usr/etc/my.cnf',
-                 os.path.expanduser('~/') + '/.my.cnf']
+                 os.path.expanduser('~/.my.cnf')]
         command = self.process.attrs.get('command').value
         parser = argparse.ArgumentParser()
         parser.add_argument('--defaults-file', dest='config')
@@ -123,4 +122,4 @@ class MySQL:
             for path in paths:
                 if os.path.isfile(path):
                     return path
-        raise MySQLNotFound('Could not find config path for MySQL.')
+        raise MySQLNotFoundError('Could not find config path for MySQL.')

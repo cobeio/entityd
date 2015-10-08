@@ -105,30 +105,28 @@ class PostgreSQL:
         self.process = process
 
     def config_path(self):
-        """Get the path for postgresql.conf."""
-
+        """Get the path for postgresql config file, checking in process
+        command text, then in directory usual suspects if not found
+        """
+        command = self.process.attrs.get('command').value
+        comm = shlex.split(command)
+        for param in comm:
+            if (param.startswith('-cconfig_file=') or
+                    param.startswith('config_file=')):
+                path = param.split('=', 1)[1]
+                return path
         # Create list of most likely generic paths for postgresql.conf file,
         # incl. format ``/etc/postgresql/*.*/main/postgresql.conf``
         # where *.* is postgres version nr
         paths = ['/var/lib/pgsql/data/postgresql.conf']
         if os.path.isdir('/etc/postgresql/'):
             for directory in os.listdir('/etc/postgresql/'):
-                match = re.findall(r'[0-9].[0-9]', directory)
-                if match and os.path.isdir(
-                        '/etc/postgresql/'+match[0]+'/main'):
-                    paths.append(
-                        '/etc/postgresql/'+match[0]+'/main/postgresql.conf')
+                match = re.fullmatch(r'[0-9]+\.[0-9]+', directory)
+                if match:
+                    paths.append('/etc/postgresql/' +
+                                 match.group()+
+                                 '/main/postgresql.conf')
         paths.append(os.path.expanduser('~/postgresql.conf'))
-        command = self.process.attrs.get('command').value
-        comm = shlex.split(command)
-        # Simple approach to search multiple '-c' command instances in postgres
-        for nbr, param in enumerate(comm):
-            if (param == '-c' and
-                    comm[nbr+1:] and
-                    comm[nbr+1].startswith('config_file=') and
-                    comm[nbr+1].endswith('postgresql.conf')):
-                path = comm[nbr+1].split('=', 1)[1]
-                return path
         for path in paths:
             if os.path.isfile(path):
                 return path

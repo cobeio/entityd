@@ -27,11 +27,10 @@ def procent(pm, session, monkeypatch):
 @pytest.fixture
 def temp_pgconf(request):
     """Ensure file postgresql.conf for testing on m/c with no postgreSQL."""
-    pgconf_path = os.path.expanduser('~/postgresql.conf')
-    if not os.path.isfile(pgconf_path):
-        with open(pgconf_path, 'w') as file:
-            file.write('')
-        request.addfinalizer(lambda: os.remove(pgconf_path))
+    cpath = os.path.expanduser('~/postgresql.conf')
+    if not os.path.isfile(cpath):
+        os.open(cpath, os.O_CREAT)
+        request.addfinalizer(lambda: os.remove(cpath))
 
 
 @pytest.fixture
@@ -146,10 +145,17 @@ def test_config_path_not_found(monkeypatch):
 
 
 @pytest.mark.parametrize('command, path', [
-    ('-c this=another -c config_file=/etc/postgresql/9.3/main/postgresql.conf',
-     '/etc/postgresql/9.3/main/postgresql.conf'),
     ('-c config_file=/etc/postgresql/8.3/main/postgresql.conf',
      '/etc/postgresql/8.3/main/postgresql.conf'),
+    ('-c config_file=/etc/postgresql/101.101/main/postgresql.conf',
+     '/etc/postgresql/101.101/main/postgresql.conf'),
+    ('-c this=another -c config_file=/etc/postgresql/9.3/main/postgresql.conf'
+     ' -d reservoirdogs',
+     '/etc/postgresql/9.3/main/postgresql.conf'),
+    ('-c config_file=/etc/postgresql/8.3/main/anotherconfname.conf',
+     '/etc/postgresql/8.3/main/anotherconfname.conf'),
+    ('-cconfig_file=/etc/postgresql/8.3/main/anotherconfname.conf',
+     '/etc/postgresql/8.3/main/anotherconfname.conf'),
 ])
 def test_config_pathoverride(command, path):
     proc = entityd.EntityUpdate('Process')

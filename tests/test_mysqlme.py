@@ -26,11 +26,10 @@ def procent(pm, session, monkeypatch):
 @pytest.fixture
 def temp_mycnf(request):
     """Ensure there's a my.cnf file for testing on m/c with no mySQL."""
-    if not os.path.isfile('/usr/etc/my.cnf'):
-        mycnf_path = os.path.expanduser('~/.my.cnf')
-        with open(mycnf_path, 'w') as file:
-            file.write('')
-        request.addfinalizer(lambda: os.remove(mycnf_path))
+    cpath = os.path.expanduser('~/.my.cnf')
+    if not os.path.isfile(cpath):
+        os.open(cpath, os.O_CREAT)
+        request.addfinalizer(lambda: os.remove(cpath))
 
 
 @pytest.fixture

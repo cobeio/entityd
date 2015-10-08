@@ -105,8 +105,13 @@ class PostgreSQL:
         self.process = process
 
     def config_path(self):
-        """Get the path for postgresql config file, checking in process
-        command text, then in directory usual suspects if not found
+        """Finds the path for the postgresql config file.
+
+        Searches in process command text, then in directory usual suspects
+        including format ``/etc/postgresql/*.*/main/postgresql.conf``
+        where *.* is postgres version.
+
+        :return: Full path for postgresql config file.
         """
         command = self.process.attrs.get('command').value
         comm = shlex.split(command)
@@ -115,16 +120,13 @@ class PostgreSQL:
                     param.startswith('config_file=')):
                 path = param.split('=', 1)[1]
                 return path
-        # Create list of most likely generic paths for postgresql.conf file,
-        # incl. format ``/etc/postgresql/*.*/main/postgresql.conf``
-        # where *.* is postgres version nr
         paths = ['/var/lib/pgsql/data/postgresql.conf']
         if os.path.isdir('/etc/postgresql/'):
             for directory in os.listdir('/etc/postgresql/'):
                 match = re.fullmatch(r'[0-9]+\.[0-9]+', directory)
                 if match:
                     paths.append('/etc/postgresql/' +
-                                 match.group()+
+                                 match.group() +
                                  '/main/postgresql.conf')
         paths.append(os.path.expanduser('~/postgresql.conf'))
         for path in paths:

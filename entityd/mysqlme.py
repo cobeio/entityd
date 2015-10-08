@@ -105,9 +105,14 @@ class MySQL:
         self.process = process
 
     def config_path(self):
-        """Get the path for our my.cnf"""
-        # Default options are read from the following files in the
-        # given order (on Linux):
+        """Find the path for the my.cnf config file.
+
+        Checks standard locations for the file, else checks instruction text
+        from processes.
+
+        :return: Full path for postgresql config file.
+        """
+
         paths = ['/etc/my.cnf',
                  '/etc/mysql/my.cnf',
                  '/usr/etc/my.cnf',

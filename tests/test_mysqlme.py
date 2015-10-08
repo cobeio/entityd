@@ -5,6 +5,7 @@ import entityd.processme
 
 import pytest
 import os
+import tempfile
 
 
 @pytest.fixture
@@ -24,16 +25,16 @@ def procent(pm, session, monkeypatch):
 
 
 @pytest.fixture
-def temp_mycnf(request):
-    """Ensure there's a my.cnf file for testing on m/c with no mySQL."""
-    cpath = os.path.expanduser('~/.my.cnf')
-    if not os.path.isfile(cpath):
-        os.open(cpath, os.O_CREAT)
-        request.addfinalizer(lambda: os.remove(cpath))
+def mock_config_path(monkeypatch):
+    temp = tempfile.NamedTemporaryFile(delete=False)
+    monkeypatch.setattr(entityd.mysqlme.MySQL,
+                        'config_path',
+                        pytest.Mock(return_value=temp.name))
+    return entityd.mysqlme.MySQL.config_path
 
 
 @pytest.fixture
-def mock_mysql(temp_mycnf, pm, config, session, procent):  # pylint: disable=unused-argument
+def mock_mysql(mock_config_path, pm, config, session, procent):  # pylint: disable=unused-argument
     mysql = entityd.mysqlme.MySQLEntity()
     pm.register(
         mysql, name='entityd.mysqlme.MySQLEntity')
@@ -114,7 +115,7 @@ def test_config_file(pm, session, mock_mysql):
                                   '/usr/etc/my.cnf',
                                   os.path.expanduser('~/.my.cnf')])
 def test_config_path_defaults(monkeypatch, path):
-    """MySQL should use the first file that exists from a given list"""
+    """MySQL should use the first file that exists from a given list."""
 
     def isfile(test_path):
         if test_path == path:

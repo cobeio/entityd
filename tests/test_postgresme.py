@@ -4,7 +4,7 @@ import entityd.postgresme
 import entityd.processme
 
 import pytest
-import os
+import tempfile
 
 
 @pytest.fixture
@@ -25,16 +25,16 @@ def procent(pm, session, monkeypatch):
 
 
 @pytest.fixture
-def temp_pgconf(request):
-    """Ensure file postgresql.conf for testing on m/c with no postgreSQL."""
-    cpath = os.path.expanduser('~/postgresql.conf')
-    if not os.path.isfile(cpath):
-        os.open(cpath, os.O_CREAT)
-        request.addfinalizer(lambda: os.remove(cpath))
+def mock_config_path(monkeypatch):
+    temp = tempfile.NamedTemporaryFile(delete=False)
+    monkeypatch.setattr(entityd.postgresme.PostgreSQL,
+                        'config_path',
+                        pytest.Mock(return_value=temp.name))
+    return entityd.postgresme.PostgreSQL.config_path
 
 
 @pytest.fixture
-def mock_postgres(temp_pgconf, pm, config, session, procent):  # pylint: disable=unused-argument
+def mock_postgres(mock_config_path, pm, config, session, procent):  # pylint: disable=unused-argument
     postgres = entityd.postgresme.PostgreSQLEntity()
     pm.register(
         postgres, name='entityd.postgresme.PostgreSQLEntity')
@@ -110,8 +110,10 @@ def test_config_file(pm, session, mock_postgres):
     assert file.ueid in postgres.children._relations
 
 
-@pytest.mark.parametrize('path', ['/var/lib/pgsql/data/postgresql.conf',
-                                  '/etc/postgresql/2.7/main/postgresql.conf'])
+@pytest.mark.parametrize('path',
+                         ['/var/lib/pgsql/data/postgresql.conf',
+                          '/etc/postgresql/2.7/main/postgresql.conf',
+                          '/etc/postgresql/10.21/main/postgresql.conf'])
 def test_config_path_defaults(monkeypatch, path):
     """Test the 2 different location types. """
 
@@ -126,11 +128,14 @@ def test_config_path_defaults(monkeypatch, path):
     postgres = entityd.postgresme.PostgreSQL(proc)
     monkeypatch.setattr(entityd.postgresme.os.path, 'isfile', isfile)
     # Patches for code looking for /etc/postgresql/x.x/main/postgresql.conf
+    monkeypatch.setattr(
+        entityd.postgresme.os.path, 'isdir', lambda x: True)
     if path == '/etc/postgresql/2.7/main/postgresql.conf':
         monkeypatch.setattr(
-            entityd.postgresme.os.path, 'isdir', lambda x: True)
-        monkeypatch.setattr(
             entityd.postgresme.os, 'listdir', lambda x: ['2.7'])
+    if path == '/etc/postgresql/10.21/main/postgresql.conf':
+        monkeypatch.setattr(
+            entityd.postgresme.os, 'listdir', lambda x: ['10.21'])
     assert postgres.config_path() == path
 
 
@@ -147,14 +152,10 @@ def test_config_path_not_found(monkeypatch):
 @pytest.mark.parametrize('command, path', [
     ('-c config_file=/etc/postgresql/8.3/main/postgresql.conf',
      '/etc/postgresql/8.3/main/postgresql.conf'),
-    ('-c config_file=/etc/postgresql/101.101/main/postgresql.conf',
-     '/etc/postgresql/101.101/main/postgresql.conf'),
     ('-c this=another -c config_file=/etc/postgresql/9.3/main/postgresql.conf'
      ' -d reservoirdogs',
      '/etc/postgresql/9.3/main/postgresql.conf'),
     ('-c config_file=/etc/postgresql/8.3/main/anotherconfname.conf',
-     '/etc/postgresql/8.3/main/anotherconfname.conf'),
-    ('-cconfig_file=/etc/postgresql/8.3/main/anotherconfname.conf',
      '/etc/postgresql/8.3/main/anotherconfname.conf'),
 ])
 def test_config_pathoverride(command, path):

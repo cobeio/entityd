@@ -25,11 +25,12 @@ def procent(pm, session, monkeypatch):
 
 
 @pytest.fixture
-def mock_config_path(monkeypatch):
-    temp = tempfile.NamedTemporaryFile(delete=False)
+def mock_config_path(request, monkeypatch):
+    temp = tempfile.NamedTemporaryFile(delete=True)
     monkeypatch.setattr(entityd.mysqlme.MySQL,
                         'config_path',
                         pytest.Mock(return_value=temp.name))
+    request.addfinalizer(lambda: temp.close())
     return entityd.mysqlme.MySQL.config_path
 
 

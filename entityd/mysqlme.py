@@ -1,4 +1,4 @@
-"""Plugin providing MySQL monitored entities
+"""Plugin providing MySQL monitored entities.
 
 Supporting multiple instances on a host, identified by the configuration
 file location.

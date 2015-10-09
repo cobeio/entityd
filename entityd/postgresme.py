@@ -1,4 +1,4 @@
-"""Plugin providing PostgreSQL monitored entities
+"""Plugin providing PostgreSQL monitored entities.
 
 Supporting multiple instances on a host, identified by the configuration
 file location.
@@ -40,8 +40,8 @@ class PostgreSQLEntity:
         """Return an iterator of "PostgreSQL" Monitored Entities."""
         if name == 'PostgreSQL':
             if attrs is not None:
-                raise LookupError('Attribute based filtering not supported '
-                                  'for attrs {}'.format(attrs))
+                raise LookupError('Attribute based filtering'
+                                  ' not supported for attrs {}'.format(attrs))
             return self.entities(include_ondemand=include_ondemand)
 
     @property

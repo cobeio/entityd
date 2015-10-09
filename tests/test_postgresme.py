@@ -153,6 +153,8 @@ def test_config_path_not_found(monkeypatch):
 @pytest.mark.parametrize('command, path', [
     ('-c config_file=/etc/postgresql/8.3/main/postgresql.conf',
      '/etc/postgresql/8.3/main/postgresql.conf'),
+    ('-cconfig_file=/etc/postgresql/8.3/main/postgresql.conf',
+     '/etc/postgresql/8.3/main/postgresql.conf'),
     ('-c this=another -c config_file=/etc/postgresql/9.3/main/postgresql.conf'
      ' -d reservoirdogs',
      '/etc/postgresql/9.3/main/postgresql.conf'),

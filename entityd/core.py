@@ -10,6 +10,7 @@ then runs the application by calling this hook.
 
 """
 
+import act.log
 import argparse
 import logging
 import threading
@@ -17,11 +18,13 @@ import sys
 import time
 import types
 
+import logbook
 import pkg_resources
+
 import entityd.pm
 
 
-log = logging.getLogger(__name__)
+log = logbook.Logger(__name__)
 
 
 @entityd.pm.hookimpl
@@ -29,7 +32,8 @@ def entityd_main(pluginmanager, argv):
     """Run entityd."""
     config = pluginmanager.hooks.entityd_cmdline_parse(
         pluginmanager=pluginmanager, argv=argv)
-    setup_logging(config)
+    log_handler = act.log.setup_logbook(config.args.log_level)
+    log_handler.push_application()
     pluginmanager.hooks.entityd_configure(config=config)
     session = Session(pluginmanager, config)
     pluginmanager.hooks.entityd_sessionstart(session=session)
@@ -65,11 +69,9 @@ def entityd_addoption(parser):
     )
     parser.add_argument(
         '-l', '--log-level',
-        metavar='LEVEL',
-        default=logging.INFO,
-        help=('log verbosity; debug, info, '
-              'warning, error or critical; or 0-100'),
-        action=LogLevelAction,
+        default=logbook.INFO,
+        help='Log verbosity: debug, info, warning, error, critical; or 0-6',
+        action=act.log.LogLevelAction,
     )
     parser.add_argument(
         '--trace',
@@ -81,47 +83,11 @@ def entityd_addoption(parser):
 @entityd.pm.hookimpl
 def entityd_mainloop(session):
     """Run the daemon mainloop."""
-    log.info('entityd started')
+    log.info('Entityd started')
     try:
         session.run()
     except KeyboardInterrupt:
         pass
-
-
-def setup_logging(config):
-    """Setup the global logging infrastructure.
-
-    :param config: The Config instance.
-
-    :return: The root logger instance.
-    """
-    log_format = '{asctime} {levelname:8} {name:14} {message}'
-    root_logger = logging.getLogger()
-    root_handler = logging.StreamHandler(stream=sys.stdout)
-    root_formatter = logging.Formatter(fmt=log_format, style='{')
-    root_formatter.converter = time.gmtime
-    root_handler.setFormatter(root_formatter)
-    root_logger.setLevel(config.args.log_level)
-    root_logger.addHandler(root_handler)
-    return root_logger
-
-
-class LogLevelAction(argparse.Action):
-    """Custom parser action to validate loglevel as either int or string."""
-
-    def __init__(self, option_strings, dest, nargs=None, **kwargs):
-        super().__init__(option_strings, dest, **kwargs)
-
-    def __call__(self, parser, namespace, values, option_string=None):
-        try:
-            values = int(values)
-        except ValueError:
-            try:
-                values = getattr(logging, values.upper())
-            except AttributeError:
-                raise argparse.ArgumentError(
-                    self, "Invalid log level: {}".format(values))
-        setattr(namespace, self.dest, values)
 
 
 class Config:
@@ -192,6 +158,7 @@ class Config:
                 'Unregistering plugin {} does not match registered plugin {}'
                 .format(plugin, self.entities[name]))
         del self.entities[name]
+
 
 class Session:
     """A monitoring session.

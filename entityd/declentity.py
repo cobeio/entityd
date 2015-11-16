@@ -42,17 +42,17 @@ Example entity declaration file:
 """
 
 import collections
-import logging
 import pathlib
 import re
 
 import act
+import logbook
 import yaml
 
 import entityd.pm
 
 
-log = logging.getLogger(__name__)
+log = logbook.Logger(__name__)
 
 
 class ValidationError(Exception):

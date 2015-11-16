@@ -10,7 +10,6 @@ then runs the application by calling this hook.
 
 """
 
-import act.log
 import argparse
 import logging
 import threading
@@ -18,7 +17,9 @@ import sys
 import time
 import types
 
+import act.log
 import logbook
+import logbook.compat
 import pkg_resources
 
 import entityd.pm
@@ -34,6 +35,7 @@ def entityd_main(pluginmanager, argv):
         pluginmanager=pluginmanager, argv=argv)
     log_handler = act.log.setup_logbook(config.args.log_level)
     log_handler.push_application()
+    logbook.compat.redirect_logging()
     pluginmanager.hooks.entityd_configure(config=config)
     session = Session(pluginmanager, config)
     pluginmanager.hooks.entityd_sessionstart(session=session)

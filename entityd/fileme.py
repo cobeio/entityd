@@ -4,9 +4,10 @@ Does not return anything for entity collection;
 only returns explicitly requested files.
 """
 
-import logging
 import os
 import stat
+
+import logbook
 
 import entityd
 
@@ -22,7 +23,7 @@ class FileEntity:
     def __init__(self):
         self.session = None
         self._host_ueid = None
-        self.log = logging.getLogger(__name__)
+        self.log = logbook.Logger(__name__)
 
     @staticmethod
     @entityd.pm.hookimpl

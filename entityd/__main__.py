@@ -7,8 +7,9 @@ plugin manager to drive the rest of the application's execution.
 
 import functools
 import importlib
-import logging
 import sys
+
+import logbook
 
 import entityd.hookspec
 import entityd.pm
@@ -30,7 +31,7 @@ BUILTIN_PLUGIN_NAMES = ['entityd.' + n for n in
                          'declentity:DeclarativeEntity']]
 
 
-log = logging.getLogger('bootstrap')
+log = logbook.Logger('entity.bootstrap')
 
 
 def main(argv=None, plugins=None):

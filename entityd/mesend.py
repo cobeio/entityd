@@ -5,10 +5,10 @@ destination.
 
 """
 
-import logging
 import struct
 
 import act
+import logbook
 import msgpack
 import zmq
 import zmq.auth
@@ -16,7 +16,7 @@ import zmq.auth
 import entityd.pm
 
 
-log = logging.getLogger(__name__)
+log = logbook.Logger(__name__)
 
 
 class MonitoredEntitySender:

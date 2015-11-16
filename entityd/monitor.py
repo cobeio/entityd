@@ -9,12 +9,13 @@ The app main loop will call monitor.gather()
 
 import base64
 import collections
-import logging
+
+import logbook
 
 import entityd.pm
 
 
-log = logging.getLogger(__name__)
+log = logbook.Logger(__name__)
 
 
 class Monitor:

@@ -34,14 +34,14 @@ def entityd_main(pluginmanager, argv):
     config = pluginmanager.hooks.entityd_cmdline_parse(
         pluginmanager=pluginmanager, argv=argv)
     log_handler = act.log.setup_logbook(config.args.log_level)
-    log_handler.push_application()
-    logbook.compat.redirect_logging()
-    pluginmanager.hooks.entityd_configure(config=config)
-    session = Session(pluginmanager, config)
-    pluginmanager.hooks.entityd_sessionstart(session=session)
-    pluginmanager.hooks.entityd_mainloop(session=session)
-    pluginmanager.hooks.entityd_sessionfinish(session=session)
-    pluginmanager.hooks.entityd_unconfigure(config=config)
+    with log_handler.applicationbound():
+        logbook.compat.redirect_logging()
+        pluginmanager.hooks.entityd_configure(config=config)
+        session = Session(pluginmanager, config)
+        pluginmanager.hooks.entityd_sessionstart(session=session)
+        pluginmanager.hooks.entityd_mainloop(session=session)
+        pluginmanager.hooks.entityd_sessionfinish(session=session)
+        pluginmanager.hooks.entityd_unconfigure(config=config)
     return 0
 
 

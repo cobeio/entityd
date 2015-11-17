@@ -66,7 +66,7 @@ class FileEntity:
                 yield self.create_entity(path=attrs['path'])
             else:
                 self.log.debug('Failed to create entity for non-existent file\
-                                at %s', attrs['path'])
+                                at {}', attrs['path'])
 
     @property
     def host_ueid(self):

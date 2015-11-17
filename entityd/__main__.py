@@ -58,18 +58,18 @@ def main(argv=None, plugins=None):
         try:
             mod = importlib.import_module(modname)
         except Exception:       # pylint: disable=broad-except
-            log.exception('Failed to import plugin module: %s', name)
+            log.exception('Failed to import plugin module: {}', name)
             continue
         if classname:
             try:
                 cls = getattr(mod, classname)
             except AttributeError:
-                log.exception('Failed to get plugin class: %s', name)
+                log.exception('Failed to get plugin class: {}', name)
                 continue
             try:
                 plugin = cls()
             except Exception:  # pylint: disable=broad-except
-                log.exception('Failed to instantiate class: %s', name)
+                log.exception('Failed to instantiate class: {}', name)
                 continue
             name = '.'.join([plugin.__module__, cls.__name__])
         else:
@@ -78,7 +78,7 @@ def main(argv=None, plugins=None):
         try:
             pluginmanager.register(plugin, name=name)
         except Exception:       # pylint: disable=broad-except
-            log.exception('Failed to register plugin: %s', name)
+            log.exception('Failed to register plugin: {}', name)
     return pluginmanager.hooks.entityd_main(
         pluginmanager=pluginmanager,
         argv=argv,

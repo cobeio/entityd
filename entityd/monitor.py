@@ -66,7 +66,7 @@ class Monitor:
                         session=self.session, entity=entity)
                     this_batch[entity.metype].add(entity.ueid)
             if this_batch[metype]:
-                log.debug('Sent %s %s entity updates.',
+                log.debug('Sent {} {} entity updates.',
                           len(this_batch[metype]), metype)
         for metype in types:
             deleted_ueids = self.last_batch[metype] - this_batch[metype]
@@ -76,7 +76,7 @@ class Monitor:
                 self.session.pluginmanager.hooks.entityd_send_entity(
                     session=self.session, entity=update)
             if deleted_ueids:
-                log.debug('Sent %s %s entity deletions.',
+                log.debug('Sent {} {} entity deletions.',
                           len(deleted_ueids), metype)
             if not this_batch[metype]:
                 del this_batch[metype]

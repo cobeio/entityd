@@ -134,7 +134,7 @@ class DeclarativeEntity:
         changed_files = []
         for filepath in self._path.rglob('*.entity'):
             if filepath.stat().st_mtime != self._files.get(filepath, 0):
-                log.debug("Loading file %s", filepath)
+                log.debug("Loading file {}", filepath)
                 loaded.extend([conf for conf in self._load_file(filepath)])
                 changed_files.append(filepath)
 

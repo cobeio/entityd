@@ -37,7 +37,7 @@ class MonitoredEntitySender:
         given in the config.args and being returned.
         """
         if not self._socket:
-            log.debug("Creating new socket to %s",
+            log.debug("Creating new socket to {}",
                       self.session.config.args.dest)
             keydir = self.session.config.keydir
             modeld_public, _ = zmq.auth.load_certificate(

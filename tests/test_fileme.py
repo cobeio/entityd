@@ -1,3 +1,4 @@
+import re
 
 import pytest
 
@@ -41,12 +42,12 @@ def test_calling_with_no_attrs(fileent):
         print(next(result))
 
 
-def test_calling_with_non_existent_path(tmpdir, caplog, session, fileent):
+def test_calling_with_non_existent_path(tmpdir, loghandler, session, fileent):
     fileent.entityd_sessionstart(session)
     fileent.entityd_configure(session.config)
-    file = tmpdir.join('testfile.txt')
-    entities = fileent.entityd_find_entity('File', attrs={'path': str(file)})
+    file_ = tmpdir.join('testfile.txt')
+    entities = fileent.entityd_find_entity('File', attrs={'path': str(file_)})
     with pytest.raises(StopIteration):
         next(entities)
-    assert 'Failed to create entity' in caplog.text()
-    assert str(file) in caplog.text()
+    loghandler.has_warning(re.compile(r"Failed to create entity"))
+    loghandler.has_warning(re.compile(str(file_)))

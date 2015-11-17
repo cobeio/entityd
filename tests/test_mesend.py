@@ -1,5 +1,6 @@
 import argparse
 import pathlib
+import re
 import struct
 import time
 
@@ -190,13 +191,12 @@ def test_send_unserializable(sender):
         sender.entityd_send_entity(entity)
 
 
-def test_buffers_full(caplog, sender):
+def test_buffers_full(loghandler, sender):
     entity = {'uuid': 'abcdef'}
     for _ in range(501):
         sender.entityd_send_entity(entity)
-    assert [rec for rec in caplog.records() if
-            rec.levelname == 'WARNING' and
-            'Could not send, message buffers are full' in rec.msg]
+    loghandler.has_warning(
+        re.compile(r"Could not send, message buffers are full"))
     assert sender._socket is None
 
 

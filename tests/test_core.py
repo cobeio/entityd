@@ -1,9 +1,9 @@
 import argparse
-import logging
 import sys
 import threading
 import time
 
+import logbook
 import pytest
 
 import entityd.hookspec
@@ -20,7 +20,7 @@ def plugin(pm):
 
 def test_entityd_main(pm, hookrec):
     config = pytest.Mock()
-    config.args.log_level = logging.INFO
+    config.args.log_level = logbook.INFO
     class FooPlugin:
         entityd_main = core.entityd_main
 
@@ -82,35 +82,6 @@ def test_entityd_mainloop_interrupt():
     session = pytest.Mock()
     session.run.side_effect = KeyboardInterrupt
     core.entityd_mainloop(session)
-
-
-def test_setup_logging():
-    config = pytest.Mock()
-    config.args.log_level = logging.WARN
-    logger = core.setup_logging(config)
-    assert isinstance(logger, logging.Logger)
-    assert logger.level == logging.WARN
-
-
-class TestLogLevelAction:
-
-    @pytest.fixture
-    def parser(self):
-        parser = argparse.ArgumentParser()
-        parser.add_argument('-l', action=core.LogLevelAction)
-        return parser
-
-    def test_int(self, parser):
-        args = parser.parse_args(['-l', '{}'.format(logging.INFO)])
-        assert args.l == logging.INFO
-
-    def test_string(self, parser):
-        args = parser.parse_args(['-l', 'INFO'])
-        assert args.l == logging.INFO
-
-    def test_string_wrong(self, parser):
-        with pytest.raises(SystemExit):
-            parser.parse_args(['-l', 'foo'])
 
 
 class TestConfig:

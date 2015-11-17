@@ -29,7 +29,7 @@ dependencies:
   # development
   - pytest
   - pytest-cov
-  - pytest-capturelog
+  - pytest-logbook
   - pylint
   - pylint-abilisoft
   - coverage

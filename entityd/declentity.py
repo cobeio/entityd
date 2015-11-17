@@ -162,16 +162,16 @@ class DeclarativeEntity:
                 try:
                     load_data = list(yaml.safe_load_all(openfile))
                 except yaml.scanner.ScannerError as err:
-                    log.warning('Could not load file %s: %s',
+                    log.warning('Could not load file {}: {}',
                                 filepath, err)
                     return
         except IOError as err:
-            log.warning("Could not open file %s: %s", filepath, err)
+            log.warning("Could not open file {}: {}", filepath, err)
             return
         self._files[filepath] = filepath.stat().st_mtime
         for data in load_data:
             if not isinstance(data, dict):
-                log.warning('Error loading file %s, one or more entity'
+                log.warning('Error loading file {}, one or more entity'
                             'declarations not loaded.', filepath)
                 continue
             data['filepath'] = filepath
@@ -179,7 +179,7 @@ class DeclarativeEntity:
                 data = DeclCfg(data)
             except ValidationError as err:
                 log.warning('Ignoring invalid entity declaration '
-                            'in %s: %s', filepath, err)
+                            'in {}: {}', filepath, err)
             else:
                 yield data
 

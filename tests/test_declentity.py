@@ -1,6 +1,7 @@
 import argparse
 import os
 import pathlib
+import re
 import textwrap
 import time
 
@@ -69,7 +70,7 @@ def test_load_files(declent, session, config, tmpdir):
     assert config.entities['test'].obj is declent
 
 
-def test_load_incorrect_file(declent, config, tmpdir, caplog):
+def test_load_incorrect_file(declent, config, tmpdir, loghandler):
     # A file with a load of rubbish in shouldn't crash entityd
     conf_file = tmpdir.join('test.entity')
     conf_file.write("""AA Rabbit, Foobar""")
@@ -77,10 +78,10 @@ def test_load_incorrect_file(declent, config, tmpdir, caplog):
     declent.entityd_configure(config)
     declent._update_entities()
     assert not declent._conf_attrs
-    assert "Error loading" in caplog.text()
+    loghandler.has_warning(re.compile(r"Error loading"))
 
 
-def test_load_invalid_file(declent, config, tmpdir, caplog):
+def test_load_invalid_file(declent, config, tmpdir, loghandler):
     # Multidoc files can't have leading spaces
     conf_file = tmpdir.join('test.entity')
     conf_file.write("""
@@ -93,10 +94,10 @@ def test_load_invalid_file(declent, config, tmpdir, caplog):
     declent.entityd_configure(config)
     declent._update_entities()
     assert not declent._conf_attrs
-    assert 'Could not load' in caplog.text()
+    loghandler.has_warning(re.compile(r"Could not load"))
 
 
-def test_load_no_permission(declent, session, config, tmpdir, caplog):
+def test_load_no_permission(declent, session, config, tmpdir, loghandler):
     conf_file = tmpdir.join('test.entity')
     conf_file.write('type: Test')
     pathlib.Path(conf_file.strpath).chmod(0x000)
@@ -104,7 +105,7 @@ def test_load_no_permission(declent, session, config, tmpdir, caplog):
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     assert 'Test' not in declent._conf_attrs.keys()
-    assert 'Could not open' in caplog.text()
+    loghandler.has_warning(re.compile(r"Could not open"))
 
 
 @pytest.fixture
@@ -146,7 +147,7 @@ def test_load_files_on_start(declent, config, session, conf_file):
     assert declcfg.children[1].attrs['path'] == '/path/to/file'
 
 
-def test_load_file_no_type(declent, config, session, tmpdir, caplog):
+def test_load_file_no_type(declent, config, session, tmpdir, loghandler):
     conf_file = tmpdir.join('test.entity')
     conf_file.write("""
         attrs:
@@ -156,7 +157,7 @@ def test_load_file_no_type(declent, config, session, tmpdir, caplog):
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     assert declent._conf_attrs == dict()
-    assert 'No type field' in caplog.text()
+    loghandler.has_warning(re.compile(r"No type field"))
 
 
 def test_filepath_attr_used(declent, config, session, tmpdir):
@@ -189,7 +190,7 @@ def test_bad_file_suffix(declent, config, session, tmpdir):
     assert 'Test' not in declent._conf_attrs.keys()
 
 
-def test_invalid_type(declent, config, session, tmpdir, caplog):
+def test_invalid_type(declent, config, session, tmpdir, loghandler):
     conf_file = tmpdir.join('test.entity')
     conf_file.write("""
         type: Invalid/Type
@@ -198,10 +199,10 @@ def test_invalid_type(declent, config, session, tmpdir, caplog):
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     assert 'Invalid/Type' not in declent._conf_attrs.keys()
-    assert 'not allowed in type' in caplog.text()
+    loghandler.has_warning(re.compile(r"not allowed in type"))
 
 
-def test_invalid_relation(declent, config, session, tmpdir, caplog):
+def test_invalid_relation(declent, config, session, tmpdir, loghandler):
     conf_file = tmpdir.join('test.entity')
     conf_file.write("""
         type: Test
@@ -215,7 +216,7 @@ def test_invalid_relation(declent, config, session, tmpdir, caplog):
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     assert 'Test' not in declent._conf_attrs.keys()
-    assert 'Bad relation' in caplog.text()
+    loghandler.has_warning(re.compile(r'Bad relation'))
 
 
 def test_entity_removed_on_file_remove(declent, session, config, conf_file):
@@ -414,7 +415,7 @@ def test_relation_without_params(declent, session, config, tmpdir):
     assert child == expected
 
 
-def test_relation_without_type(declent, session, config, tmpdir, caplog):
+def test_relation_without_type(declent, session, config, tmpdir, loghandler):
     conf_file = tmpdir.join('test.entity')
     conf_file.write(textwrap.dedent("""
         type: Test
@@ -430,10 +431,10 @@ def test_relation_without_type(declent, session, config, tmpdir, caplog):
     declent.entityd_sessionstart(session)
     with pytest.raises(StopIteration):
         next(declent.entityd_find_entity('Test', None))
-    assert "'type' is required" in caplog.text()
+    assert loghandler.has_warning(re.compile(r"'type' is required"))
 
 
-def test_recursive_relation(declent, session, config, tmpdir, caplog):
+def test_recursive_relation(declent, session, config, tmpdir):
     conf_file = tmpdir.join('test.entity')
     conf_file.write(textwrap.dedent("""
         type: Test

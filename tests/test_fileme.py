@@ -49,5 +49,5 @@ def test_calling_with_non_existent_path(tmpdir, loghandler, session, fileent):
     entities = fileent.entityd_find_entity('File', attrs={'path': str(file_)})
     with pytest.raises(StopIteration):
         next(entities)
-    loghandler.has_warning(re.compile(r"Failed to create entity"))
-    loghandler.has_warning(re.compile(str(file_)))
+    assert loghandler.has_debug(re.compile(r"Failed to create entity"))
+    assert loghandler.has_debug(re.compile(str(file_)))

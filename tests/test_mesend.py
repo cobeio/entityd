@@ -195,7 +195,7 @@ def test_buffers_full(loghandler, sender):
     entity = {'uuid': 'abcdef'}
     for _ in range(501):
         sender.entityd_send_entity(entity)
-    loghandler.has_warning(
+    assert loghandler.has_warning(
         re.compile(r"Could not send, message buffers are full"))
     assert sender._socket is None
 

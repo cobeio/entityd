@@ -31,7 +31,7 @@ BUILTIN_PLUGIN_NAMES = ['entityd.' + n for n in
                          'declentity:DeclarativeEntity']]
 
 
-log = logbook.Logger('entity.bootstrap')
+log = logbook.Logger('entityd.bootstrap')
 
 
 def main(argv=None, plugins=None):

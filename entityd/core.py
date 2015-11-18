@@ -85,7 +85,7 @@ def entityd_addoption(parser):
 @entityd.pm.hookimpl
 def entityd_mainloop(session):
     """Run the daemon mainloop."""
-    log.info('Entityd started')
+    log.info('entityd started')
     try:
         session.run()
     except KeyboardInterrupt:

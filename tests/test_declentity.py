@@ -78,7 +78,7 @@ def test_load_incorrect_file(declent, config, tmpdir, loghandler):
     declent.entityd_configure(config)
     declent._update_entities()
     assert not declent._conf_attrs
-    assert loghandler.has_warning(re.compile(r"Error loading"))
+    assert loghandler.has_warning(re.compile(r'Error loading'))
 
 
 def test_load_invalid_file(declent, config, tmpdir, loghandler):
@@ -94,7 +94,7 @@ def test_load_invalid_file(declent, config, tmpdir, loghandler):
     declent.entityd_configure(config)
     declent._update_entities()
     assert not declent._conf_attrs
-    assert loghandler.has_warning(re.compile(r"Could not load"))
+    assert loghandler.has_warning(re.compile(r'Could not load'))
 
 
 def test_load_no_permission(declent, session, config, tmpdir, loghandler):
@@ -105,7 +105,7 @@ def test_load_no_permission(declent, session, config, tmpdir, loghandler):
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     assert 'Test' not in declent._conf_attrs.keys()
-    assert loghandler.has_warning(re.compile(r"Could not open"))
+    assert loghandler.has_warning(re.compile(r'Could not open'))
 
 
 @pytest.fixture
@@ -157,7 +157,7 @@ def test_load_file_no_type(declent, config, session, tmpdir, loghandler):
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     assert declent._conf_attrs == dict()
-    assert loghandler.has_warning(re.compile(r"No type field"))
+    assert loghandler.has_warning(re.compile(r'No type field'))
 
 
 def test_filepath_attr_used(declent, config, session, tmpdir):
@@ -199,7 +199,7 @@ def test_invalid_type(declent, config, session, tmpdir, loghandler):
     declent.entityd_configure(config)
     declent.entityd_sessionstart(session)
     assert 'Invalid/Type' not in declent._conf_attrs.keys()
-    assert loghandler.has_warning(re.compile(r"not allowed in type"))
+    assert loghandler.has_warning(re.compile(r'not allowed in type'))
 
 
 def test_invalid_relation(declent, config, session, tmpdir, loghandler):

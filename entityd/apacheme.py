@@ -26,7 +26,6 @@ import re
 import shlex
 import subprocess
 
-import logbook
 import requests
 
 import entityd.fileme

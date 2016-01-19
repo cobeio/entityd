@@ -1,3 +1,5 @@
+import inspect
+
 import kube
 import pytest
 
@@ -23,6 +25,47 @@ def meta_update(monkeypatch):
     monkeypatch.setattr(
         entityd.kubernetes, '_apply_meta_update', pytest.Mock())
     return entityd.kubernetes._apply_meta_update
+
+
+def test_entityd_configure(pm, config):
+    plugin = pm.register(entityd.kubernetes)
+    entityd.kubernetes.entityd_configure(config)
+    assert set(config.entities.keys()) == set((
+        'Kubernetes:Pod',
+    ))
+    for entity_plugin in config.entities.values():
+        assert entity_plugin is plugin
+
+
+class TestFindEntity:
+
+    @pytest.fixture
+    def _generate_updates(self, monkeypatch):
+        monkeypatch.setattr(entityd.kubernetes,
+                            '_generate_updates', pytest.Mock())
+        return entityd.kubernetes._generate_updates
+
+    @pytest.mark.parametrize(
+        ('type_', 'generator_function'),
+        entityd.kubernetes._ENTITIES_PROVIDED.items(),
+    )
+    def test(self, _generate_updates, type_, generator_function):
+        generator = entityd.kubernetes.entityd_find_entity(type_)
+        assert generator is _generate_updates.return_value
+        assert _generate_updates.call_args[0] == (
+            type_, getattr(entityd.kubernetes, generator_function))
+
+    def test_not_provided(self):
+        assert entityd.kubernetes.entityd_find_entity('Foo') is None
+
+    @pytest.mark.parametrize(
+        'type_',
+        entityd.kubernetes._ENTITIES_PROVIDED.keys(),
+    )
+    def test_attrs(self, type_):
+        with pytest.raises(LookupError):
+            entityd.kubernetes.entityd_find_entity(
+                type_, {'meta:name': 'foo-entity-bar'})
 
 
 def test_apply_meta_update():

@@ -1,6 +1,7 @@
 import kube
 import pytest
 
+import entityd.entityupdate
 import entityd.kubernetes
 
 
@@ -22,6 +23,35 @@ def meta_update(monkeypatch):
     monkeypatch.setattr(
         entityd.kubernetes, '_apply_meta_update', pytest.Mock())
     return entityd.kubernetes._apply_meta_update
+
+
+def test_apply_meta_update():
+    meta = kube.ObjectMeta(pytest.Mock(raw={
+        'metadata': {
+            'name': 'star',
+            'namespace': 'andromeda',
+            'resourceVersion': '1234',
+            'creationTimestamp': '2015-01-14T17:01:37Z',
+            'selfLink': '/api/v1/namespaces/andromeda/pods/star',
+            'uid': '7955593e-bae0-11e5-b0b9-42010af00091',
+        },
+    }))
+    update = entityd.entityupdate.EntityUpdate('Foo')
+    entityd.kubernetes._apply_meta_update(meta, update)
+    assert update.attrs.get('meta:name').value == 'star'
+    assert update.attrs.get('meta:name').type == 'id'
+    assert update.attrs.get('meta:namespace').value == 'andromeda'
+    assert update.attrs.get('meta:namespace').type == 'id'
+    assert update.attrs.get('meta:version').value == '1234'
+    assert update.attrs.get('meta:version').type is None
+    assert update.attrs.get('meta:created').value == '2015-01-14T17:01:37Z'
+    assert update.attrs.get('meta:created').type == 'chrono:rfc3339'
+    assert update.attrs.get('meta:link').value == (
+        '/api/v1/namespaces/andromeda/pods/star')
+    assert update.attrs.get('meta:link').type == 'uri'
+    assert update.attrs.get('meta:uid').value == (
+        '7955593e-bae0-11e5-b0b9-42010af00091')
+    assert update.attrs.get('meta:uid').type is None
 
 
 class TestPods:

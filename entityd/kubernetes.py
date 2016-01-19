@@ -88,8 +88,11 @@ def _apply_meta_update(meta, update):
     update.attrs.set('meta:name', meta.name, attrtype='id')
     update.attrs.set('meta:namespace', meta.namespace, attrtype='id')
     update.attrs.set('meta:version', meta.version)
-    update.attrs.set('meta:created',
-                     str(meta.created), attrtype='chrono:rfc3339')
+    update.attrs.set(
+        'meta:created',
+        meta.created.strftime(_RFC_3339_FORMAT),
+        attrtype='chrono:rfc3339',
+    )
     # TODO: Maybe convert to absolute URI
     update.attrs.set('meta:link', meta.link, attrtype='uri')
     update.attrs.set('meta:uid', meta.uid)

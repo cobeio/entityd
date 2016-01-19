@@ -18,7 +18,10 @@ import entityd.pm
 
 def pytest_namespace():
     """Add some items to the pytest namespace."""
-    return {'Mock': unittest.mock.Mock}
+    return {
+        'Mock': unittest.mock.Mock,
+        'MagicMock': unittest.mock.MagicMock,
+    }
 
 
 @pytest.fixture

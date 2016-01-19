@@ -31,7 +31,7 @@ def entityd_configure(config):
 
 
 @entityd.pm.hookimpl
-def entityd_find_entity(name, attrs, include_ondemand):
+def entityd_find_entity(name, attrs=None, include_ondemand=False):
     """Find Kubernetes entities.
 
     :raises LookupError: if ``attrs`` is given.

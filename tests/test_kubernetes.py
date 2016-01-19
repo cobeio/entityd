@@ -1,5 +1,3 @@
-import inspect
-
 import kube
 import pytest
 
@@ -171,6 +169,9 @@ class TestPods:
         assert pods[0].label == 'pod-1'
         assert pods[0].attrs.get('message').value == 'Once upon a time ...'
         assert pods[0].attrs.get('message').type is None
+        assert meta_update.call_count == 1
+        assert meta_update.call_args_list[0][0] == (
+            pod_resources[0].meta, pods[0])
 
     def test_with_reason(self, cluster, meta_update):
         pod_resources = [
@@ -194,3 +195,6 @@ class TestPods:
         assert pods[0].label == 'pod-1'
         assert pods[0].attrs.get('reason').value == 'ItsWorking'
         assert pods[0].attrs.get('reason').type is None
+        assert meta_update.call_count == 1
+        assert meta_update.call_args_list[0][0] == (
+            pod_resources[0].meta, pods[0])

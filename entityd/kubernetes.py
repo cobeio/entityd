@@ -32,7 +32,7 @@ def entityd_configure(config):
 
 
 @entityd.pm.hookimpl
-def entityd_find_entity(name, attrs=None, include_ondemand=False):
+def entityd_find_entity(name, attrs=None, include_ondemand=False):  # pylint: disable=unused-argument
     """Find Kubernetes entities.
 
     :raises LookupError: if ``attrs`` is given.
@@ -137,8 +137,8 @@ def _pod_update(pod, update):
     return update
 
 
-def _generate_containers(cluster):
-    """Generate updates for containers.
-
-    :returns: a generator of :class:`entityd.EntityUpdate`s.
-    """
+# def _generate_containers(cluster):
+#     """Generate updates for containers.
+#
+#     :returns: a generator of :class:`entityd.EntityUpdate`s.
+#     """

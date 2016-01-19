@@ -11,6 +11,7 @@ import entityd.pm
 import kube
 
 
+_RFC_3339_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 _ENTITIES_PROVIDED = {  # Entity type : update generator function name
     'Kubernetes:' + type_:
     '_generate_' + function for type_, function in [
@@ -118,7 +119,10 @@ def _pod_update(pod, update):
     update.attrs.set(
         'phase', pod.phase.value, attrtype='kubernetes:pod-phase')
     update.attrs.set(
-        'start_time', str(pod.start_time), attrtype='chrono:rfc3339')
+        'start_time',
+        pod.start_time.strftime(_RFC_3339_FORMAT),
+        attrtype='chrono:rfc3339',
+    )
     update.attrs.set('ip', str(pod.ip), attrtype='ip:v4')
     for attribute in ('message', 'reason'):
         try:

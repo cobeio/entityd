@@ -16,7 +16,7 @@ _ENTITIES_PROVIDED = {  # Entity type : update generator function name
     'Kubernetes:' + type_:
     '_generate_' + function for type_, function in [
         ('Pod', 'pods'),
-        # ('Container', 'containers'),
+        ('Container', 'containers'),
     ]
 }
 
@@ -141,8 +141,29 @@ def _pod_update(pod, update):
     return update
 
 
-# def _generate_containers(cluster):
-#     """Generate updates for containers.
-#
-#     :returns: a generator of :class:`entityd.EntityUpdate`s.
-#     """
+def _generate_containers(cluster):
+    """Generate updates for containers.
+
+    :returns: a generator of :class:`entityd.EntityUpdate`s.
+    """
+    for pod_update in _generate_updates(_generate_pods):
+        try:
+            namespace = cluster.namespaces.fetch(
+                pod_update.attrs.get('meta:namespace').value)
+            pod = namespace.pods.fetch(
+                pod_update.attrs.get('meta:name').value)
+        except LookupError:
+            pass
+        else:
+            for container in pod.containers:
+                update = yield
+                _container_update(container, update)
+
+
+def _container_update(container, update):
+    update.label = container.name
+    update.attrs.set('id', container.id, attrtype='id')
+    update.attrs.set('name', container.name, attrtype='id')
+    update.attrs.set('ready', container.ready)
+    update.attrs.set('image_id', container.image.id)
+    update.attrs.set('image_name', container.image.name)

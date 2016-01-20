@@ -157,6 +157,7 @@ def _generate_containers(cluster):
         else:
             for container in pod.containers:
                 update = yield
+                update.parents.add(pod_update)
                 _container_update(container, update)
 
 

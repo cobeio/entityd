@@ -40,10 +40,10 @@ def entityd_find_entity(name, attrs=None, include_ondemand=False):  # pylint: di
     if name in _ENTITIES_PROVIDED:
         if attrs is not None:
             raise LookupError('Attribute based filtering not supported')
-        return _generate_updates(name, globals()[_ENTITIES_PROVIDED[name]])
+        return _generate_updates(globals()[_ENTITIES_PROVIDED[name]])
 
 
-def _generate_updates(name, generator_function):
+def _generate_updates(generator_function):
     """Wrap an entity update generator function.
 
     This function wraps around any entity update generator and
@@ -54,23 +54,28 @@ def _generate_updates(name, generator_function):
     passed a :class:`kube.Cluster`. Then it is continually sent
     :class:`entityd.EntityUpdate`s until the generator is exhausted.
 
-    :param str name: the entity type name that the function generates.
     :param generator_function: a generator function that yields
         :class:`entityd.EntityUpdate`s.
 
+    :raises KeyError: if the given generator function's ``__name__`` is
+        not registered in :data:`_ENTITIES_PROVIDED`.
+
     :returns: a generator of the updates returned by ``generator_function``.
     """
+    name = {value: key for key, value
+            in _ENTITIES_PROVIDED.items()}[generator_function.__name__]
     with kube.Cluster() as cluster:
         generator = generator_function(cluster)
         next(generator)
         while True:
             update = entityd.EntityUpdate(name)
             try:
-                populated_update = generator.send(update)
+                generator.send(update)
             except StopIteration:
+                yield update
                 break
             else:
-                yield populated_update
+                yield update
 
 
 def _apply_meta_update(meta, update):
@@ -104,9 +109,8 @@ def _generate_pods(cluster):
 
     :returns: a generator of :class:`entityd.EntityUpdate`s.
     """
-    update = yield
     for pod in cluster.pods:
-        update = yield _pod_update(pod, update)
+        _pod_update(pod, (yield))
 
 
 def _pod_update(pod, update):

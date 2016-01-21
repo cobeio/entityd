@@ -11,13 +11,10 @@ import entityd.pm
 import kube
 
 
-_RFC_3339_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
-_ENTITIES_PROVIDED = {  # Entity type : update generator function name
-    'Kubernetes:' + type_:
-    '_generate_' + function for type_, function in [
-        ('Pod', 'pods'),
-        # ('Container', 'containers'),
-    ]
+RFC_3339_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
+ENTITIES_PROVIDED = {
+    'Kubernetes:Pod': 'generate_pods',
+    # 'Kubernetes:Container': 'generate_containers',
 }
 
 
@@ -27,7 +24,7 @@ def entityd_configure(config):
 
     This registers all the entities implemented by this module.
     """
-    for entity_type in _ENTITIES_PROVIDED:
+    for entity_type in ENTITIES_PROVIDED:
         config.addentity(entity_type, __name__)
 
 
@@ -37,13 +34,13 @@ def entityd_find_entity(name, attrs=None, include_ondemand=False):  # pylint: di
 
     :raises LookupError: if ``attrs`` is given.
     """
-    if name in _ENTITIES_PROVIDED:
+    if name in ENTITIES_PROVIDED:
         if attrs is not None:
             raise LookupError('Attribute based filtering not supported')
-        return _generate_updates(globals()[_ENTITIES_PROVIDED[name]])
+        return generate_updates(globals()[ENTITIES_PROVIDED[name]])
 
 
-def _generate_updates(generator_function):
+def generate_updates(generator_function):
     """Wrap an entity update generator function.
 
     This function wraps around any entity update generator and
@@ -58,12 +55,12 @@ def _generate_updates(generator_function):
         :class:`entityd.EntityUpdate`s.
 
     :raises KeyError: if the given generator function's ``__name__`` is
-        not registered in :data:`_ENTITIES_PROVIDED`.
+        not registered in :data:`ENTITIES_PROVIDED`.
 
     :returns: a generator of the updates returned by ``generator_function``.
     """
     name = {value: key for key, value
-            in _ENTITIES_PROVIDED.items()}[generator_function.__name__]
+            in ENTITIES_PROVIDED.items()}[generator_function.__name__]
     with kube.Cluster() as cluster:
         generator = generator_function(cluster)
         next(generator)
@@ -78,7 +75,7 @@ def _generate_updates(generator_function):
                 yield update
 
 
-def _apply_meta_update(meta, update):
+def apply_meta_update(meta, update):
     """Apply update attributes for a :class:`kube.ObjectMeta`.
 
     This sets attributes on the ``update`` that match the corresponding
@@ -95,7 +92,7 @@ def _apply_meta_update(meta, update):
     update.attrs.set('meta:version', meta.version)
     update.attrs.set(
         'meta:created',
-        meta.created.strftime(_RFC_3339_FORMAT),
+        meta.created.strftime(RFC_3339_FORMAT),
         attrtype='chrono:rfc3339',
     )
     # TODO: Maybe convert to absolute URI
@@ -104,16 +101,16 @@ def _apply_meta_update(meta, update):
     # TODO: Labels
 
 
-def _generate_pods(cluster):
+def generate_pods(cluster):
     """Generate updates for pods.
 
     :returns: a generator of :class:`entityd.EntityUpdate`s.
     """
     for pod in cluster.pods:
-        _pod_update(pod, (yield))
+        pod_update(pod, (yield))
 
 
-def _pod_update(pod, update):
+def pod_update(pod, update):
     """Populate update with attributes for a pod.
 
     :param kube.Pod pod: the pod to set attributes for.
@@ -122,12 +119,12 @@ def _pod_update(pod, update):
     :returns: the ``update`` with additional attributes.
     """
     update.label = pod.meta.name
-    _apply_meta_update(pod.meta, update)
+    apply_meta_update(pod.meta, update)
     update.attrs.set(
         'phase', pod.phase.value, attrtype='kubernetes:pod-phase')
     update.attrs.set(
         'start_time',
-        pod.start_time.strftime(_RFC_3339_FORMAT),
+        pod.start_time.strftime(RFC_3339_FORMAT),
         attrtype='chrono:rfc3339',
     )
     update.attrs.set('ip', str(pod.ip), attrtype='ip:v4')
@@ -141,7 +138,7 @@ def _pod_update(pod, update):
     return update
 
 
-# def _generate_containers(cluster):
+# def generate_containers(cluster):
 #     """Generate updates for containers.
 #
 #     :returns: a generator of :class:`entityd.EntityUpdate`s.

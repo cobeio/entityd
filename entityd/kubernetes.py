@@ -182,8 +182,12 @@ def container_update(container, update):
             container.state.started_at.strftime(_RFC_3339_FORMAT),
             attrtype='chrono:rfc3339',
         )
+    else:
+        update.attrs.delete('state:started-at')
     if container.state.waiting or container.state.terminated:
         update.attrs.set('state:reason', container.state.reason)
+    else:
+        update.attrs.delete('state:reason')
     if container.state.terminated:
         update.attrs.set('state:exit-code', container.state.exit_code)
         update.attrs.set('state:signal', container.state.signal)
@@ -193,3 +197,7 @@ def container_update(container, update):
             container.state.finished_at.format(_RFC_3339_FORMAT),
             attrtype='chrono:rfc3339',
         )
+    else:
+        for attribute in (
+                'reason', 'exit-code', 'signal', 'message', 'finished-at'):
+        update.attrs.delete('state:' + attribute)

@@ -158,13 +158,38 @@ def _generate_containers(cluster):
             for container in pod.containers:
                 update = yield
                 update.parents.add(pod_update)
-                _container_update(container, update)
+                container_update(container, update)
 
 
-def _container_update(container, update):
+def container_update(container, update):
+    """Populate update with attributes for a container.
+
+    :param kube.Container container: the container to set attributes for.
+    :param entityd.EntityUpdate update: the update to set the attributes on.
+    """
     update.label = container.name
     update.attrs.set('id', container.id, attrtype='id')
     update.attrs.set('name', container.name, attrtype='id')
     update.attrs.set('ready', container.ready)
-    update.attrs.set('image_id', container.image.id)
-    update.attrs.set('image_name', container.image.name)
+    update.attrs.set('image:id', container.image.id)
+    update.attrs.set('image:name', container.image.name)
+    for state in ('running', 'waiting', 'terminated'):
+        if getattr(container.state, state):
+            update.attrs.set('state', state)
+    if container.state.running or container.state.terminated:
+        update.attrs.set(
+            'state:started-at',
+            container.state.started_at.strftime(_RFC_3339_FORMAT),
+            attrtype='chrono:rfc3339',
+        )
+    if container.state.waiting or container.state.terminated:
+        update.attrs.set('state:reason', container.state.reason)
+    if container.state.terminated:
+        update.attrs.set('state:exit-code', container.state.exit_code)
+        update.attrs.set('state:signal', container.state.signal)
+        update.attrs.set('state:message', container.state.message)
+        update.attrs.set(
+            'state:finished-at',
+            container.state.finished_at.format(_RFC_3339_FORMAT),
+            attrtype='chrono:rfc3339',
+        )

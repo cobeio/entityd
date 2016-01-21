@@ -198,3 +198,28 @@ class TestPods:
         assert meta_update.call_count == 1
         assert meta_update.call_args_list[0][0] == (
             pod_resources[0].meta, pods[0])
+
+    def test_ipv6(self, cluster, meta_update):
+        pod_resources = [
+            kube.PodResource(cluster, {
+                'metadata': {
+                    'name': 'pod-1',
+                    'namespace': 'andromeda',
+                },
+                'status': {
+                    'phase': 'Running',
+                    'podIP': '2001:db8::8:800:200c:417a',
+                    'startTime': '2016-01-14T17:01:37Z',
+                },
+            }),
+        ]
+        cluster.pods.__iter__.return_value = iter(pod_resources)
+        pods = list(entityd.kubernetes.entityd_find_entity('Kubernetes:Pod'))
+        assert len(pods) == 1
+        assert pods[0].metype == 'Kubernetes:Pod'
+        assert pods[0].label == 'pod-1'
+        assert pods[0].attrs.get('ip').value == '2001:db8::8:800:200c:417a'
+        assert pods[0].attrs.get('ip').type == 'ip:v6'
+        assert meta_update.call_count == 1
+        assert meta_update.call_args_list[0][0] == (
+            pod_resources[0].meta, pods[0])

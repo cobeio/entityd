@@ -127,7 +127,8 @@ def pod_update(pod, update):
         pod.start_time.strftime(RFC_3339_FORMAT),
         attrtype='chrono:rfc3339',
     )
-    update.attrs.set('ip', str(pod.ip), attrtype='ip:v4')
+    update.attrs.set('ip', str(pod.ip),
+                     attrtype='ip:v{}'.format(pod.ip.version))
     for attribute in ('message', 'reason'):
         try:
             value = getattr(pod, attribute)

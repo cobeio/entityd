@@ -200,4 +200,4 @@ def container_update(container, update):
     else:
         for attribute in (
                 'reason', 'exit-code', 'signal', 'message', 'finished-at'):
-        update.attrs.delete('state:' + attribute)
+            update.attrs.delete('state:' + attribute)

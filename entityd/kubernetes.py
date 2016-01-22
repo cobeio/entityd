@@ -194,10 +194,9 @@ def container_update(container, update):
         update.attrs.set('state:message', container.state.message)
         update.attrs.set(
             'state:finished-at',
-            container.state.finished_at.format(_RFC_3339_FORMAT),
+            container.state.finished_at.strftime(_RFC_3339_FORMAT),
             attrtype='chrono:rfc3339',
         )
     else:
-        for attribute in (
-                'reason', 'exit-code', 'signal', 'message', 'finished-at'):
+        for attribute in ('exit-code', 'signal', 'message', 'finished-at'):
             update.attrs.delete('state:' + attribute)

@@ -30,6 +30,7 @@ def test_entityd_configure(pm, config):
     entityd.kubernetes.entityd_configure(config)
     assert set(config.entities.keys()) == set((
         'Kubernetes:Pod',
+        'Kubernetes:Container',
     ))
     for entity_plugin in config.entities.values():
         assert entity_plugin is plugin
@@ -51,7 +52,7 @@ class TestFindEntity:
         generator = entityd.kubernetes.entityd_find_entity(type_)
         assert generator is _generate_updates.return_value
         assert _generate_updates.call_args[0] == (
-            type_, getattr(entityd.kubernetes, generator_function))
+            getattr(entityd.kubernetes, generator_function),)
 
     def test_not_provided(self):
         assert entityd.kubernetes.entityd_find_entity('Foo') is None
@@ -198,3 +199,149 @@ class TestPods:
         assert meta_update.call_count == 1
         assert meta_update.call_args_list[0][0] == (
             pod_resources[0].meta, pods[0])
+
+
+class TestContainers:
+
+    @pytest.fixture
+    def raw_pod_resource(self):
+        return {
+            'metadata': {
+                'name': 'pod',
+                'namespace': 'andromeda',
+                'resourceVersion': '1234',
+                'creationTimestamp': '2015-01-14T17:01:37Z',
+                'selfLink': '/api/v1/namespaces/andromeda/pods/star',
+                'uid': '7955593e-bae0-11e5-b0b9-42010af00091',
+            },
+            'status': {
+                'phase': 'Running',
+                'podIP': '10.120.0.5',
+                'startTime': '2015-01-14T17:01:37Z',
+                'containerStatuses': [
+                    {
+                        'name': 'container-1',
+                        'containerID': (
+                            'docker://3a542701e9896f6a4e526cc69e'
+                            '6191b221cf29e1cabb43edf3b47fe5b33a7a59'
+                        ),
+                        'imageID': (
+                            'docker://33688d2af35f810373734d5928'
+                            'f3e7c579e2569aa80ed80580436f1fd90e53c6'
+                        ),
+                        'image': 'repository/user/image:tag',
+                        'ready': True,
+                        'state': {
+                            'running': {
+                                'startedAt': '2015-12-04T19:15:23Z',
+                            }
+                        },
+                    },
+                ],
+            },
+        }
+
+    def test(self, monkeypatch, cluster, raw_pod_resource):
+        pod = kube.PodResource(cluster, raw_pod_resource)
+        cluster.pods.__iter__.return_value = iter([pod])
+        mock_namespace = cluster.namespaces.fetch.return_value
+        mock_namespace.pods.fetch.return_value = pod
+        containers = list(
+            entityd.kubernetes.entityd_find_entity('Kubernetes:Container'))
+        assert len(containers) == 1
+        assert containers[0].metype == 'Kubernetes:Container'
+        assert containers[0].label == 'container-1'
+        assert containers[0].attrs.get('id').value == (
+            '3a542701e9896f6a4e526cc69e6191b221cf29e1cabb43edf3b47fe5b33a7a59')
+        assert containers[0].attrs.get('id').type == 'id'
+        assert containers[0].attrs.get('name').value == 'container-1'
+        assert containers[0].attrs.get('name').type == 'id'
+        assert containers[0].attrs.get('ready').value is True
+        assert containers[0].attrs.get('ready').type is None
+        assert containers[0].attrs.get('image:id').value == (
+            '33688d2af35f810373734d5928f3e7c579e2569aa80ed80580436f1fd90e53c6')
+        assert containers[0].attrs.get('image:id').type is None
+        assert containers[0].attrs.get('image:name').value == (
+            'repository/user/image:tag')
+        assert containers[0].attrs.get('image:name').type is None
+
+    def test_running(self, monkeypatch, cluster, raw_pod_resource):
+        raw_pod_resource['status']['containerStatuses'][0]['state'] = {
+            'running': {
+                'startedAt': '2015-12-04T19:15:23Z',
+            }
+        }
+        pod = kube.PodResource(cluster, raw_pod_resource)
+        cluster.pods.__iter__.return_value = iter([pod])
+        mock_namespace = cluster.namespaces.fetch.return_value
+        mock_namespace.pods.fetch.return_value = pod
+        container = list(
+            entityd.kubernetes.entityd_find_entity('Kubernetes:Container'))[0]
+        assert container.attrs.get(
+            'state:started-at').value == '2015-12-04T19:15:23Z'
+        assert container.attrs.get(
+            'state:started-at').type == 'chrono:rfc3339'
+        assert container.attrs.deleted() == {
+            'state:reason',
+            'state:exit-code',
+            'state:signal',
+            'state:message',
+            'state:finished-at',
+        }
+
+    def test_waiting(self, monkeypatch, cluster, raw_pod_resource):
+        raw_pod_resource['status']['containerStatuses'][0]['state'] = {
+            'waiting': {
+                'reason': 'FooBar',
+            }
+        }
+        pod = kube.PodResource(cluster, raw_pod_resource)
+        cluster.pods.__iter__.return_value = iter([pod])
+        mock_namespace = cluster.namespaces.fetch.return_value
+        mock_namespace.pods.fetch.return_value = pod
+        container = list(
+            entityd.kubernetes.entityd_find_entity('Kubernetes:Container'))[0]
+        assert container.attrs.get('state:reason').value == 'FooBar'
+        assert container.attrs.get('state:reason').type is None
+        assert container.attrs.deleted() == {
+            'state:started-at',
+            'state:exit-code',
+            'state:signal',
+            'state:message',
+            'state:finished-at',
+        }
+
+    def test_terminated(self, monkeypatch, cluster, raw_pod_resource):
+        raw_pod_resource['status']['containerStatuses'][0]['state'] = {
+            'terminated': {
+                'startedAt': '2015-12-04T19:15:23Z',
+                'finishedAt': '2016-12-04T19:15:23Z',
+                'reason': 'ItsDeadJim',
+                'message': '...',
+                'exitCode': 0,
+                'signal': 15,
+            }
+        }
+        pod = kube.PodResource(cluster, raw_pod_resource)
+        cluster.pods.__iter__.return_value = iter([pod])
+        mock_namespace = cluster.namespaces.fetch.return_value
+        mock_namespace.pods.fetch.return_value = pod
+        container = list(
+            entityd.kubernetes.entityd_find_entity('Kubernetes:Container'))[0]
+        assert container.attrs.get(
+            'state:started-at').value == '2015-12-04T19:15:23Z'
+        assert container.attrs.get(
+            'state:started-at').type == 'chrono:rfc3339'
+        assert container.attrs.get(
+            'state:finished-at').value == '2016-12-04T19:15:23Z'
+        assert container.attrs.get(
+            'state:finished-at').type == 'chrono:rfc3339'
+        assert container.attrs.get('state:reason').value == 'ItsDeadJim'
+        assert container.attrs.get('state:reason').type is None
+        assert container.attrs.get('state:exit-code').value == 0
+        assert container.attrs.get('state:exit-code').type is None
+        assert container.attrs.get('state:signal').value == 15
+        assert container.attrs.get('state:signal').type is None
+        assert container.attrs.get('state:message').value == '...'
+        assert container.attrs.get('state:message').type is None
+        assert container.attrs.deleted() == set()

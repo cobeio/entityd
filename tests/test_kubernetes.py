@@ -21,8 +21,8 @@ def cluster(monkeypatch):
 @pytest.fixture
 def meta_update(monkeypatch):
     monkeypatch.setattr(
-        entityd.kubernetes, '_apply_meta_update', pytest.Mock())
-    return entityd.kubernetes._apply_meta_update
+        entityd.kubernetes, 'apply_meta_update', pytest.Mock())
+    return entityd.kubernetes.apply_meta_update
 
 
 def test_entityd_configure(pm, config):
@@ -39,19 +39,19 @@ def test_entityd_configure(pm, config):
 class TestFindEntity:
 
     @pytest.fixture
-    def _generate_updates(self, monkeypatch):
+    def generate_updates(self, monkeypatch):
         monkeypatch.setattr(entityd.kubernetes,
-                            '_generate_updates', pytest.Mock())
-        return entityd.kubernetes._generate_updates
+                            'generate_updates', pytest.Mock())
+        return entityd.kubernetes.generate_updates
 
     @pytest.mark.parametrize(
         ('type_', 'generator_function'),
-        entityd.kubernetes._ENTITIES_PROVIDED.items(),
+        entityd.kubernetes.ENTITIES_PROVIDED.items(),
     )
-    def test(self, _generate_updates, type_, generator_function):
+    def test(self, generate_updates, type_, generator_function):
         generator = entityd.kubernetes.entityd_find_entity(type_)
-        assert generator is _generate_updates.return_value
-        assert _generate_updates.call_args[0] == (
+        assert generator is generate_updates.return_value
+        assert generate_updates.call_args[0] == (
             getattr(entityd.kubernetes, generator_function),)
 
     def test_not_provided(self):
@@ -59,7 +59,7 @@ class TestFindEntity:
 
     @pytest.mark.parametrize(
         'type_',
-        entityd.kubernetes._ENTITIES_PROVIDED.keys(),
+        entityd.kubernetes.ENTITIES_PROVIDED.keys(),
     )
     def test_attrs(self, type_):
         with pytest.raises(LookupError):
@@ -79,7 +79,7 @@ def test_apply_meta_update():
         },
     }))
     update = entityd.entityupdate.EntityUpdate('Foo')
-    entityd.kubernetes._apply_meta_update(meta, update)
+    entityd.kubernetes.apply_meta_update(meta, update)
     assert update.attrs.get('meta:name').value == 'star'
     assert update.attrs.get('meta:name').type == 'id'
     assert update.attrs.get('meta:namespace').value == 'andromeda'
@@ -200,6 +200,30 @@ class TestPods:
         assert meta_update.call_args_list[0][0] == (
             pod_resources[0].meta, pods[0])
 
+    def test_ipv6(self, cluster, meta_update):
+        pod_resources = [
+            kube.PodResource(cluster, {
+                'metadata': {
+                    'name': 'pod-1',
+                    'namespace': 'andromeda',
+                },
+                'status': {
+                    'phase': 'Running',
+                    'podIP': '2001:db8::8:800:200c:417a',
+                    'startTime': '2016-01-14T17:01:37Z',
+                },
+            }),
+        ]
+        cluster.pods.__iter__.return_value = iter(pod_resources)
+        pods = list(entityd.kubernetes.entityd_find_entity('Kubernetes:Pod'))
+        assert len(pods) == 1
+        assert pods[0].metype == 'Kubernetes:Pod'
+        assert pods[0].label == 'pod-1'
+        assert pods[0].attrs.get('ip').value == '2001:db8::8:800:200c:417a'
+        assert pods[0].attrs.get('ip').type == 'ip:v6'
+        assert meta_update.call_count == 1
+        assert meta_update.call_args_list[0][0] == (
+            pod_resources[0].meta, pods[0])
 
 class TestContainers:
 

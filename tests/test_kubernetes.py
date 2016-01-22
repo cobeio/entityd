@@ -345,3 +345,20 @@ class TestContainers:
         assert container.attrs.get('state:message').value == '...'
         assert container.attrs.get('state:message').type is None
         assert container.attrs.deleted() == set()
+
+    def test_missing_namespace(self, monkeypatch, cluster, raw_pod_resource):
+        pod = kube.PodResource(cluster, raw_pod_resource)
+        cluster.pods.__iter__.return_value = iter([pod])
+        cluster.namespaces.fetch.side_effect = LookupError
+        containers = list(
+            entityd.kubernetes.entityd_find_entity('Kubernetes:Container'))
+        assert not containers
+
+    def test_missing_pod(self, monkeypatch, cluster, raw_pod_resource):
+        pod = kube.PodResource(cluster, raw_pod_resource)
+        cluster.pods.__iter__.return_value = iter([pod])
+        mock_namespace = cluster.namespaces.fetch.return_value
+        mock_namespace.pods.fetch.side_effect = LookupError
+        containers = list(
+            entityd.kubernetes.entityd_find_entity('Kubernetes:Container'))
+        assert not containers

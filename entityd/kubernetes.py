@@ -130,10 +130,17 @@ def namespace_update(namespace, update):
 def generate_pods(cluster):
     """Generate updates for pods.
 
-    :returns: a generator of :class:`entityd.EntityUpdate`s.
+    Pods will added as children of corresponding namespace entities.
     """
+    namespaces = {}
+    for namespace in generate_updates(generate_namespaces):
+        namespaces[namespace.attrs.get('meta:name').value] = namespace
     for pod in cluster.pods:
-        pod_update(pod, (yield))
+        update = yield
+        pod_update(pod, update)
+        parent_namespace = namespaces.get(pod.meta.namespace)
+        if parent_namespace:
+            update.parents.add(parent_namespace)
 
 
 def pod_update(pod, update):

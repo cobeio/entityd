@@ -13,8 +13,9 @@ import kube
 
 RFC_3339_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 ENTITIES_PROVIDED = {
-    'Kubernetes:Pod': 'generate_pods',
     'Kubernetes:Container': 'generate_containers',
+    'Kubernetes:Namespace': 'generate_namespaces',
+    'Kubernetes:Pod': 'generate_pods',
 }
 
 
@@ -82,13 +83,17 @@ def apply_meta_update(meta, update):
     values on the given ``meta`` object. Each attribute name will be
     the same as on the meta object but prefixed by ``meta:``.
 
-    The meta object's name and namespace become ``id``-typed attributes.
+    The meta object's name and namespace (if set for the given object meta)
+    become ``id``-typed attributes.
 
     :param kube.ObjectMeta meta: the meta object to set attributes for.
     :param entityd.EntityUpdate update: the update to apply the attributes to.
     """
     update.attrs.set('meta:name', meta.name, attrtype='id')
-    update.attrs.set('meta:namespace', meta.namespace, attrtype='id')
+    try:
+        update.attrs.set('meta:namespace', meta.namespace, attrtype='id')
+    except kube.StatusError:
+        pass
     update.attrs.set('meta:version', meta.version)
     update.attrs.set(
         'meta:created',
@@ -99,6 +104,27 @@ def apply_meta_update(meta, update):
     update.attrs.set('meta:link', meta.link, attrtype='uri')
     update.attrs.set('meta:uid', meta.uid)
     # TODO: Labels
+
+
+def generate_namespaces(cluster):
+    """Generate updates for namespaces."""
+    for namespace in cluster.namespaces:
+        namespace_update(namespace, (yield))
+
+
+def namespace_update(namespace, update):
+    """Populate update with attributes for a container.
+
+    This will apply metadata attributes as well as a ``phase`` attribute
+    indicating the phase of the namespace.
+
+    :param kube.Container container: the container to set attributes for.
+    :param entityd.EntityUpdate update: the update to set the attributes on.
+    """
+    update.label = namespace.meta.name
+    apply_meta_update(namespace.meta, update)
+    update.attrs.set(
+        'phase', namespace.phase.value, attrtype='kubernetes:namespace-phase')
 
 
 def generate_pods(cluster):

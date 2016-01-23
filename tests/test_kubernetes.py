@@ -29,8 +29,9 @@ def test_entityd_configure(pm, config):
     plugin = pm.register(entityd.kubernetes)
     entityd.kubernetes.entityd_configure(config)
     assert set(config.entities.keys()) == set((
-        'Kubernetes:Pod',
         'Kubernetes:Container',
+        'Kubernetes:Pod',
+        'Kubernetes:Namespace',
     ))
     for entity_plugin in config.entities.values():
         assert entity_plugin is plugin
@@ -67,33 +68,98 @@ class TestFindEntity:
                 type_, {'meta:name': 'foo-entity-bar'})
 
 
-def test_apply_meta_update():
-    meta = kube.ObjectMeta(pytest.Mock(raw={
-        'metadata': {
-            'name': 'star',
-            'namespace': 'andromeda',
-            'resourceVersion': '1234',
-            'creationTimestamp': '2015-01-14T17:01:37Z',
-            'selfLink': '/api/v1/namespaces/andromeda/pods/star',
-            'uid': '7955593e-bae0-11e5-b0b9-42010af00091',
-        },
-    }))
-    update = entityd.entityupdate.EntityUpdate('Foo')
-    entityd.kubernetes.apply_meta_update(meta, update)
-    assert update.attrs.get('meta:name').value == 'star'
-    assert update.attrs.get('meta:name').type == 'id'
-    assert update.attrs.get('meta:namespace').value == 'andromeda'
-    assert update.attrs.get('meta:namespace').type == 'id'
-    assert update.attrs.get('meta:version').value == '1234'
-    assert update.attrs.get('meta:version').type is None
-    assert update.attrs.get('meta:created').value == '2015-01-14T17:01:37Z'
-    assert update.attrs.get('meta:created').type == 'chrono:rfc3339'
-    assert update.attrs.get('meta:link').value == (
-        '/api/v1/namespaces/andromeda/pods/star')
-    assert update.attrs.get('meta:link').type == 'uri'
-    assert update.attrs.get('meta:uid').value == (
-        '7955593e-bae0-11e5-b0b9-42010af00091')
-    assert update.attrs.get('meta:uid').type is None
+class TestApplyMetaUpdate:
+
+    def test(self):
+        meta = kube.ObjectMeta(pytest.Mock(raw={
+            'metadata': {
+                'name': 'star',
+                'namespace': 'andromeda',
+                'resourceVersion': '1234',
+                'creationTimestamp': '2015-01-14T17:01:37Z',
+                'selfLink': '/api/v1/namespaces/andromeda/pods/star',
+                'uid': '7955593e-bae0-11e5-b0b9-42010af00091',
+            },
+        }))
+        update = entityd.entityupdate.EntityUpdate('Foo')
+        entityd.kubernetes.apply_meta_update(meta, update)
+        assert update.attrs.get('meta:name').value == 'star'
+        assert update.attrs.get('meta:name').type == 'id'
+        assert update.attrs.get('meta:namespace').value == 'andromeda'
+        assert update.attrs.get('meta:namespace').type == 'id'
+        assert update.attrs.get('meta:version').value == '1234'
+        assert update.attrs.get('meta:version').type is None
+        assert update.attrs.get('meta:created').value == '2015-01-14T17:01:37Z'
+        assert update.attrs.get('meta:created').type == 'chrono:rfc3339'
+        assert update.attrs.get('meta:link').value == (
+            '/api/v1/namespaces/andromeda/pods/star')
+        assert update.attrs.get('meta:link').type == 'uri'
+        assert update.attrs.get('meta:uid').value == (
+            '7955593e-bae0-11e5-b0b9-42010af00091')
+        assert update.attrs.get('meta:uid').type is None
+
+    def test_missing_namespace(self):
+        meta = kube.ObjectMeta(pytest.Mock(raw={
+            'metadata': {
+                'name': 'star',
+                'resourceVersion': '1234',
+                'creationTimestamp': '2015-01-14T17:01:37Z',
+                'selfLink': '/api/v1/namespaces/andromeda/pods/star',
+                'uid': '7955593e-bae0-11e5-b0b9-42010af00091',
+            },
+        }))
+        update = entityd.entityupdate.EntityUpdate('Foo')
+        entityd.kubernetes.apply_meta_update(meta, update)
+        assert {attribute.name for attribute in update.attrs} == {
+            'meta:name',
+            'meta:version',
+            'meta:created',
+            'meta:link',
+            'meta:uid',
+        }
+
+
+class TestNamespaces:
+
+    def test(self, cluster, meta_update):
+        namespace_resources = [
+            kube.NamespaceResource(cluster, {
+                'metadata': {
+                    'name': 'namespace-1',
+                    'namespace': 'andromeda',
+                },
+                'status': {
+                    'phase': 'Active',
+                },
+            }),
+            kube.NamespaceResource(cluster, {
+                'metadata': {
+                    'name': 'namespace-2',
+                },
+                'status': {
+                    'phase': 'Terminating',
+                },
+            }),
+        ]
+        cluster.namespaces.__iter__.return_value = iter(namespace_resources)
+        namespaces = list(
+            entityd.kubernetes.entityd_find_entity('Kubernetes:Namespace'))
+        assert len(namespaces) == 2
+        assert namespaces[0].metype == 'Kubernetes:Namespace'
+        assert namespaces[0].label == 'namespace-1'
+        assert namespaces[0].attrs.get('phase').value == 'Active'
+        assert namespaces[0].attrs.get(
+            'phase').type == 'kubernetes:namespace-phase'
+        assert namespaces[1].metype == 'Kubernetes:Namespace'
+        assert namespaces[1].label == 'namespace-2'
+        assert namespaces[1].attrs.get('phase').value == 'Terminating'
+        assert namespaces[1].attrs.get(
+            'phase').type == 'kubernetes:namespace-phase'
+        assert meta_update.call_count == 2
+        assert meta_update.call_args_list[0][0] == (
+            namespace_resources[0].meta, namespaces[0])
+        assert meta_update.call_args_list[1][0] == (
+            namespace_resources[1].meta, namespaces[1])
 
 
 class TestPods:

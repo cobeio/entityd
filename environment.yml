@@ -25,6 +25,7 @@ dependencies:
   - requests
   - pyyaml
   - act
+  - kube <0.2.0
 
   # development
   - pytest

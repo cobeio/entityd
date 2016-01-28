@@ -136,8 +136,9 @@ class MonitoredEntitySender:
                 'attrs': {},
                 'parents': list(entity.parents),
                 'children': list(entity.children),
-                'label': entity.label,
             }
+            if entity.label is not None:
+                data['label'] = entity.label
             for attr in entity.attrs:
                 data['attrs'][attr.name] = {'value': attr.value}
                 if attr.type:

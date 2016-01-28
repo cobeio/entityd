@@ -136,6 +136,21 @@ def test_send_entity(sender_receiver, deleted):
     assert message.get('deleted', False) is deleted
 
 
+def test_send_label_unset(sender_receiver):
+    sender, receiver = sender_receiver
+    entity = entityd.EntityUpdate('MeType')
+    entity.label = None
+    sender.entityd_send_entity(entity)
+    assert sender._socket is not None
+    if not receiver.poll(1000):
+        assert False, "No message received"
+    protocol, message = receiver.recv_multipart()
+    protocol = struct.unpack('!I', protocol)[0]
+    assert protocol == 1
+    message = msgpack.unpackb(message, encoding='utf-8')
+    assert 'label' not in message
+
+
 def test_wrong_server_certificate(sender_receiver, request, certificates):
     keypath = certificates.join('entityd/keys')
     keypath.join('modeld.key').rename(keypath.join('modeld.bkp'))

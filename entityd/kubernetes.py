@@ -8,6 +8,7 @@ for dispatching to the correct generator function.
 
 import kube
 import logbook
+import requests
 
 import entityd.pm
 
@@ -41,8 +42,6 @@ def entityd_find_entity(name, attrs=None, include_ondemand=False):  # pylint: di
         if attrs is not None:
             raise LookupError('Attribute based filtering not supported')
         return generate_updates(globals()[ENTITIES_PROVIDED[name]])
-
-import requests
 
 
 def generate_updates(generator_function):

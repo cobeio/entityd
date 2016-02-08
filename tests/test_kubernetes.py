@@ -1,3 +1,5 @@
+import socket
+
 import kube
 import pytest
 
@@ -66,6 +68,27 @@ class TestFindEntity:
         with pytest.raises(LookupError):
             entityd.kubernetes.entityd_find_entity(
                 type_, {'meta:name': 'foo-entity-bar'})
+
+
+@pytest.fixture
+def localhost_8001():
+    """Check that nothing is listening on localhost:8001.
+
+    If there is then the test will be failed.
+    """
+    try:
+        with socket.create_connection(('localhost', 8001), 0.5):
+            pytest.fail('Something is listening on localhost:8001')
+    except ConnectionRefusedError:
+        pass
+
+
+@pytest.mark.parametrize(
+    'update_generator', entityd.kubernetes.ENTITIES_PROVIDED.values())
+def test_cluster_unreachable(localhost_8001, update_generator):
+    generator = entityd.kubernetes.generate_updates(
+        getattr(entityd.kubernetes, update_generator))
+    assert len(list(generator)) == []
 
 
 class TestApplyMetaUpdate:

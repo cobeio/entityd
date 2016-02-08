@@ -88,7 +88,7 @@ def localhost_8001():
 def test_cluster_unreachable(localhost_8001, update_generator):
     generator = entityd.kubernetes.generate_updates(
         getattr(entityd.kubernetes, update_generator))
-    assert len(list(generator)) == []
+    assert list(generator) == []
 
 
 class TestApplyMetaUpdate:

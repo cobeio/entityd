@@ -6,11 +6,13 @@ A single ``entityd_find_entity`` hook implementation takes responsibility
 for dispatching to the correct generator function.
 """
 
+import kube
+import logbook
+
 import entityd.pm
 
-import kube
 
-
+log = logbook.Logger(__name__)
 RFC_3339_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 ENTITIES_PROVIDED = {
     'Kubernetes:Container': 'generate_containers',
@@ -40,6 +42,8 @@ def entityd_find_entity(name, attrs=None, include_ondemand=False):  # pylint: di
             raise LookupError('Attribute based filtering not supported')
         return generate_updates(globals()[ENTITIES_PROVIDED[name]])
 
+import requests
+
 
 def generate_updates(generator_function):
     """Wrap an entity update generator function.
@@ -63,17 +67,20 @@ def generate_updates(generator_function):
     name = {value: key for key, value
             in ENTITIES_PROVIDED.items()}[generator_function.__name__]
     with kube.Cluster() as cluster:
-        generator = generator_function(cluster)
-        next(generator)
-        while True:
-            update = entityd.EntityUpdate(name)
-            try:
-                generator.send(update)
-            except StopIteration:
-                yield update
-                break
-            else:
-                yield update
+        try:
+            generator = generator_function(cluster)
+            next(generator)
+            while True:
+                update = entityd.EntityUpdate(name)
+                try:
+                    generator.send(update)
+                except StopIteration:
+                    yield update
+                    break
+                else:
+                    yield update
+        except requests.ConnectionError:
+            log.error('Kubernetes API server unreachable')
 
 
 def apply_meta_update(meta, update):

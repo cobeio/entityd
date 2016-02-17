@@ -33,6 +33,7 @@ test:
     - pytest
     - pytest-capturelog
     - pytest-cov
+    - pytest-logbook
   commands:
     - entityd --version
     - py.test --cov-report='' $SRC_DIR

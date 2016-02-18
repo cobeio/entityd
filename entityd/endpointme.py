@@ -64,13 +64,13 @@ class EndpointEntity:
         """
         update = entityd.EntityUpdate('Endpoint')
         update.label = '{}:{}'.format(conn.laddr[0], conn.laddr[1])
-        update.attrs.set('addr', conn.laddr[0], attrtype='id')
-        update.attrs.set('port', conn.laddr[1], attrtype='id')
+        update.attrs.set('addr', conn.laddr[0], traits={'entity:id'})
+        update.attrs.set('port', conn.laddr[1], traits={'entity:id'})
 
         update.attrs.set('family', FAMILIES.get(conn.family),
-                         attrtype='id')
+                         traits={'entity:id'})
         update.attrs.set('protocol', PROTOCOLS.get(conn.type),
-                         attrtype='id')
+                         traits={'entity:id'})
         update.attrs.set('listening', conn.status == 'LISTEN')
         return update
 
@@ -97,14 +97,14 @@ class EndpointEntity:
     def get_remote_endpoint(conn):
         """Get the UEID of the remote Endpoint of conn."""
         remote = entityd.EntityUpdate(metype='Endpoint')
-        remote.attrs.set('addr', conn.raddr[0], attrtype='id')
-        remote.attrs.set('port', conn.raddr[1], attrtype='id')
+        remote.attrs.set('addr', conn.raddr[0], traits={'entity:id'})
+        remote.attrs.set('port', conn.raddr[1], traits={'entity:id'})
         remote.attrs.set('family',
                          FAMILIES.get(conn.family),
-                         attrtype='id')
+                         traits={'entity:id'})
         remote.attrs.set('protocol',
                          PROTOCOLS.get(conn.type),
-                         attrtype='id')
+                         traits={'entity:id'})
         return remote
 
     def endpoints(self, pid=None):

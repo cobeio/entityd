@@ -55,9 +55,9 @@ def test_entity_attrs(procent, session, kvstore):  # pylint: disable=unused-argu
                     'sessionid'.split():
             assert entity.attrs.get(attr)
             if attr in ['cputime']:
-                assert entity.attrs.get(attr).type == 'perf:counter'
+                assert entity.attrs.get(attr).traits == {'perf:counter'}
             if attr in ['vsz', 'rss']:
-                assert entity.attrs.get(attr).type == 'perf:gauge'
+                assert entity.attrs.get(attr).traits == {'perf:gauge'}
 
         count += 1
     assert count
@@ -117,9 +117,10 @@ def test_forget_entity(kvstore, session, procent):  # pylint: disable=unused-arg
 
     # Check it is removed
     entity = entityd.EntityUpdate('Process')
-    entity.attrs.set('pid', proc.pid, attrtype='id')
-    entity.attrs.set('starttime', proc.start_time.timestamp(), attrtype='id')
-    entity.attrs.set('host', procent.host_ueid, attrtype='id')
+    entity.attrs.set('pid', proc.pid, traits={'entity:id'})
+    entity.attrs.set('starttime',
+                     proc.start_time.timestamp(), traits={'entity:id'})
+    entity.attrs.set('host', procent.host_ueid, traits={'entity:id'})
     procent.forget_entity(entity)
     assert ueid not in procent.known_ueids
 
@@ -332,7 +333,7 @@ def test_cpu_usage_attr(procent, session, kvstore):  # pylint: disable=unused-ar
     entity = next(entities)
     cpu_usage = entity.attrs.get('cpu%')
     assert isinstance(cpu_usage.value, float)
-    assert cpu_usage.type == 'perf:gauge'
+    assert cpu_usage.traits == {'perf:gauge'}
 
 
 def test_cpu_usage_calculation(procent):

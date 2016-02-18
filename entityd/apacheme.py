@@ -90,9 +90,10 @@ class ApacheEntity:
                 continue
             update = entityd.EntityUpdate('Apache')
             update.label = 'Apache'
-            update.attrs.set('host', self.host_ueid, attrtype='id')
+            update.attrs.set('host', self.host_ueid, traits={'entity:id'})
             update.attrs.set('version', apache.version)
-            update.attrs.set('config_path', apache.config_path, attrtype='id')
+            update.attrs.set('config_path',
+                             apache.config_path, traits={'entity:id'})
             update.attrs.set('config_ok', apache.check_config())
             update.attrs.set('config_last_mod', apache.config_last_modified())
             for name, value in perfdata.items():
@@ -150,9 +151,9 @@ class ApacheEntity:
         """Create a VHost Entity"""
         vhost = entityd.EntityUpdate('ApacheVHost')
         vhost.label = "{}:{}".format(address, port)
-        vhost.attrs.set('address', address, attrtype='id')
-        vhost.attrs.set('port', port, attrtype='id')
-        vhost.attrs.set('apache', apache.ueid, attrtype='id')
+        vhost.attrs.set('address', address, traits={'entity:id'})
+        vhost.attrs.set('port', port, traits={'entity:id'})
+        vhost.attrs.set('apache', apache.ueid, traits={'entity:id'})
         return vhost
 
 

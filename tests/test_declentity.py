@@ -117,7 +117,8 @@ def conf_file(tmpdir):
             owner: admin@default
             dict:
                 value: 'a_value'
-                type: 'a_type'
+                traits:
+                    - 'a_trait'
         children:
             - type: Process
               command: proccommand -a
@@ -138,7 +139,7 @@ def test_load_files_on_start(declent, config, session, conf_file):
     declcfg = declent._conf_attrs['Test'][0]
     assert declcfg.attrs['owner'].value == 'admin@default'
     assert declcfg.attrs['dict'].value == 'a_value'
-    assert declcfg.attrs['dict'].type == 'a_type'
+    assert declcfg.attrs['dict'].traits == ['a_trait']
     assert declcfg.filepath == pathlib.Path(conf_file.strpath)
     assert isinstance(declcfg.children[0], entityd.declentity.RelDesc)
     assert declcfg.children[0].type == 'Process'
@@ -243,8 +244,8 @@ def conf_attrs():
             'owner': 'testOwner',
             'a_dict': {
                 'value': 'a_value',
-                'type': 'a_type'
-                },
+                'traits': ['a_trait']
+            },
             'type': 'attribute_called_type'
         },
         'children': [],
@@ -259,13 +260,13 @@ def test_create_declarative_me(declent, conf_attrs, session):
     assert entity.metype == 'testService'
     assert entity.label == 'testService'
     assert entity.attrs.get('owner').value == 'testOwner'
-    assert entity.attrs.get('owner').type is None
+    assert entity.attrs.get('owner').traits == set()
     assert entity.attrs.get('hostueid').value == declent.host_ueid
-    assert entity.attrs.get('hostueid').type == 'id'
+    assert entity.attrs.get('hostueid').traits == {'entity:id'}
     assert entity.attrs.get('filepath').value == 'testFilePath'
-    assert entity.attrs.get('filepath').type == 'id'
+    assert entity.attrs.get('filepath').traits == {'entity:id'}
     assert entity.attrs.get('a_dict').value == 'a_value'
-    assert entity.attrs.get('a_dict').type == 'a_type'
+    assert entity.attrs.get('a_dict').traits == ['a_trait']
     assert entity.attrs.get('type').value == 'attribute_called_type'
 
 
@@ -320,7 +321,7 @@ def test_entityd_find_entity(declent, session, config, conf_file):
     ent = next(found_ents[1])
     assert ent.attrs.get('owner').value == 'admin@default'
     assert ent.attrs.get('dict').value == 'a_value'
-    assert ent.attrs.get('dict').type == 'a_type'
+    assert ent.attrs.get('dict').traits == ['a_trait']
 
     found_ents = session.pluginmanager.hooks.entityd_find_entity(
         name='Procss', attrs={'pid': 1})
@@ -594,10 +595,10 @@ class TestDecCfg:
         assert test_cfg.attrs['owner'].value == 'my_owner'
 
     def test_attr_type(self, data):
-        data['attrs'] = {'ident': {'value': 1, 'type': 'id'}}
+        data['attrs'] = {'ident': {'value': 1, 'traits': {'entity:id'}}}
         test_cfg = entityd.declentity.DeclCfg(data)
         assert test_cfg.attrs['ident'].value == 1
-        assert test_cfg.attrs['ident'].type == 'id'
+        assert test_cfg.attrs['ident'].traits == {'entity:id'}
 
     def test_relation(self, data):
         data['children'] = [{'type': 'EntType'}]

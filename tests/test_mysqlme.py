@@ -1,11 +1,13 @@
+import os
+import tempfile
+
+import pytest
+
 import entityd.fileme
 import entityd.hostme
 import entityd.mysqlme
 import entityd.processme
 
-import pytest
-import os
-import tempfile
 
 
 @pytest.fixture
@@ -119,10 +121,7 @@ def test_config_path_defaults(monkeypatch, path):
     """MySQL should use the first file that exists from a given list."""
 
     def isfile(test_path):
-        if test_path == path:
-            return True
-        else:
-            return False
+        return test_path == path
 
     proc = entityd.EntityUpdate('Process')
     proc.attrs.set('command', 'mysqld')

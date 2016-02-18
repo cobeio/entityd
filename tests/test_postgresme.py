@@ -1,10 +1,11 @@
+import tempfile
+
+import pytest
+
 import entityd.fileme
 import entityd.hostme
 import entityd.postgresme
 import entityd.processme
-
-import pytest
-import tempfile
 
 
 @pytest.fixture
@@ -119,10 +120,7 @@ def test_config_path_defaults(monkeypatch, path):
     """Test the 2 different location types. """
 
     def isfile(test_path):
-        if test_path == path:
-            return True
-        else:
-            return False
+        return test_path == path
 
     proc = entityd.EntityUpdate('Process')
     proc.attrs.set('command', 'postgres')

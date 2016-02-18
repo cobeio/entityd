@@ -56,10 +56,10 @@ class ProcessEntity:
         :param proc: syskit.Process instance.
         """
         entity = entityd.EntityUpdate('Process')
-        entity.attrs.set('pid', proc.pid, attrtype='id')
+        entity.attrs.set('pid', proc.pid, traits={'entity:id'})
         entity.attrs.set('starttime', proc.start_time.timestamp(),
-                         attrtype='id')
-        entity.attrs.set('host', self.host_ueid, attrtype='id')
+                         traits={'entity:id'})
+        entity.attrs.set('host', self.host_ueid, traits={'entity:id'})
         self.known_ueids.add(entity.ueid)
         return entity.ueid
 
@@ -161,7 +161,7 @@ class ProcessEntity:
 
         """
         if proc not in self._process_times:
-            last_cpu_time = 0
+            last_cpu_time = 0.0
             last_clock_time = proc.start_time.timestamp()
         else:
             old_proc = self._process_times[proc]
@@ -187,21 +187,21 @@ class ProcessEntity:
         update = entityd.EntityUpdate('Process')
         update.label = proc.name
         update.attrs.set('binary', proc.name)
-        update.attrs.set('pid', proc.pid, attrtype='id')
+        update.attrs.set('pid', proc.pid, traits={'entity:id'})
         update.attrs.set('starttime', proc.start_time.timestamp(),
-                         attrtype='id')
+                         traits={'entity:id'})
         update.attrs.set('ppid', proc.ppid)
-        update.attrs.set('host', self.host_ueid, attrtype='id')
+        update.attrs.set('host', self.host_ueid, traits={'entity:id'})
         update.attrs.set('cputime', float(proc.cputime),
-                         attrtype='perf:counter')
+                         traits={'perf:counter'})
         update.attrs.set('utime', float(proc.utime),
-                         attrtype='perf:counter')
+                         traits={'perf:counter'})
         update.attrs.set('stime', float(proc.stime),
-                         attrtype='perf:counter')
+                         traits={'perf:counter'})
         update.attrs.set('cpu%', self.get_cpu_usage(proc),
-                         attrtype='perf:gauge')
-        update.attrs.set('vsz', proc.vsz, attrtype='perf:gauge')
-        update.attrs.set('rss', proc.rss, attrtype='perf:gauge')
+                         traits={'perf:gauge'})
+        update.attrs.set('vsz', proc.vsz, traits={'perf:gauge'})
+        update.attrs.set('rss', proc.rss, traits={'perf:gauge'})
         update.attrs.set('uid', proc.ruid)
         update.attrs.set('euid', proc.euid)
         update.attrs.set('suid', proc.suid)

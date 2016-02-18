@@ -329,10 +329,7 @@ class HookImpl:
     def argnames(self):
         """Return the names of the hook arguments, in order."""
         if self._argnames is None:
-            names = inspect.getargspec(self.routine).args
-            if inspect.ismethod(self.routine):
-                del names[0]
-            self._argnames = names
+            self._argnames = inspect.signature(self.routine).parameters.keys()
         return self._argnames
 
     def __repr__(self):
@@ -462,10 +459,7 @@ class HookCaller:
         self._hookdef = hookdef_func
         self._trace = trace
         self._hooks = []
-        argnames = inspect.getargspec(hookdef_func).args
-        if inspect.ismethod(hookdef_func):
-            del argnames[0]
-        self._argnames = argnames
+        self._argnames = inspect.signature(hookdef_func).parameters.keys()
         self.name = hookdef_func.pm_hookdef['name']
         self.firstresult = self._hookdef.pm_hookdef['firstresult']
 
@@ -533,10 +527,9 @@ class HookCaller:
         :param hooks: List of hooks in order to check.
         :return: True if the hooks are correctly ordered, else False.
         """
-        for i in range(len(hooks)):
+        for i, current in enumerate(hooks):
             before = hooks[:i] if i else []
             after = hooks[i + 1:]
-            current = hooks[i]
             for other in current.after:
                 if other == current.plugin.name:
                     return False
@@ -567,7 +560,7 @@ class HookCaller:
         for hook in self._hooks:
             args = [kwargs.get(argname) for argname in hook.argnames()]
             self._trace('Calling hook: {}'.format(hook))
-            res = hook.routine(*args)  # pylint: disable=star-args
+            res = hook.routine(*args)
             if res is not None:
                 if self.firstresult:
                     return res

@@ -102,13 +102,13 @@ def test_endpoints_for_process(pm, session, kvstore, local_socket,  # pylint: di
                 assert endpoint.attrs.get('listening').value is False
                 update = entityd.EntityUpdate('Endpoint')
                 update.attrs.set('addr', remote_socket.getsockname()[0],
-                                 attrtype='id')
+                                 traits={'entity:id'})
                 update.attrs.set('port', remote_socket.getsockname()[1],
-                                 attrtype='id')
-                update.attrs.set('family', 'INET', attrtype='id')
+                                 traits={'entity:id'})
+                update.attrs.set('family', 'INET', traits={'entity:id'})
                 update.attrs.set('protocol',
                                  endpoint.attrs.get('protocol').value,
-                                 attrtype='id')
+                                 traits={'entity:id'})
                 assert update.ueid in endpoint.children
                 assert update.ueid in endpoint.parents
             else:
@@ -118,12 +118,12 @@ def test_endpoints_for_process(pm, session, kvstore, local_socket,  # pylint: di
             assert endpoint.attrs.get('listening').value is False
             update = entityd.EntityUpdate('Endpoint')
             update.attrs.set('addr', local_socket.getsockname()[0],
-                             attrtype='id')
+                             traits={'entity:id'})
             update.attrs.set('port', local_socket.getsockname()[1],
-                             attrtype='id')
-            update.attrs.set('family', 'INET', attrtype='id')
+                             traits={'entity:id'})
+            update.attrs.set('family', 'INET', traits={'entity:id'})
             update.attrs.set('protocol', endpoint.attrs.get('protocol').value,
-                             attrtype='id')
+                             traits={'entity:id'})
             assert update.ueid in endpoint.children
             assert update.ueid in endpoint.parents
     assert count == 3
@@ -165,7 +165,7 @@ def test_get_entities(pm, session, kvstore):  # pylint: disable=unused-argument
         assert endpoint.metype == 'Endpoint'
         assert endpoint.ueid
         for id_key in ['addr', 'port', 'family', 'protocol']:
-            assert endpoint.attrs.get(id_key).type == 'id'
+            assert endpoint.attrs.get(id_key).traits == {'entity:id'}
 
     if endpoint is None:
         pytest.fail('No endpoints found')

@@ -31,7 +31,7 @@ class EntityUpdate:
     def ueid(self):
         """Generate and return a UEID based on set attributes.
 
-        Only attributes with type 'id' are used to create the ueid.
+        Only attributes with the trait 'entity:id' are used to create the ueid.
 
         All identifying attributes *must* be set before accessing the
         ueid, otherwise it will be incorrect.
@@ -41,14 +41,14 @@ class EntityUpdate:
             return self._ueid
         attr_parts = ['{name}={value}'.format(name=attr.name, value=attr.value)
                       for attr in self.attrs
-                      if attr.type == 'id']
+                      if 'entity:id' in attr.traits]
         attr_parts.sort()
         strval = self.metype + '|' + '|'.join(attr_parts)
         hash_ = hashlib.sha1(strval.encode('utf-8'))
         return hash_.digest()
 
 
-UpdateAttr = collections.namedtuple('UpdateAttr', ['name', 'value', 'type'])
+UpdateAttr = collections.namedtuple('UpdateAttr', ['name', 'value', 'traits'])
 
 
 class UpdateAttributes:
@@ -66,7 +66,7 @@ class UpdateAttributes:
     def __iter__(self):
         return iter(self._attrs.values())
 
-    def set(self, name, value, attrtype=None):
+    def set(self, name, value, traits=None):
         """Set an attributes value and type.
 
         :param name: The attribute to set.
@@ -74,7 +74,11 @@ class UpdateAttributes:
         :param attrtype: Optional type for the attribute.
 
         """
-        self._attrs[name] = UpdateAttr(name, value, attrtype)
+        if traits is None:
+            traits = set()
+        else:
+            assert isinstance(traits, (set, list))
+        self._attrs[name] = UpdateAttr(name, value, traits)
 
     def get(self, name):
         """Get the UpdateAttr for this name."""

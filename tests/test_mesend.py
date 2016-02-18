@@ -1,7 +1,6 @@
 import argparse
 import pathlib
 import re
-import struct
 import time
 
 import act
@@ -72,7 +71,7 @@ def sender(certificates):
 
 
 @pytest.fixture
-def sender_receiver(certificates, receiver, request):
+def sender_receiver(certificates, receiver):
     """Get an ME Sender with a matched receiving socket with random port."""
     keydir = certificates.join('entityd', 'keys')
     return get_sender(receiver.LAST_ENDPOINT, keydir), receiver
@@ -127,8 +126,7 @@ def test_send_entity(sender_receiver, deleted):
     if not receiver.poll(1000):
         assert False, "No message received"
     protocol, message = receiver.recv_multipart()
-    protocol = struct.unpack('!I', protocol)[0]
-    assert protocol == 1
+    assert protocol == b'streamapi/2'
     message = msgpack.unpackb(message, encoding='utf-8')
     assert message['ueid'] == entity.ueid
     if not deleted:
@@ -145,8 +143,7 @@ def test_send_label_unset(sender_receiver):
     if not receiver.poll(1000):
         assert False, "No message received"
     protocol, message = receiver.recv_multipart()
-    protocol = struct.unpack('!I', protocol)[0]
-    assert protocol == 1
+    assert protocol == b'streamapi/2'
     message = msgpack.unpackb(message, encoding='utf-8')
     assert 'label' not in message
 
@@ -217,11 +214,11 @@ def test_buffers_full(loghandler, sender):
 
 def test_attribute():
     entity = entityd.EntityUpdate('Type')
-    entity.attrs.set('attr', 1, 'perf:counter')
+    entity.attrs.set('attr', 1, {'perf:counter'})
     encoded = entityd.mesend.MonitoredEntitySender.encode_entity(entity)
     decoded = msgpack.unpackb(encoded, encoding='utf8')
     assert decoded['attrs']['attr']['value'] == 1
-    assert decoded['attrs']['attr']['type'] == 'perf:counter'
+    assert set(decoded['attrs']['attr']['traits']) == {'perf:counter'}
     assert 'deleted' not in decoded['attrs']['attr']
 
 

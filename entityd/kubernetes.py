@@ -95,19 +95,20 @@ def apply_meta_update(meta, update):
     :param kube.ObjectMeta meta: the meta object to set attributes for.
     :param entityd.EntityUpdate update: the update to apply the attributes to.
     """
-    update.attrs.set('meta:name', meta.name, attrtype='id')
+    update.attrs.set('meta:name', meta.name, traits={'entity:id'})
     try:
-        update.attrs.set('meta:namespace', meta.namespace, attrtype='id')
+        update.attrs.set('meta:namespace',
+                         meta.namespace, traits={'entity:id'})
     except kube.StatusError:
         pass
     update.attrs.set('meta:version', meta.version)
     update.attrs.set(
         'meta:created',
         meta.created.strftime(RFC_3339_FORMAT),
-        attrtype='chrono:rfc3339',
+        traits={'chrono:rfc3339'},
     )
     # TODO: Maybe convert to absolute URI
-    update.attrs.set('meta:link', meta.link, attrtype='uri')
+    update.attrs.set('meta:link', meta.link, traits={'uri'})
     update.attrs.set('meta:uid', meta.uid)
     # TODO: Labels
 
@@ -130,7 +131,7 @@ def namespace_update(namespace, update):
     update.label = namespace.meta.name
     apply_meta_update(namespace.meta, update)
     update.attrs.set(
-        'phase', namespace.phase.value, attrtype='kubernetes:namespace-phase')
+        'phase', namespace.phase.value, traits={'kubernetes:namespace-phase'})
 
 
 def generate_pods(cluster):
@@ -160,14 +161,14 @@ def pod_update(pod, update):
     update.label = pod.meta.name
     apply_meta_update(pod.meta, update)
     update.attrs.set(
-        'phase', pod.phase.value, attrtype='kubernetes:pod-phase')
+        'phase', pod.phase.value, traits={'kubernetes:pod-phase'})
     update.attrs.set(
         'start_time',
         pod.start_time.strftime(RFC_3339_FORMAT),
-        attrtype='chrono:rfc3339',
+        traits={'chrono:rfc3339'},
     )
     update.attrs.set('ip', str(pod.ip),
-                     attrtype='ip:v{}'.format(pod.ip.version))
+                     traits={'ip:v{}'.format(pod.ip.version)})
     for attribute in ('message', 'reason'):
         try:
             value = getattr(pod, attribute)
@@ -183,7 +184,7 @@ def generate_containers(cluster):
 
     :returns: a generator of :class:`entityd.EntityUpdate`s.
     """
-    for pod_update in generate_updates(generate_pods):
+    for pod_update in generate_updates(generate_pods):  # pylint: disable=redefined-outer-name
         try:
             namespace = cluster.namespaces.fetch(
                 pod_update.attrs.get('meta:namespace').value)
@@ -205,8 +206,8 @@ def container_update(container, update):
     :param entityd.EntityUpdate update: the update to set the attributes on.
     """
     update.label = container.name
-    update.attrs.set('id', container.id, attrtype='id')
-    update.attrs.set('name', container.name, attrtype='id')
+    update.attrs.set('id', container.id, traits={'entity:id'})
+    update.attrs.set('name', container.name, traits={'entity:id'})
     update.attrs.set('ready', container.ready)
     update.attrs.set('image:id', container.image.id)
     update.attrs.set('image:name', container.image.name)
@@ -217,7 +218,7 @@ def container_update(container, update):
         update.attrs.set(
             'state:started-at',
             container.state.started_at.strftime(RFC_3339_FORMAT),
-            attrtype='chrono:rfc3339',
+            traits={'chrono:rfc3339'},
         )
     else:
         update.attrs.delete('state:started-at')
@@ -232,7 +233,7 @@ def container_update(container, update):
         update.attrs.set(
             'state:finished-at',
             container.state.finished_at.strftime(RFC_3339_FORMAT),
-            attrtype='chrono:rfc3339',
+            traits={'chrono:rfc3339'},
         )
     else:
         for attribute in ('exit-code', 'signal', 'message', 'finished-at'):

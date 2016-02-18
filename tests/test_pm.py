@@ -240,7 +240,7 @@ class TestHookImpl:
 
     def test_argnames(self, plugin):
         hook = entityd.pm.HookImpl(plugin.obj.my_hook, plugin)
-        assert hook.argnames() == ['arg0', 'arg1']
+        assert list(hook.argnames()) == ['arg0', 'arg1']
 
     def test_repr(self, plugin):
         hook = entityd.pm.HookImpl(plugin.obj.my_hook, plugin)

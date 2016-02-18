@@ -5,8 +5,6 @@ destination.
 
 """
 
-import struct
-
 import act
 import logbook
 import msgpack
@@ -25,7 +23,7 @@ class MonitoredEntitySender:
     def __init__(self):
         self.context = None
         self.session = None
-        self.packed_protocol_version = struct.pack('!I', 1)
+        self.packed_protocol_version = b'streamapi/2'
         self._socket = None
 
     @property
@@ -141,8 +139,7 @@ class MonitoredEntitySender:
                 data['label'] = entity.label
             for attr in entity.attrs:
                 data['attrs'][attr.name] = {'value': attr.value}
-                if attr.type:
-                    data['attrs'][attr.name]['type'] = attr.type
+                data['attrs'][attr.name]['traits'] = list(attr.traits)
             for del_attr in entity.attrs.deleted():
                 data['attrs'][del_attr] = {'deleted': True}
 

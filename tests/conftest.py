@@ -1,11 +1,10 @@
 """Local py.test plugin."""
 
-import py
 import tempfile
 import types
 import unittest.mock
 
-import act
+import py
 import pytest
 import zmq.auth
 

@@ -55,9 +55,9 @@ class HostEntity:
         uptime = int(syskit.uptime())
         update = entityd.EntityUpdate('Host')
         update.label = fqdn
-        update.attrs.set('id', self.get_uuid(), 'id')
+        update.attrs.set('id', self.get_uuid(), {'entity:id'})
         update.attrs.set('fqdn', fqdn)
-        update.attrs.set('uptime', uptime, 'perf:counter')
+        update.attrs.set('uptime', uptime, {'perf:counter'})
         update.attrs.set('boottime', syskit.boottime().timestamp())
         load = syskit.loadavg()
         update.attrs.set('loadavg_1', load[0])

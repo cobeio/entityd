@@ -33,7 +33,7 @@ def test_find_entity(tmpdir, session, fileent):
     entity = next(entities)
     assert entity.attrs.get('path').value == str(file)
     assert isinstance(entity.attrs.get('size').value, int)
-    assert entity.attrs.get('size').type == 'perf:gauge'
+    assert entity.attrs.get('size').traits == {'perf:gauge'}
 
 
 def test_calling_with_no_attrs(fileent):

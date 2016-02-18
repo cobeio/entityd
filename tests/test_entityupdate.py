@@ -49,14 +49,14 @@ def test_ueid():
     assert u1.ueid == u2.ueid
     u1.attrs.set('notAnId', 'aeue')
     assert u1.ueid == u2.ueid
-    u1.attrs.set('id', 'aeaea', 'id')
+    u1.attrs.set('id', 'aeaea', {'entity:id'})
     assert u1.ueid != u2.ueid
 
 
 def test_attrs(update):
-    update.attrs.set('key', 'value', 'type')
+    update.attrs.set('key', 'value', traits=set())
     assert update.attrs.get('key').value == 'value'
-    assert update.attrs.get('key').type == 'type'
+    assert update.attrs.get('key').traits == set()
     update.attrs.delete('key')
     with pytest.raises(KeyError):
         update.attrs.get('key')

@@ -92,7 +92,7 @@ class Connections:
 
     def get_all_inodes(self):
         """Gets all inodes for all processes."""
-        inodes = {}
+        inodes = collections.defaultdict(list)
         for pid in pids():
             try:
                 inodes.update(self.get_proc_inodes(pid))

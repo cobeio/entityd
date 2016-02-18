@@ -154,8 +154,7 @@ def test_collect_ondemand_entities(pm, session, monitor, hookrec):
     class OnDemandPlugin:
         @entityd.pm.hookimpl
         def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
-            if False:
-                yield entityd.entityupdate.EntityUpdate(name)
+            return iter([])
 
     fooplugin = pm.register(FooPlugin(), 'foo')
     ondemandplugin = pm.register(OnDemandPlugin(), 'ondemand')
@@ -170,5 +169,3 @@ def test_collect_ondemand_entities(pm, session, monitor, hookrec):
             expected = 'ondemand'
     # assert len(session.svc.monitor.last_batch)
     assert len(session.svc.monitor.last_batch['ondemand'])
-
-

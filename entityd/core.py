@@ -11,13 +11,10 @@ then runs the application by calling this hook.
 """
 
 import argparse
-import logging
 import threading
-import sys
-import time
 import types
 
-import act.log
+import act
 import logbook
 import logbook.compat
 import pkg_resources

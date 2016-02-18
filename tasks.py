@@ -67,10 +67,10 @@ def certificates(dirpath=None, force=False, dry_run=False):
             print('Abort. Path exists and is not a directory: '
                   '{}'.format(parent))
             return
-    if not dirpath.exists():
+    if not dirpath.exists():  # pylint: disable=no-member
         print('Directory does not exist, creating: {}'.format(dirpath))
         if not dry_run:
-            dirpath.mkdir(parents=True)
+            dirpath.mkdir(parents=True)  # pylint: disable=no-member
     for keyname in ['entityd.key', 'entityd.key_secret']:
         if dirpath.joinpath(keyname).exists() and not force:
             print('Abort. Key exists: {}'.format(dirpath.joinpath(keyname)))

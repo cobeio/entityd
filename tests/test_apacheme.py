@@ -72,10 +72,7 @@ def has_apachectl():
         binary = entityd.apacheme.Apache.apachectl_binary()
     except ApacheNotFound:
         return False
-    if binary:
-        return True
-    else:
-        return False
+    return bool(binary)
 
 apachectl = pytest.mark.skipif(not has_apachectl(),
                                reason="Local Apache binaries needed.")
@@ -131,15 +128,15 @@ def patched_entitygen(monkeypatch, pm, session):
     pm.register(procgen, 'entityd.processme.ProcessEntity')
     procgen.entityd_sessionstart(session)
     mock_apache_process = entityd.EntityUpdate('Process')
-    mock_apache_process.attrs.set('pid', 123, attrtype='id')
-    mock_apache_process.attrs.set('ppid', 1, attrtype='id')
-    mock_apache_process.attrs.set('starttime', 456, attrtype='id')
+    mock_apache_process.attrs.set('pid', 123, traits={'entity:id'})
+    mock_apache_process.attrs.set('ppid', 1, traits={'entity:id'})
+    mock_apache_process.attrs.set('starttime', 456, traits={'entity:id'})
     mock_apache_process.attrs.set('binary', 'apache2')
 
     mock_apache_child_process = entityd.EntityUpdate('Process')
-    mock_apache_child_process.attrs.set('pid', 1234, attrtype='id')
-    mock_apache_child_process.attrs.set('ppid', 123, attrtype='id')
-    mock_apache_child_process.attrs.set('starttime', 456, attrtype='id')
+    mock_apache_child_process.attrs.set('pid', 1234, traits={'entity:id'})
+    mock_apache_child_process.attrs.set('ppid', 123, traits={'entity:id'})
+    mock_apache_child_process.attrs.set('starttime', 456, traits={'entity:id'})
     mock_apache_child_process.attrs.set('binary', 'apache2')
     monkeypatch.setattr(procgen,
                         'filtered_processes',
@@ -233,7 +230,7 @@ def test_find_entity_mocked_apache(patched_entitygen):
         assert entity.metype == 'Apache'
         assert 'Apache/2' in entity.attrs.get('version').value
         for id_attr in ['host', 'config_path']:
-            assert entity.attrs.get(id_attr).type == 'id'
+            assert entity.attrs.get(id_attr).traits == {'entity:id'}
         count += 1
     assert count
 
@@ -362,9 +359,9 @@ def test_relations(monkeypatch, tmpdir, pm, session, kvstore,  # pylint: disable
     assert conf_ent.ueid in entity.children._relations
 
     vhost = entityd.EntityUpdate('ApacheVHost')
-    vhost.attrs.set('address', 'localhost', attrtype='id')
-    vhost.attrs.set('port', 80, attrtype='id')
-    vhost.attrs.set('apache', entity.ueid, attrtype='id')
+    vhost.attrs.set('address', 'localhost', traits={'entity:id'})
+    vhost.attrs.set('port', 80, traits={'entity:id'})
+    vhost.attrs.set('apache', entity.ueid, traits={'entity:id'})
     assert vhost.ueid in entity.children._relations
 
     assert len(entity.parents._relations) == 1
@@ -412,9 +409,9 @@ def test_vhost_returned_separately(pm, session, kvstore,  # pylint: disable=unus
                                             attrs=None,
                                             include_ondemand=True))
     vhost = entityd.EntityUpdate('ApacheVHost')
-    vhost.attrs.set('address', 'localhost', attrtype='id')
-    vhost.attrs.set('port', 80, attrtype='id')
-    vhost.attrs.set('apache', apache.ueid, attrtype='id')
+    vhost.attrs.set('address', 'localhost', traits={'entity:id'})
+    vhost.attrs.set('port', 80, traits={'entity:id'})
+    vhost.attrs.set('apache', apache.ueid, traits={'entity:id'})
 
     ueids = [e.ueid for e in entities if e.metype == 'ApacheVHost']
     assert vhost.ueid in ueids

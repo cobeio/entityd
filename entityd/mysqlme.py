@@ -61,8 +61,10 @@ class MySQLEntity:
         for proc in self.top_level_mysql_processes():
             mysql = MySQL(proc)
             update = entityd.EntityUpdate('MySQL')
-            update.attrs.set('host', self.host_ueid, attrtype='id')
-            update.attrs.set('config_path', mysql.config_path(), attrtype='id')
+            update.label = 'MySQL'
+            update.attrs.set('host', self.host_ueid, traits={'entity:id'})
+            update.attrs.set('config_path',
+                             mysql.config_path(), traits={'entity:id'})
             update.attrs.set('process_id', proc.attrs.get('pid').value)
             if include_ondemand:
                 files = list(itertools.chain.from_iterable(

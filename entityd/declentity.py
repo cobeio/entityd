@@ -230,10 +230,10 @@ class DeclarativeEntity:
         entity.label = config_properties.label
         entity.attrs.set('filepath',
                          str(config_properties.filepath),
-                         attrtype='id')
-        entity.attrs.set('hostueid', self.host_ueid, attrtype='id')
+                         traits={'entity:id'})
+        entity.attrs.set('hostueid', self.host_ueid, traits={'entity:id'})
         for name, value in config_properties.attrs.items():
-            entity.attrs.set(name, value.value, attrtype=value.type)
+            entity.attrs.set(name, value.value, traits=value.traits)
 
         # pylint: disable=protected-access
         entity.parents._relations = (
@@ -324,14 +324,14 @@ class DeclCfg:
         self.attrs = dict()
         for name, value in data.get('attrs', dict()).items():
             if isinstance(value, dict):
-                attr_type = value.get('type', None)
+                attr_traits = value.get('traits', set())
                 attr_val = value.get('value', None)
             else:
-                attr_type = None
+                attr_traits = set()
                 attr_val = value
             self.attrs[name] = entityd.entityupdate.UpdateAttr(name,
                                                                attr_val,
-                                                               attr_type)
+                                                               attr_traits)
         self.children = [self._make_rel(c) for c in data.get('children', [])]
         self.parents = [self._make_rel(p) for p in data.get('parents', [])]
 

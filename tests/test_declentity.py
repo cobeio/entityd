@@ -266,7 +266,7 @@ def test_create_declarative_me(declent, conf_attrs, session):
     assert entity.attrs.get('filepath').value == 'testFilePath'
     assert entity.attrs.get('filepath').traits == {'entity:id'}
     assert entity.attrs.get('a_dict').value == 'a_value'
-    assert entity.attrs.get('a_dict').traits == ['a_trait']
+    assert entity.attrs.get('a_dict').traits == {'a_trait'}
     assert entity.attrs.get('type').value == 'attribute_called_type'
 
 
@@ -321,7 +321,7 @@ def test_entityd_find_entity(declent, session, config, conf_file):
     ent = next(found_ents[1])
     assert ent.attrs.get('owner').value == 'admin@default'
     assert ent.attrs.get('dict').value == 'a_value'
-    assert ent.attrs.get('dict').traits == ['a_trait']
+    assert ent.attrs.get('dict').traits == {'a_trait'}
 
     found_ents = session.pluginmanager.hooks.entityd_find_entity(
         name='Procss', attrs={'pid': 1})

@@ -71,13 +71,13 @@ class UpdateAttributes:
 
         :param name: The attribute to set.
         :param value: The value of the attribute.
-        :param attrtype: Optional type for the attribute.
+        :param traits: Optional set of traits for the attribute.
 
         """
         if traits is None:
             traits = set()
         else:
-            assert isinstance(traits, (set, list))
+            traits = set(traits)
         self._attrs[name] = UpdateAttr(name, value, traits)
 
     def get(self, name):

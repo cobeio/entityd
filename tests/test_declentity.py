@@ -594,11 +594,16 @@ class TestDecCfg:
         test_cfg = entityd.declentity.DeclCfg(data)
         assert test_cfg.attrs['owner'].value == 'my_owner'
 
-    def test_attr_type(self, data):
-        data['attrs'] = {'ident': {'value': 1, 'traits': {'entity:id'}}}
+    @pytest.mark.parametrize('traits', [
+        set(),
+        {'entity:id'},
+        {'perf:counter', 'time:posix'}
+    ])
+    def test_attr_traits(self, data, traits):
+        data['attrs'] = {'ident': {'value': 1, 'traits': traits}}
         test_cfg = entityd.declentity.DeclCfg(data)
         assert test_cfg.attrs['ident'].value == 1
-        assert test_cfg.attrs['ident'].traits == {'entity:id'}
+        assert test_cfg.attrs['ident'].traits == traits
 
     def test_relation(self, data):
         data['children'] = [{'type': 'EntType'}]

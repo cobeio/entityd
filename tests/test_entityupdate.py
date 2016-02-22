@@ -74,3 +74,20 @@ def test_create_deleted_from_ueid():
     update.delete()
     assert update.deleted
     assert update.ueid == ueid
+
+
+@pytest.mark.parametrize(('literal', 'string'), [
+    (None, 'None'),
+    (0, '0'),
+    (0.0, '0.0'),
+    (b'foo', "b'foo'"),
+    ([], '[]'),
+    ((), '()'),
+    ({}, '{}'),
+])
+def test_value_string_conversion(literal, string):
+    update_literal = entityd.EntityUpdate('Foo')
+    update_literal.attrs.set('bar', literal, {'entity:id'})
+    update_string = entityd.EntityUpdate('Foo')
+    update_string.attrs.set('bar', string, {'entity:id'})
+    assert update_literal.ueid != update_string.ueid

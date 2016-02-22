@@ -55,9 +55,11 @@ def test_entity_attrs(procent, session, kvstore):  # pylint: disable=unused-argu
                     'sessionid'.split():
             assert entity.attrs.get(attr)
             if attr in ['cputime']:
-                assert entity.attrs.get(attr).traits == {'perf:counter'}
+                assert entity.attrs.get(attr).traits == {
+                    'perf:counter', 'time:duration', 'unit:seconds'}
             if attr in ['vsz', 'rss']:
-                assert entity.attrs.get(attr).traits == {'perf:gauge'}
+                assert entity.attrs.get(attr).traits == {
+                    'perf:gauge', 'unit:bytes'}
 
         count += 1
     assert count
@@ -333,7 +335,7 @@ def test_cpu_usage_attr(procent, session, kvstore):  # pylint: disable=unused-ar
     entity = next(entities)
     cpu_usage = entity.attrs.get('cpu%')
     assert isinstance(cpu_usage.value, float)
-    assert cpu_usage.traits == {'perf:gauge'}
+    assert cpu_usage.traits == {'perf:gauge', 'unit:percent'}
 
 
 def test_cpu_usage_calculation(procent):

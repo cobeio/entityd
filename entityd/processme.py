@@ -189,19 +189,23 @@ class ProcessEntity:
         update.attrs.set('binary', proc.name)
         update.attrs.set('pid', proc.pid, traits={'entity:id'})
         update.attrs.set('starttime', proc.start_time.timestamp(),
-                         traits={'entity:id'})
+                         traits={'entity:id', 'time:posix', 'unit:seconds'})
         update.attrs.set('ppid', proc.ppid)
-        update.attrs.set('host', self.host_ueid, traits={'entity:id'})
+        update.attrs.set('host', self.host_ueid,
+                         traits={'entity:id', 'entity:ueid'})
         update.attrs.set('cputime', float(proc.cputime),
-                         traits={'perf:counter'})
+                         traits={'perf:counter',
+                                 'time:duration', 'unit:seconds'})
         update.attrs.set('utime', float(proc.utime),
-                         traits={'perf:counter'})
+                         traits={'perf:counter',
+                                 'time:duration', 'unit:seconds'})
         update.attrs.set('stime', float(proc.stime),
-                         traits={'perf:counter'})
+                         traits={'perf:counter',
+                                 'time:duration', 'unit:seconds'})
         update.attrs.set('cpu%', self.get_cpu_usage(proc),
-                         traits={'perf:gauge'})
-        update.attrs.set('vsz', proc.vsz, traits={'perf:gauge'})
-        update.attrs.set('rss', proc.rss, traits={'perf:gauge'})
+                         traits={'perf:gauge', 'unit:percent'})
+        update.attrs.set('vsz', proc.vsz, traits={'perf:gauge', 'unit:bytes'})
+        update.attrs.set('rss', proc.rss, traits={'perf:gauge', 'unit:bytes'})
         update.attrs.set('uid', proc.ruid)
         update.attrs.set('euid', proc.euid)
         update.attrs.set('suid', proc.suid)

@@ -74,6 +74,7 @@ def has_apachectl():
         return False
     return bool(binary)
 
+
 apachectl = pytest.mark.skipif(not has_apachectl(),
                                reason="Local Apache binaries needed.")
 

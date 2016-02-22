@@ -218,7 +218,7 @@ def test_attribute():
     encoded = entityd.mesend.MonitoredEntitySender.encode_entity(entity)
     decoded = msgpack.unpackb(encoded, encoding='utf8')
     assert decoded['attrs']['attr']['value'] == 1
-    assert set(decoded['attrs']['attr']['traits']) == {'perf:counter'}
+    assert decoded['attrs']['attr']['traits'] == ['perf:counter']
     assert 'deleted' not in decoded['attrs']['attr']
 
 

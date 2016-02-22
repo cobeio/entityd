@@ -57,17 +57,21 @@ class HostEntity:
         update.label = fqdn
         update.attrs.set('id', self.get_uuid(), {'entity:id'})
         update.attrs.set('fqdn', fqdn)
-        update.attrs.set('uptime', uptime, {'perf:counter'})
-        update.attrs.set('boottime', syskit.boottime().timestamp())
+        update.attrs.set('uptime', uptime,
+                         {'time:duration', 'unit:seconds', 'perf:counter'})
+        update.attrs.set('boottime', syskit.boottime().timestamp(),
+                         {'time:posix', 'unit:seconds'})
         load = syskit.loadavg()
-        update.attrs.set('loadavg_1', load[0])
-        update.attrs.set('loadavg_5', load[1])
-        update.attrs.set('loadavg_15', load[2])
+        update.attrs.set('loadavg_1', load[0], {'perf:gauge'})
+        update.attrs.set('loadavg_5', load[1], {'perf:gauge'})
+        update.attrs.set('loadavg_15', load[2], {'perf:gauge'})
         memorystats = syskit.MemoryStats()
         free = memorystats.free + memorystats.buffers + memorystats.cached
-        update.attrs.set('free', free)
-        update.attrs.set('total', memorystats.total)
-        update.attrs.set('used', memorystats.total - free)
+        update.attrs.set('free', free, {'unit:bytes', 'perf:gauge'})
+        update.attrs.set('total', memorystats.total,
+                         {'unit:bytes', 'perf:gauge'})
+        update.attrs.set('used', memorystats.total - free,
+                         {'unit:bytes', 'perf:gauge'})
         update.attrs.set('os', platform.system())
         update.attrs.set('osversion', platform.release())
         self._add_cputime_attrs(update)
@@ -89,12 +93,15 @@ class HostEntity:
         cputimes = {attr: diff for attr, diff in zip(attrs, cputime_diff)}
         total = sum(cputimes.values())
         for attr in attrs:
-            update.attrs.set(attr, float(cputimes[attr]))
+            update.attrs.set(attr, float(cputimes[attr]),
+                             {'time:duration', 'unit:seconds'})
             if total == 0:
-                update.attrs.set(attr + '%', 0)
+                update.attrs.set(attr + '%', 0,
+                                 {'perf:gauge', 'unit:percent'})
             else:
                 update.attrs.set(
                     attr + '%',
-                    float(cputimes[attr]) / float(total) * 100)
+                    float(cputimes[attr]) / float(total) * 100,
+                    {'perf:gauge', 'unit:percent'})
         self.cputimes = new_cputimes
         return None

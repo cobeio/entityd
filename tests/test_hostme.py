@@ -75,6 +75,7 @@ def test_total(host):
     memorystats = syskit.MemoryStats()
     total = memorystats.total
     assert host.attrs.get('total').value == total
+    assert host.attrs.get('total').traits == {'perf:gauge', 'unit:bytes'}
 
 
 def test_cpu_usage(host_gen):
@@ -109,12 +110,13 @@ def test_cpu_usage_zerodiv(host_gen, monkeypatch):
 def test_loadavg(host_gen):
     entities = list(host_gen.hosts())
     host = entities[0]
-    loadavg = (host.attrs.get('loadavg_1').value,
-               host.attrs.get('loadavg_5').value,
-               host.attrs.get('loadavg_15').value)
-    for value in loadavg:
-        assert isinstance(value, float)
-        assert 0 < value < 16
+    loadavgs = (host.attrs.get('loadavg_1'),
+                host.attrs.get('loadavg_5'),
+                host.attrs.get('loadavg_15'))
+    for av in loadavgs:
+        assert isinstance(av.value, float)
+        assert 'perf:gauge' in av.traits
+        assert 0 < av.value < 16
 
 
 def test_entity_has_label():

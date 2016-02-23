@@ -231,7 +231,7 @@ def test_find_entity_mocked_apache(patched_entitygen):
         assert entity.metype == 'Apache'
         assert 'Apache/2' in entity.attrs.get('version').value
         for id_attr in ['host', 'config_path']:
-            assert entity.attrs.get(id_attr).traits == {'entity:id'}
+            assert 'entity:id' in entity.attrs.get(id_attr).traits
         count += 1
     assert count
 
@@ -306,6 +306,7 @@ def test_apache_entity_label(patched_entitygen):
         assert entity.label.startswith('Apache')
         count += 1
     assert count
+
 
 # pylint: disable=too-many-locals
 def test_apache_not_found(patched_entitygen, monkeypatch):
@@ -634,37 +635,37 @@ def test_performance_data(apache, monkeypatch):
 
     get_func.assert_called_with('http://localhost:80/server-status?auto')
 
-    assert perfdata['TotalAccesses'] == 1081
-    assert perfdata['TotalkBytes'] == 704
-    assert perfdata['CPULoad'] == 0.00384508
-    assert perfdata['Uptime'] == 1035348
-    assert perfdata['ReqPerSec'] == 0.00104409
-    assert perfdata['BytesPerSec'] == 0.696284
-    assert perfdata['BytesPerReq'] == 666.879
-    assert perfdata['BusyWorkers'] == 1
-    assert perfdata['IdleWorkers'] == 49
-    assert perfdata['ConnsTotal'] == 0
-    assert perfdata['ConnsAsyncWriting'] == 0
-    assert perfdata['ConnsAsyncKeepAlive'] == 0
-    assert perfdata['ConnsAsyncClosing'] == 0
+    assert perfdata['TotalAccesses'] == (1081, {'perf:counter'})
+    assert perfdata['TotalkBytes'] == (704, {'perf:counter', 'unit:bytes'})
+    assert perfdata['CPULoad'] == (0.00384508, {'perf:gauge'})
+    assert perfdata['Uptime'] == (1035348, {'perf:counter',
+                                            'time:duration', 'unit:seconds'})
+    assert perfdata['ReqPerSec'] == (0.00104409, {'perf:gauge'})
+    assert perfdata['BytesPerSec'] == (0.696284, {'perf:gauge', 'unit:bytes'})
+    assert perfdata['BytesPerReq'] == (666.879, {'perf:gauge', 'unit:bytes'})
+    assert perfdata['BusyWorkers'] == (1, {'perf:gauge'})
+    assert perfdata['IdleWorkers'] == (49, {'perf:gauge'})
+    assert perfdata['ConnsTotal'] == (0, {'perf:gauge'})
+    assert perfdata['ConnsAsyncWriting'] == (0, {'perf:gauge'})
+    assert perfdata['ConnsAsyncKeepAlive'] == (0, {'perf:gauge'})
+    assert perfdata['ConnsAsyncClosing'] == (0, {'perf:gauge'})
+    assert perfdata['workers:sending'] == (1, {'perf:gauge'})
+    assert perfdata['workers:waiting'] == (49, {'perf:gauge'})
+    assert perfdata['workers:open'] == (100, {'perf:gauge'})
 
-    assert perfdata['workers:sending'] == 1
-    assert perfdata['workers:waiting'] == 49
-    assert perfdata['workers:open'] == 100
-
-    assert sum([
-        perfdata['workers:waiting'],
-        perfdata['workers:starting'],
-        perfdata['workers:reading'],
-        perfdata['workers:sending'],
-        perfdata['workers:keepalive'],
-        perfdata['workers:dns'],
-        perfdata['workers:closing'],
-        perfdata['workers:logging'],
-        perfdata['workers:finishing'],
-        perfdata['workers:idle']
-    ]) == sum([perfdata['BusyWorkers'],
-               perfdata['IdleWorkers']])
+    assert sum(perfdata[key][0] for key in [
+        'workers:waiting',
+        'workers:starting',
+        'workers:reading',
+        'workers:sending',
+        'workers:keepalive',
+        'workers:dns',
+        'workers:closing',
+        'workers:logging',
+        'workers:finishing',
+        'workers:idle'
+    ]) == sum([perfdata['BusyWorkers'][0],
+               perfdata['IdleWorkers'][0]])
 
 
 def test_performance_data_fails(apache, monkeypatch):

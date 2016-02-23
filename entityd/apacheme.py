@@ -82,22 +82,23 @@ class ApacheEntity:
         :param include_ondemand: If True, return related `ondemand` entities
            that wouldn't be emitted otherwise.
         """
-        apache_instances = self.active_apaches()
-        for apache in apache_instances:
+        for apache in self.active_apaches():
             try:
                 perfdata = apache.performance_data()
             except ApacheNotFound:
                 continue
             update = entityd.EntityUpdate('Apache')
             update.label = 'Apache'
-            update.attrs.set('host', self.host_ueid, traits={'entity:id'})
+            update.attrs.set('host', self.host_ueid,
+                             traits={'entity:id', 'entity:ueid'})
             update.attrs.set('version', apache.version)
             update.attrs.set('config_path',
                              apache.config_path, traits={'entity:id'})
             update.attrs.set('config_ok', apache.check_config())
-            update.attrs.set('config_last_mod', apache.config_last_modified())
-            for name, value in perfdata.items():
-                update.attrs.set(name, value)
+            update.attrs.set('config_last_mod', apache.config_last_modified(),
+                             traits={'time:posix', 'unit:seconds'})
+            for name, (value, traits) in perfdata.items():
+                update.attrs.set(name, value, traits)
             update.children.add(apache.main_process)
             for address, port, path in apache.vhosts():
                 vhost = self.create_vhost(address, port, apache=update)
@@ -153,7 +154,8 @@ class ApacheEntity:
         vhost.label = "{}:{}".format(address, port)
         vhost.attrs.set('address', address, traits={'entity:id'})
         vhost.attrs.set('port', port, traits={'entity:id'})
-        vhost.attrs.set('apache', apache.ueid, traits={'entity:id'})
+        vhost.attrs.set('apache', apache.ueid,
+                        traits={'entity:id', 'entity:ueid'})
         return vhost
 
 
@@ -299,17 +301,28 @@ class Apache:
         lines = response.text.split('\n')
         for line in lines:
             if line.startswith('Total Accesses'):
-                perfdata['TotalAccesses'] = int(line.split(':')[1].strip())
+                perfdata['TotalAccesses'] = (int(line.split(':')[1].strip()),
+                                             {'perf:counter'})
             elif line.startswith('Total kBytes'):
-                perfdata['TotalkBytes'] = int(line.split(':')[1].strip())
-            elif line.startswith(('Uptime', 'BusyWorkers', 'IdleWorkers',
+                perfdata['TotalkBytes'] = (int(line.split(':')[1].strip()),
+                                           {'perf:counter', 'unit:bytes'})
+            elif line.startswith('Uptime'):
+                key, value, *_ = [s.strip() for s in line.split(':')]
+                perfdata[key] = (
+                    float(value),
+                    {'perf:counter', 'time:duration', 'unit:seconds'})
+            elif line.startswith(('BusyWorkers', 'IdleWorkers',
                                   'ConnsTotal', 'ConnsAsyncWriting',
                                   'ConnsAsyncKeepAlive', 'ConnsAsyncClosing')):
-                perfdata[line.split(':')[0]] = int(line.split(':')[1].strip())
+                key, value, *_ = [s.strip() for s in line.split(':')]
+                perfdata[key] = (int(value), {'perf:gauge'})
             elif line.startswith(('CPULoad', 'ReqPerSec', 'BytesPerSec',
                                   'BytesPerReq')):
-                perfdata[line.split(':')[0]] = float(
-                    line.split(':')[1].strip())
+                key = line.split(':')[0]
+                perfdata[key] = (float(
+                    line.split(':')[1].strip()), {'perf:gauge'})
+                if line.startswith(('BytesPerSec', 'BytesPerReq')):
+                    perfdata[key][1].add('unit:bytes')
             elif line.startswith('Scoreboard:'):
                 scoreboard = line.split(':')[1].strip()
                 names = {
@@ -326,7 +339,7 @@ class Apache:
                     '.': 'workers:open'
                 }
                 for symbol, desc in names.items():
-                    perfdata[desc] = scoreboard.count(symbol)
+                    perfdata[desc] = (scoreboard.count(symbol), {'perf:gauge'})
         return perfdata
 
     def vhosts(self):

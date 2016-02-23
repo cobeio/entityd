@@ -231,7 +231,8 @@ class DeclarativeEntity:
         entity.attrs.set('filepath',
                          str(config_properties.filepath),
                          traits={'entity:id'})
-        entity.attrs.set('hostueid', self.host_ueid, traits={'entity:id'})
+        entity.attrs.set('hostueid', self.host_ueid,
+                         traits={'entity:id', 'entity:ueid'})
         for name, value in config_properties.attrs.items():
             entity.attrs.set(name, value.value, traits=value.traits)
 

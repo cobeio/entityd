@@ -84,12 +84,14 @@ class FileEntity:
         fstat = os.stat(path)
         update = entityd.EntityUpdate('File')
         update.label = path
-        update.attrs.set('host', self.host_ueid, traits={'entity:id'})
+        update.attrs.set('host', self.host_ueid,
+                         traits={'entity:id', 'entity:ueid'})
         update.attrs.set('path', path, traits={'entity:id'})
         update.attrs.set('uid', fstat.st_uid)
         update.attrs.set('gid', fstat.st_gid)
         update.attrs.set('permissions', stat.filemode(fstat.st_mode))
-        update.attrs.set('lastmodified',
-                         fstat.st_mtime, traits={'perf:counter'})
-        update.attrs.set('size', fstat.st_size, traits={'perf:gauge'})
+        update.attrs.set('lastmodified', fstat.st_mtime,
+                         traits={'perf:counter', 'time:posix', 'unit:seconds'})
+        update.attrs.set('size', fstat.st_size,
+                         traits={'perf:gauge', 'unit:bytes'})
         return update

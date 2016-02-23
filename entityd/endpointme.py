@@ -97,7 +97,13 @@ class EndpointEntity:
     def get_remote_endpoint(conn):
         """Get the UEID of the remote Endpoint of conn."""
         remote = entityd.EntityUpdate(metype='Endpoint')
-        remote.attrs.set('addr', conn.raddr[0], traits={'entity:id'})
+        family = FAMILIES.get(conn.family)
+        addrtraits = {'entity:id'}
+        if family == 'INET':
+            addrtraits.add('ipaddr:v4')
+        elif family == 'INET6':
+            addrtraits.add('ipaddr:v6')
+        remote.attrs.set('addr', conn.raddr[0], traits=addrtraits)
         remote.attrs.set('port', conn.raddr[1], traits={'entity:id'})
         remote.attrs.set('family',
                          FAMILIES.get(conn.family),

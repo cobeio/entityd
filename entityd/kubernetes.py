@@ -168,7 +168,7 @@ def pod_update(pod, update):
         traits={'chrono:rfc3339'},
     )
     update.attrs.set('ip', str(pod.ip),
-                     traits={'ip:v{}'.format(pod.ip.version)})
+                     traits={'ipaddr:v{}'.format(pod.ip.version)})
     for attribute in ('message', 'reason'):
         try:
             value = getattr(pod, attribute)

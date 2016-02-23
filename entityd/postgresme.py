@@ -61,7 +61,8 @@ class PostgreSQLEntity:
         for proc in self.top_level_postgresql_processes():
             postgres = PostgreSQL(proc)
             update = entityd.EntityUpdate('PostgreSQL')
-            update.attrs.set('host', self.host_ueid, traits={'entity:id'})
+            update.attrs.set('host', self.host_ueid,
+                             traits={'entity:id', 'entity:ueid'})
             update.attrs.set(
                 'config_path', postgres.config_path(), traits={'entity:id'})
             update.attrs.set('process_id', proc.attrs.get('pid').value)

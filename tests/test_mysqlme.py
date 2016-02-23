@@ -9,7 +9,6 @@ import entityd.mysqlme
 import entityd.processme
 
 
-
 @pytest.fixture
 def procent(pm, session, monkeypatch):
     procent = entityd.processme.ProcessEntity()

@@ -597,7 +597,7 @@ class TestDecCfg:
     @pytest.mark.parametrize('traits', [
         set(),
         {'entity:id'},
-        {'perf:counter', 'time:posix'}
+        {'metric:counter', 'time:posix'}
     ])
     def test_attr_traits(self, data, traits):
         data['attrs'] = {'ident': {'value': 1, 'traits': traits}}

@@ -635,23 +635,24 @@ def test_performance_data(apache, monkeypatch):
 
     get_func.assert_called_with('http://localhost:80/server-status?auto')
 
-    assert perfdata['TotalAccesses'] == (1081, {'perf:counter'})
-    assert perfdata['TotalkBytes'] == (704, {'perf:counter', 'unit:bytes'})
-    assert perfdata['CPULoad'] == (0.00384508, {'perf:gauge'})
-    assert perfdata['Uptime'] == (1035348, {'perf:counter',
+    assert perfdata['TotalAccesses'] == (1081, {'metric:counter'})
+    assert perfdata['TotalkBytes'] == (704, {'metric:counter', 'unit:bytes'})
+    assert perfdata['CPULoad'] == (0.00384508, {'metric:gauge'})
+    assert perfdata['Uptime'] == (1035348, {'metric:counter',
                                             'time:duration', 'unit:seconds'})
-    assert perfdata['ReqPerSec'] == (0.00104409, {'perf:gauge'})
-    assert perfdata['BytesPerSec'] == (0.696284, {'perf:gauge', 'unit:bytes'})
-    assert perfdata['BytesPerReq'] == (666.879, {'perf:gauge', 'unit:bytes'})
-    assert perfdata['BusyWorkers'] == (1, {'perf:gauge'})
-    assert perfdata['IdleWorkers'] == (49, {'perf:gauge'})
-    assert perfdata['ConnsTotal'] == (0, {'perf:gauge'})
-    assert perfdata['ConnsAsyncWriting'] == (0, {'perf:gauge'})
-    assert perfdata['ConnsAsyncKeepAlive'] == (0, {'perf:gauge'})
-    assert perfdata['ConnsAsyncClosing'] == (0, {'perf:gauge'})
-    assert perfdata['workers:sending'] == (1, {'perf:gauge'})
-    assert perfdata['workers:waiting'] == (49, {'perf:gauge'})
-    assert perfdata['workers:open'] == (100, {'perf:gauge'})
+    assert perfdata['ReqPerSec'] == (0.00104409, {'metric:gauge'})
+    assert perfdata['BytesPerSec'] == (0.696284,
+                                       {'metric:gauge', 'unit:bytes'})
+    assert perfdata['BytesPerReq'] == (666.879, {'metric:gauge', 'unit:bytes'})
+    assert perfdata['BusyWorkers'] == (1, {'metric:gauge'})
+    assert perfdata['IdleWorkers'] == (49, {'metric:gauge'})
+    assert perfdata['ConnsTotal'] == (0, {'metric:gauge'})
+    assert perfdata['ConnsAsyncWriting'] == (0, {'metric:gauge'})
+    assert perfdata['ConnsAsyncKeepAlive'] == (0, {'metric:gauge'})
+    assert perfdata['ConnsAsyncClosing'] == (0, {'metric:gauge'})
+    assert perfdata['workers:sending'] == (1, {'metric:gauge'})
+    assert perfdata['workers:waiting'] == (49, {'metric:gauge'})
+    assert perfdata['workers:open'] == (100, {'metric:gauge'})
 
     assert sum(perfdata[key][0] for key in [
         'workers:waiting',

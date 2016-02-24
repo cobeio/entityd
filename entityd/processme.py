@@ -194,18 +194,20 @@ class ProcessEntity:
         update.attrs.set('host', self.host_ueid,
                          traits={'entity:id', 'entity:ueid'})
         update.attrs.set('cputime', float(proc.cputime),
-                         traits={'perf:counter',
+                         traits={'metric:counter',
                                  'time:duration', 'unit:seconds'})
         update.attrs.set('utime', float(proc.utime),
-                         traits={'perf:counter',
+                         traits={'metric:counter',
                                  'time:duration', 'unit:seconds'})
         update.attrs.set('stime', float(proc.stime),
-                         traits={'perf:counter',
+                         traits={'metric:counter',
                                  'time:duration', 'unit:seconds'})
         update.attrs.set('cpu%', self.get_cpu_usage(proc),
-                         traits={'perf:gauge', 'unit:percent'})
-        update.attrs.set('vsz', proc.vsz, traits={'perf:gauge', 'unit:bytes'})
-        update.attrs.set('rss', proc.rss, traits={'perf:gauge', 'unit:bytes'})
+                         traits={'metric:gauge', 'unit:percent'})
+        update.attrs.set('vsz', proc.vsz,
+                         traits={'metric:gauge', 'unit:bytes'})
+        update.attrs.set('rss', proc.rss,
+                         traits={'metric:gauge', 'unit:bytes'})
         update.attrs.set('uid', proc.ruid)
         update.attrs.set('euid', proc.euid)
         update.attrs.set('suid', proc.suid)

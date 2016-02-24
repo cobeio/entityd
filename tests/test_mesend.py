@@ -214,11 +214,11 @@ def test_buffers_full(loghandler, sender):
 
 def test_attribute():
     entity = entityd.EntityUpdate('Type')
-    entity.attrs.set('attr', 1, {'perf:counter'})
+    entity.attrs.set('attr', 1, {'metric:counter'})
     encoded = entityd.mesend.MonitoredEntitySender.encode_entity(entity)
     decoded = msgpack.unpackb(encoded, encoding='utf8')
     assert decoded['attrs']['attr']['value'] == 1
-    assert decoded['attrs']['attr']['traits'] == ['perf:counter']
+    assert decoded['attrs']['attr']['traits'] == ['metric:counter']
     assert 'deleted' not in decoded['attrs']['attr']
 
 

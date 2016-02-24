@@ -75,7 +75,7 @@ def test_total(host):
     memorystats = syskit.MemoryStats()
     total = memorystats.total
     assert host.attrs.get('total').value == total
-    assert host.attrs.get('total').traits == {'perf:gauge', 'unit:bytes'}
+    assert host.attrs.get('total').traits == {'metric:gauge', 'unit:bytes'}
 
 
 def test_cpu_usage(host_gen):
@@ -115,7 +115,7 @@ def test_loadavg(host_gen):
                 host.attrs.get('loadavg_15'))
     for av in loadavgs:
         assert isinstance(av.value, float)
-        assert 'perf:gauge' in av.traits
+        assert 'metric:gauge' in av.traits
         assert 0 < av.value < 16
 
 

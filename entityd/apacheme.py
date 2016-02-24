@@ -302,25 +302,25 @@ class Apache:
         for line in lines:
             if line.startswith('Total Accesses'):
                 perfdata['TotalAccesses'] = (int(line.split(':')[1].strip()),
-                                             {'perf:counter'})
+                                             {'metric:counter'})
             elif line.startswith('Total kBytes'):
                 perfdata['TotalkBytes'] = (int(line.split(':')[1].strip()),
-                                           {'perf:counter', 'unit:bytes'})
+                                           {'metric:counter', 'unit:bytes'})
             elif line.startswith('Uptime'):
                 key, value, *_ = [s.strip() for s in line.split(':')]
                 perfdata[key] = (
                     float(value),
-                    {'perf:counter', 'time:duration', 'unit:seconds'})
+                    {'metric:counter', 'time:duration', 'unit:seconds'})
             elif line.startswith(('BusyWorkers', 'IdleWorkers',
                                   'ConnsTotal', 'ConnsAsyncWriting',
                                   'ConnsAsyncKeepAlive', 'ConnsAsyncClosing')):
                 key, value, *_ = [s.strip() for s in line.split(':')]
-                perfdata[key] = (int(value), {'perf:gauge'})
+                perfdata[key] = (int(value), {'metric:gauge'})
             elif line.startswith(('CPULoad', 'ReqPerSec', 'BytesPerSec',
                                   'BytesPerReq')):
                 key = line.split(':')[0]
                 perfdata[key] = (float(
-                    line.split(':')[1].strip()), {'perf:gauge'})
+                    line.split(':')[1].strip()), {'metric:gauge'})
                 if line.startswith(('BytesPerSec', 'BytesPerReq')):
                     perfdata[key][1].add('unit:bytes')
             elif line.startswith('Scoreboard:'):
@@ -339,7 +339,8 @@ class Apache:
                     '.': 'workers:open'
                 }
                 for symbol, desc in names.items():
-                    perfdata[desc] = (scoreboard.count(symbol), {'perf:gauge'})
+                    perfdata[desc] = (scoreboard.count(symbol),
+                                      {'metric:gauge'})
         return perfdata
 
     def vhosts(self):

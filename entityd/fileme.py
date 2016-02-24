@@ -91,7 +91,8 @@ class FileEntity:
         update.attrs.set('gid', fstat.st_gid)
         update.attrs.set('permissions', stat.filemode(fstat.st_mode))
         update.attrs.set('lastmodified', fstat.st_mtime,
-                         traits={'perf:counter', 'time:posix', 'unit:seconds'})
+                         traits={'metric:counter',
+                                 'time:posix', 'unit:seconds'})
         update.attrs.set('size', fstat.st_size,
-                         traits={'perf:gauge', 'unit:bytes'})
+                         traits={'metric:gauge', 'unit:bytes'})
         return update

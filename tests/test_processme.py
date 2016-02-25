@@ -333,7 +333,7 @@ def test_cpu_usage_attr(procent, session, kvstore):  # pylint: disable=unused-ar
     procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', {'pid': os.getpid()})
     entity = next(entities)
-    cpu_usage = entity.attrs.get('cpu%')
+    cpu_usage = entity.attrs.get('cpu')
     assert isinstance(cpu_usage.value, float)
     assert cpu_usage.traits == {'metric:gauge', 'unit:percent'}
 

@@ -202,7 +202,7 @@ class ProcessEntity:
         update.attrs.set('stime', float(proc.stime),
                          traits={'metric:counter',
                                  'time:duration', 'unit:seconds'})
-        update.attrs.set('cpu%', self.get_cpu_usage(proc),
+        update.attrs.set('cpu', self.get_cpu_usage(proc),
                          traits={'metric:gauge', 'unit:percent'})
         update.attrs.set('vsz', proc.vsz,
                          traits={'metric:gauge', 'unit:bytes'})

@@ -76,6 +76,7 @@ def test_create_deleted_from_ueid():
     assert update.ueid == ueid
 
 
+@pytest.mark.xfail(reason='Known deficiency in UEID specification')
 @pytest.mark.parametrize(('literal', 'string'), [
     (None, 'None'),
     (0, '0'),

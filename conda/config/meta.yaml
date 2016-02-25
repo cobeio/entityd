@@ -5,13 +5,14 @@ variables should always have reasonable defaults for when the recipe is
 built outside of an Edd context.
 #}
 
-{% set version = '0.5.0' %}
+{% set version = '0.6.0' %}
 
 package:
   name: entityd-config
   version: {{version}}
 
 source:
+  # Test build with: path: ../..
   hg_url: ssh://hg@bitbucket.org/abilisoft/entityd
   hg_tag: rel/{{version}}
 

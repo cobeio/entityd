@@ -93,14 +93,15 @@ class HostEntity:
         cputimes = {attr: diff for attr, diff in zip(attrs, cputime_diff)}
         total = sum(cputimes.values())
         for attr in attrs:
+            attr_name = 'cpu:' + attr
             update.attrs.set(attr, float(cputimes[attr]),
                              {'time:duration', 'unit:seconds'})
             if total == 0:
-                update.attrs.set(attr + '%', 0,
+                update.attrs.set(attr_name, 0,
                                  {'metric:gauge', 'unit:percent'})
             else:
                 update.attrs.set(
-                    attr + '%',
+                    attr_name,
                     float(cputimes[attr]) / float(total) * 100,
                     {'metric:gauge', 'unit:percent'})
         self.cputimes = new_cputimes

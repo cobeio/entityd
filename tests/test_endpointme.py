@@ -206,7 +206,6 @@ def test_get_ueid_reuse(endpoint_gen, local_socket):  # pylint: disable=unused-a
     assert ueid0 == ueid1
 
 
-
 def test_entity_has_label(session, kvstore, endpoint_gen, local_socket):  # pylint: disable=unused-argument
     endpoint_gen.entityd_sessionstart(session)
     entities = endpoint_gen.entityd_find_entity(name='Endpoint', attrs=None)
@@ -218,3 +217,11 @@ def test_entity_has_label(session, kvstore, endpoint_gen, local_socket):  # pyli
             assert socket.inet_pton(socket.AF_INET6, match.group(1))
         else:
             assert socket.inet_pton(socket.AF_INET, match.group(1))
+
+
+def test_multiple_fds():
+    s1 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    _ = socket.fromfd(s1.fileno(), socket.AF_INET, socket.SOCK_DGRAM)
+    s1.bind(('127.0.0.1', 12345))
+    conns = entityd.connections.Connections().retrieve('all', os.getpid())
+    assert len(conns) == 1

@@ -175,12 +175,10 @@ class Connections:
             _, laddr, raddr, status, _, _, _, _, _, inode = \
                 line.split()[:10]
             if inode in inodes:
-                # We assume inet sockets are unique, so we error
-                # out if there are multiple references to the
-                # same inode. We won't do this for UNIX sockets.
-                if len(inodes[inode]) > 1 and type_ != socket.AF_UNIX:
-                    raise ValueError("ambiguos inode with multiple "
-                                     "PIDs references")
+                # There may be multiple entries for this inode,
+                # if there are multiple FDs for it. This used to
+                # raise an exception, but now doesn't. See
+                # also: https://github.com/giampaolo/psutil/issues/572
                 pid, fd = inodes[inode][0]
             else:
                 pid, fd = None, -1

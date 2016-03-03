@@ -78,6 +78,8 @@ class UpdateAttributes:
             traits = set()
         else:
             traits = set(traits)
+        if not isinstance(value, (int, bool, float, str, bytes)):
+            value = str(value)
         self._attrs[name] = UpdateAttr(name, value, traits)
 
     def get(self, name):

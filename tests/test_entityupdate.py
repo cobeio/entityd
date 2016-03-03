@@ -76,6 +76,19 @@ def test_create_deleted_from_ueid():
     assert update.ueid == ueid
 
 
+@pytest.mark.parametrize(('in_', 'out'), [
+    ([1, [1, 2, 3], 3], '[1, [1, 2, 3], 3]'),
+    ({1: {2: 3}}, '{1: {2: 3}}')
+])
+def test_attr_complex_value(in_, out):
+    update = entityd.EntityUpdate('Test')
+    update.attrs.set('foo', in_)
+    attribute = update.attrs.get('foo')
+    assert attribute.name == 'foo'
+    assert attribute.traits == set()
+    assert attribute.value == out
+
+
 @pytest.mark.xfail(reason='Known deficiency in UEID specification')
 @pytest.mark.parametrize(('literal', 'string'), [
     (None, 'None'),

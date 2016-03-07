@@ -53,9 +53,10 @@ def test_ueid():
     assert u1.ueid != u2.ueid
 
 
-def test_attrs(update):
-    update.attrs.set('key', 'value', traits=set())
-    assert update.attrs.get('key').value == 'value'
+@pytest.mark.parametrize('value', [None, 0, 0.0, '', b'', [], {}])
+def test_attrs(update, value):
+    update.attrs.set('key', value, traits=set())
+    assert update.attrs.get('key').value == value
     assert update.attrs.get('key').traits == set()
     update.attrs.delete('key')
     with pytest.raises(KeyError):
@@ -74,19 +75,6 @@ def test_create_deleted_from_ueid():
     update.delete()
     assert update.deleted
     assert update.ueid == ueid
-
-
-@pytest.mark.parametrize(('in_', 'out'), [
-    ([1, [1, 2, 3], 3], '[1, [1, 2, 3], 3]'),
-    ({1: {2: 3}}, '{1: {2: 3}}')
-])
-def test_attr_complex_value(in_, out):
-    update = entityd.EntityUpdate('Test')
-    update.attrs.set('foo', in_)
-    attribute = update.attrs.get('foo')
-    assert attribute.name == 'foo'
-    assert attribute.traits == set()
-    assert attribute.value == out
 
 
 @pytest.mark.xfail(reason='Known deficiency in UEID specification')

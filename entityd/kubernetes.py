@@ -15,6 +15,7 @@ import entityd.pm
 
 log = logbook.Logger(__name__)
 RFC_3339_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
+_LOGGED_K8S_UNREACHABLE = False
 ENTITIES_PROVIDED = {
     'Kubernetes:Container': 'generate_containers',
     'Kubernetes:Namespace': 'generate_namespaces',
@@ -63,6 +64,7 @@ def generate_updates(generator_function):
 
     :returns: a generator of the updates returned by ``generator_function``.
     """
+    global _LOGGED_K8S_UNREACHABLE  # pylint: disable=global-statement
     name = {value: key for key, value
             in ENTITIES_PROVIDED.items()}[generator_function.__name__]
     with kube.Cluster() as cluster:
@@ -79,7 +81,11 @@ def generate_updates(generator_function):
                 else:
                     yield update
         except requests.ConnectionError:
-            log.error('Kubernetes API server unreachable')
+            if not _LOGGED_K8S_UNREACHABLE:
+                log.info('Kubernetes API server unreachable')
+                _LOGGED_K8S_UNREACHABLE = True
+        else:
+            _LOGGED_K8S_UNREACHABLE = False
 
 
 def apply_meta_update(meta, update):

@@ -150,7 +150,7 @@ class ProcessEntity:
             else:
                 try:
                     active[pid] = syskit.Process(pid)
-                except syskit.NoSuchProcessError:
+                except (syskit.NoSuchProcessError, ProcessLookupError):
                     pass
         return active, deleted
 

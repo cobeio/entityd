@@ -83,8 +83,8 @@ class HostEntity:
         The first call will return values since system boot; subsequent calls
         will return the values for the period in between calls.
         """
-        attrs = ['usr', 'sys', 'nice', 'idle', 'iowait', 'irq', 'softirq',
-                 'steal']
+        attrs = ['usr', 'nice', 'sys', 'idle', 'iowait', 'irq', 'softirq',
+                 'steal', 'guest', 'guest_nice']
         new_cputimes = syskit.cputimes()
         if self.cputimes:
             cputime_diff = [x - y for x, y in zip(new_cputimes, self.cputimes)]

@@ -26,187 +26,223 @@ ENTITIES_PROVIDED = {
 }
 Point = collections.namedtuple('Point', ('timestamp', 'data'))
 Metric = collections.namedtuple(
-    'Metric', ('name', 'path', 'traits'))
+    'Metric', ('name', 'path', 'traits', 'transform'))
 CONTAINER_METRICS = [Metric(*specification) for specification in (
     (
         'cpu:total',
         ('cpu', 'usage', 'total'),
-        {'metric:counter', 'unit:seconds'}
+        {'metric:counter', 'unit:seconds', 'time:duration'},
+        lambda ns: ns / (10 ** 9),
     ),
     (
         'cpu:user',
         ('cpu', 'usage', 'user'),
-        {'metric:counter', 'unit:seconds'}
+        {'metric:counter', 'unit:seconds', 'time:duration'},
+        lambda ns: ns / (10 ** 9),
     ),
     (
         'cpu:system',
         ('cpu', 'usage', 'system'),
-        {'metric:counter', 'unit:seconds'}
+        {'metric:counter', 'unit:seconds', 'time:duration'},
+        lambda ns: ns / (10 ** 9),
     ),
     (
         'cpu:load-average',
         ('cpu', 'usage', 'load_average'),
-        {'metric:guage'}
+        {'metric:guage'},
+        None,
     ),
     (
         'load:sleeping',
         ('load_stats', 'nr_sleeping'),
-        {'metric:guage'}
+        {'metric:guage'},
+        None,
     ),
     (
         'load:running',
         ('load_stats', 'nr_running'),
-        {'metric:guage'}
+        {'metric:guage'},
+        None,
     ),
     (
         'load:stopped',
         ('load_stats', 'nr_stopped'),
-        {'metric:guage'}
+        {'metric:guage'},
+        None,
     ),
     (
         'load:uninterruptible',
         ('load_stats', 'nr_uninterruptible'),
-        {'metric:guage'}
+        {'metric:guage'},
+        None,
     ),
     (
         'load:io-wait',
         ('load_stats', 'nr_io_wait'),
-        {'metric:guage'}
+        {'metric:guage'},
+        None,
     ),
     (
         'memory:usage',
         ('memory', 'usage'),
-        {'metric:guage', 'unit:bytes'}
+        {'metric:guage', 'unit:bytes'},
+        None,
     ),
     (
         'memory:working-set',
         ('memory', 'working_set'),
-        {'metric:guage', 'unit:bytes'}
+        {'metric:guage', 'unit:bytes'},
+        None,
     ),
     (
         'memory:fail-count',
         ('memory', 'failcnt'),
-        {'metric:counter'}
+        {'metric:counter'},
+        None,
     ),
     (
         'memory:page-fault',
         ('memory', 'container_data', 'pgfault'),
-        {'metric:counter'}
+        {'metric:counter'},
+        None,
     ),
     (
         'memory:page-fault:major',
         ('memory', 'container_data', 'pgmajfault'),
-        {'metric:counter'}
+        {'metric:counter'},
+        None,
     ),
     (
         'network:tcp:established',
         ('network', 'tcp', 'Established'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
     (
         'network:tcp:syn-sent',
         ('network', 'tcp', 'SynSent'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
     (
         'network:tcp:syn-recv',
         ('network', 'tcp', 'SynRecv'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
     (
         'network:tcp:fin-wait-1',
         ('network', 'tcp', 'FinWait1'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
     (
         'network:tcp:fin-wait-2',
         ('network', 'tcp', 'FinWait2'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
     (
         'network:tcp:time-wait',
         ('network', 'tcp', 'TimeWait'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
     (
         'network:tcp:close',
         ('network', 'tcp', 'Close'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
     (
         'network:tcp:close-wait',
         ('network', 'tcp', 'CloseWait'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
     (
         'network:tcp:last-ack',
         ('network', 'tcp', 'LastAck'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
     (
         'network:tcp:listen',
         ('network', 'tcp', 'Listen'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
     (
         'network:tcp:closing',
         ('network', 'tcp', 'Closing'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
     (
         'network:tcp6:established',
         ('network', 'tcp6', 'Established'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
     (
         'network:tcp6:syn-sent',
         ('network', 'tcp6', 'SynSent'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
     (
         'network:tcp6:syn-recv',
         ('network', 'tcp6', 'SynRecv'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
     (
         'network:tcp6:fin-wait-1',
         ('network', 'tcp6', 'FinWait1'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
     (
         'network:tcp6:fin-wait-2',
         ('network', 'tcp6', 'FinWait2'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
     (
         'network:tcp6:time-wait',
         ('network', 'tcp6', 'TimeWait'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
     (
         'network:tcp6:close',
         ('network', 'tcp6', 'Close'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
     (
         'network:tcp6:close-wait',
         ('network', 'tcp6', 'CloseWait'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
     (
         'network:tcp6:last-ack',
         ('network', 'tcp6', 'LastAck'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
     (
         'network:tcp6:listen',
         ('network', 'tcp6', 'Listen'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
     (
         'network:tcp6:closing',
         ('network', 'tcp6', 'Closing'),
-        {'metric:gauge'}
+        {'metric:gauge'},
+        None,
     ),
 )]
 
@@ -484,6 +520,8 @@ def point_to_attributes(point, update):
         if metric.name in delete:
             update.attrs.delete(metric.name)
         else:
+            if metric.transform:
+                value = metric.transform(value)
             update.attrs.set(metric.name, value, metric.traits)
 
 

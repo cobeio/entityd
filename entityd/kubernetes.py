@@ -49,7 +49,7 @@ CONTAINER_METRICS = [Metric(*specification) for specification in (
     (
         'cpu:total',
         ('cpu_inst', 'usage', 'total'),
-        {'metric:gauge', 'unit:percentage'},
+        {'metric:gauge', 'unit:percent'},
         lambda ins: ins / (10 ** 9),
     ),
     (

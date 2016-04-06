@@ -6,6 +6,9 @@ A single ``entityd_find_entity`` hook implementation takes responsibility
 for dispatching to the correct generator function.
 """
 
+import datetime
+import collections
+
 import kube
 import logbook
 import requests
@@ -21,6 +24,191 @@ ENTITIES_PROVIDED = {
     'Kubernetes:Namespace': 'generate_namespaces',
     'Kubernetes:Pod': 'generate_pods',
 }
+Point = collections.namedtuple('Point', ('timestamp', 'data'))
+Metric = collections.namedtuple(
+    'Metric', ('name', 'path', 'traits'))
+CONTAINER_METRICS = [Metric(*specification) for specification in (
+    (
+        'cpu:total',
+        ('cpu', 'usage', 'total'),
+        {'metric:counter', 'unit:seconds'}
+    ),
+    (
+        'cpu:user',
+        ('cpu', 'usage', 'user'),
+        {'metric:counter', 'unit:seconds'}
+    ),
+    (
+        'cpu:system',
+        ('cpu', 'usage', 'system'),
+        {'metric:counter', 'unit:seconds'}
+    ),
+    (
+        'cpu:load-average',
+        ('cpu', 'usage', 'load_average'),
+        {'metric:guage'}
+    ),
+    (
+        'load:sleeping',
+        ('load_stats', 'nr_sleeping'),
+        {'metric:guage'}
+    ),
+    (
+        'load:running',
+        ('load_stats', 'nr_running'),
+        {'metric:guage'}
+    ),
+    (
+        'load:stopped',
+        ('load_stats', 'nr_stopped'),
+        {'metric:guage'}
+    ),
+    (
+        'load:uninterruptible',
+        ('load_stats', 'nr_uninterruptible'),
+        {'metric:guage'}
+    ),
+    (
+        'load:io-wait',
+        ('load_stats', 'nr_io_wait'),
+        {'metric:guage'}
+    ),
+    (
+        'memory:usage',
+        ('memory', 'usage'),
+        {'metric:guage', 'unit:bytes'}
+    ),
+    (
+        'memory:working-set',
+        ('memory', 'working_set'),
+        {'metric:guage', 'unit:bytes'}
+    ),
+    (
+        'memory:fail-count',
+        ('memory', 'failcnt'),
+        {'metric:counter'}
+    ),
+    (
+        'memory:page-fault',
+        ('memory', 'container_data', 'pgfault'),
+        {'metric:counter'}
+    ),
+    (
+        'memory:page-fault:major',
+        ('memory', 'container_data', 'pgmajfault'),
+        {'metric:counter'}
+    ),
+    (
+        'network:tcp:established',
+        ('network', 'tcp', 'Established'),
+        {'metric:gauge'}
+    ),
+    (
+        'network:tcp:syn-sent',
+        ('network', 'tcp', 'SynSent'),
+        {'metric:gauge'}
+    ),
+    (
+        'network:tcp:syn-recv',
+        ('network', 'tcp', 'SynRecv'),
+        {'metric:gauge'}
+    ),
+    (
+        'network:tcp:fin-wait-1',
+        ('network', 'tcp', 'FinWait1'),
+        {'metric:gauge'}
+    ),
+    (
+        'network:tcp:fin-wait-2',
+        ('network', 'tcp', 'FinWait2'),
+        {'metric:gauge'}
+    ),
+    (
+        'network:tcp:time-wait',
+        ('network', 'tcp', 'TimeWait'),
+        {'metric:gauge'}
+    ),
+    (
+        'network:tcp:close',
+        ('network', 'tcp', 'Close'),
+        {'metric:gauge'}
+    ),
+    (
+        'network:tcp:close-wait',
+        ('network', 'tcp', 'CloseWait'),
+        {'metric:gauge'}
+    ),
+    (
+        'network:tcp:last-ack',
+        ('network', 'tcp', 'LastAck'),
+        {'metric:gauge'}
+    ),
+    (
+        'network:tcp:listen',
+        ('network', 'tcp', 'Listen'),
+        {'metric:gauge'}
+    ),
+    (
+        'network:tcp:closing',
+        ('network', 'tcp', 'Closing'),
+        {'metric:gauge'}
+    ),
+    (
+        'network:tcp6:established',
+        ('network', 'tcp6', 'Established'),
+        {'metric:gauge'}
+    ),
+    (
+        'network:tcp6:syn-sent',
+        ('network', 'tcp6', 'SynSent'),
+        {'metric:gauge'}
+    ),
+    (
+        'network:tcp6:syn-recv',
+        ('network', 'tcp6', 'SynRecv'),
+        {'metric:gauge'}
+    ),
+    (
+        'network:tcp6:fin-wait-1',
+        ('network', 'tcp6', 'FinWait1'),
+        {'metric:gauge'}
+    ),
+    (
+        'network:tcp6:fin-wait-2',
+        ('network', 'tcp6', 'FinWait2'),
+        {'metric:gauge'}
+    ),
+    (
+        'network:tcp6:time-wait',
+        ('network', 'tcp6', 'TimeWait'),
+        {'metric:gauge'}
+    ),
+    (
+        'network:tcp6:close',
+        ('network', 'tcp6', 'Close'),
+        {'metric:gauge'}
+    ),
+    (
+        'network:tcp6:close-wait',
+        ('network', 'tcp6', 'CloseWait'),
+        {'metric:gauge'}
+    ),
+    (
+        'network:tcp6:last-ack',
+        ('network', 'tcp6', 'LastAck'),
+        {'metric:gauge'}
+    ),
+    (
+        'network:tcp6:listen',
+        ('network', 'tcp6', 'Listen'),
+        {'metric:gauge'}
+    ),
+    (
+        'network:tcp6:closing',
+        ('network', 'tcp6', 'Closing'),
+        {'metric:gauge'}
+    ),
+)]
 
 
 @entityd.pm.hookimpl
@@ -202,6 +390,7 @@ def generate_containers(cluster):
             for container in pod.containers:
                 update = yield
                 update.parents.add(pod_update)
+                container_metrics(cluster, container, update)
                 container_update(container, update)
 
 
@@ -244,3 +433,78 @@ def container_update(container, update):
     else:
         for attribute in ('exit-code', 'signal', 'message', 'finished-at'):
             update.attrs.delete('state:' + attribute)
+
+
+def select_nearest_point(when, points, threshold):
+    differences = []
+    for point in points:
+        differences.append(
+            (abs((when - point.timestamp).total_seconds()), point))
+    differences.sort(key=lambda d: d[0])
+    difference, point = differences[0]
+    if difference > threshold:
+        raise ValueError('No metric point within {} seconds'.format(threshold))
+    return point
+
+
+def cadvisor_to_points(raw_points):
+    points = []
+    for point in raw_points:
+        date_and_time, us_and_offset = point['timestamp'].split('.')
+        for offset_separator in ('Z', '+', '-'):
+            if offset_separator in us_and_offset:
+                us, raw_offset = us_and_offset.split(offset_separator)
+                us = us[:6]
+                if raw_offset:
+                    hours, minutes = raw_offset.split(':', 1)
+                    offset = datetime.timedelta(
+                        hours=int(hours), minutes=int(minutes))
+                else:
+                    offset = datetime.timedelta()
+                break
+        normalised_datetime = date_and_time + '.' + us
+        timestamp = datetime.datetime.strptime(
+            normalised_datetime, '%Y-%m-%dT%H:%M:%S.%f') + offset
+        points.append(Point(timestamp, point))
+    return points
+
+
+def point_to_attributes(point, update):
+    delete = []
+    for metric in CONTAINER_METRICS:
+        value = point.data
+        for step in metric.path:
+            try:
+                value = value[step]
+            except KeyError:
+                delete.append(metric.name)
+                log.debug(
+                    'Could not determine value for metric {}'.format(metric))
+                break
+        if metric.name in delete:
+            update.attrs.delete(metric.name)
+        else:
+            update.attrs.set(metric.name, value, metric.traits)
+
+
+def container_metrics(cluster, container, update):
+    now = datetime.datetime.utcnow()
+    for node in cluster.nodes:
+        try:
+            response = cluster.proxy.get(
+                'proxy/nodes', node.meta.name + ':4194',
+                'api/v2.0/stats', container.id, type='docker')
+        except kube.APIError as exc:
+            pass
+        else:
+            points = cadvisor_to_points(response['/' + container.id])
+            try:
+                point = select_nearest_point(now, points, 5)
+            except ValueError as exc:
+                log.warning(
+                    '{} for container with ID {}'.format(exc, container.id))
+            else:
+                point_to_attributes(point, update)
+            return
+    log.warning(
+        'Could not find node for container with ID {}'.format(container.id))

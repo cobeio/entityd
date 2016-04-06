@@ -29,22 +29,40 @@ Metric = collections.namedtuple(
     'Metric', ('name', 'path', 'traits', 'transform'))
 CONTAINER_METRICS = [Metric(*specification) for specification in (
     (
-        'cpu:total',
+        'cpu:cumulative:total',
         ('cpu', 'usage', 'total'),
         {'metric:counter', 'unit:seconds', 'time:duration'},
         lambda ns: ns / (10 ** 9),
     ),
     (
-        'cpu:user',
+        'cpu:cumulative:user',
         ('cpu', 'usage', 'user'),
         {'metric:counter', 'unit:seconds', 'time:duration'},
         lambda ns: ns / (10 ** 9),
     ),
     (
-        'cpu:system',
+        'cpu:cumulative:system',
         ('cpu', 'usage', 'system'),
         {'metric:counter', 'unit:seconds', 'time:duration'},
         lambda ns: ns / (10 ** 9),
+    ),
+    (
+        'cpu:total',
+        ('cpu_inst', 'usage', 'total'),
+        {'metric:gauge', 'unit:percentage'},
+        lambda ins: ins / (10 ** 9),
+    ),
+    (
+        'cpu:user',
+        ('cpu_inst', 'usage', 'user'),
+        {'metric:gauge', 'unit:percent'},
+        lambda ins: ins / (10 ** 9),
+    ),
+    (
+        'cpu:system',
+        ('cpu_inst', 'usage', 'system'),
+        {'metric:gauge', 'unit:percent'},
+        lambda ins: ins / (10 ** 9),
     ),
     (
         'cpu:load-average',

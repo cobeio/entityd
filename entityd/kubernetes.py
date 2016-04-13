@@ -25,6 +25,12 @@ ENTITIES_PROVIDED = {
     'Kubernetes:Pod': 'generate_pods',
 }
 Point = collections.namedtuple('Point', ('timestamp', 'data'))
+Point.__doc__ = """Container statistics at a point in time.
+
+:ivar datetime.datetime timestamp: the UTC timestamp for the data point.
+:ivar dict data: the container statistics as returned by cAdvisor for the
+    corresponding timestamp.
+"""
 
 
 class Metric:
@@ -290,7 +296,7 @@ def generate_containers(cluster):
             for container in pod.containers:
                 update = yield
                 update.parents.add(pod_update)
-                container_metrics(cluster, container, update)
+                container_metrics(container, update)
                 container_update(container, update)
 
 
@@ -336,6 +342,17 @@ def container_update(container, update):
 
 
 def select_nearest_point(when, points, threshold):
+    """Select data point nearest to a given point in time.
+
+    :param datetime.datetime when: the target timestamp for the point.
+    :param points: an iterator of :class:`Point`s to search.
+    :param float threshold: the maximum number of seconds the selected
+        point can be away from the target timestamp.
+
+    :raises ValueError: if the selected data point exceeds the threshold.
+
+    :returns: the :class:`Point` nearest to ``when``.
+    """
     differences = []
     for point in points:
         differences.append(
@@ -348,6 +365,18 @@ def select_nearest_point(when, points, threshold):
 
 
 def cadvisor_to_points(raw_points):
+    """Convert cAdvisor response to :class:`Point`s.
+
+    The timestamp for each data point in the parsed into a UTC
+    :class:`datetime.datetime`. Note that cAdvisor sometimes returns
+    timestamps with second fractions which are too long to be parsed by
+    :meth:`datetime.datetime.strptime`, so they are truncated to six digits.
+
+    :param dict raw_points: the raw JSON object as returned by cAdvisor
+        for a specific container.
+
+    :returns: a list of :class:`Point`s.
+    """
     points = []
     for point in raw_points:
         date_and_time, us_and_offset = point['timestamp'].split('.')
@@ -412,10 +441,30 @@ def diskio_metrics(point, update):
                 metric.with_prefix(prefix, path).apply(point.data, update)
 
 
-def container_metrics(cluster, container, update):
+def container_metrics(container, update):
+    """Apply container metrics to an update.
+
+    This searches the Kubernetes cluster for cAdvisors listening on each
+    node's 4194 port to determine which node hosts the given container.
+    Once the correct node is the found, the stats returned by cAdvisor for
+    the container are converted to attributes on the entity update.
+
+    As cAdvisor returns a range of stats for a container (a minutes worth
+    at one second intervals), the closest matching data point is used for
+    the metrics. If there is no data point within five seconds, then no
+    metrics will be added to the update to avoid stale metrics.
+
+    If no node can be found for the container then no metrics are added.
+
+    :param kube.Container container: the container to apply metrics for.
+    :param entityd.EntityUpdate update: the entity update to apply the
+        metric attributes to.
+    """
+    cluster = container.pod.cluster
     now = datetime.datetime.utcnow()
     for node in cluster.nodes:
         try:
+            # TODO: See if it's possible to request a smaller range of values.
             response = cluster.proxy.get(
                 'proxy/nodes', node.meta.name + ':4194',
                 'api/v2.0/stats', container.id, type='docker')
@@ -424,7 +473,7 @@ def container_metrics(cluster, container, update):
         else:
             points = cadvisor_to_points(response['/' + container.id])
             try:
-                point = select_nearest_point(now, points, 5)
+                point = select_nearest_point(now, points, 5.0)
             except ValueError as exc:
                 log.warning(
                     '{} for container with ID {}'.format(exc, container.id))

@@ -378,6 +378,38 @@ def apply_container_metrics(point, update):
         for filesystem_metric in METRICS_FILESYSTEM:
             filesystem_metric.with_prefix(
                 prefix, ('filesystem', index)).apply(point.data, update)
+    diskio_metrics(point, update)
+
+
+def diskio_metrics(point, update):
+    """Apply disk IO metrics to an update.
+
+    Given a container cAdvisor data point, this will look at all sub-fields
+    in the ``diskio`` top-level field. Each sub-field will contain a number
+    of devices and their corresponding statistics in an array. Each device
+    is a JSON object identified by the ``major`` and ``minor`` fields.
+    The remaining fields are translated into attributes as per
+    :data:`METRICS_DISKIO`.
+
+    For each device, each attribute is prefixed with the
+    ``io:{major}:{minor}`` namespace where 'major' and 'minor' identify
+    the device as described above.
+
+    :param Point point: the data point to use for metric values.
+    :param entityd.EntityUpdate update: the update to apply the metric
+        attributes to.
+    """
+    diskio = point.data.get('diskio', {})
+    for key, metrics in METRICS_DISKIO.items():
+        if key not in diskio:
+            continue
+        for index, device in enumerate(diskio[key]):
+            major = device['major']
+            minor = device['minor']
+            for metric in metrics:
+                prefix = 'io:{}:{}'.format(major, minor)
+                path = ('diskio', key, index)
+                metric.with_prefix(prefix, path).apply(point.data, update)
 
 
 def container_metrics(cluster, container, update):
@@ -689,3 +721,183 @@ METRICS_FILESYSTEM = [
         {'metric:gauge', 'unit:seconds', 'time:duration'},
     ),
 ]
+
+
+METRICS_DISKIO = {
+    'io_service_bytes': [
+        Metric(
+            'async:bytes',
+            ('stats', 'Async'),
+            {'metric:counter', 'unit:bytes'},
+        ),
+        Metric(
+            'sync:bytes',
+            ('stats', 'Sync'),
+            {'metric:counter', 'unit:bytes'},
+        ),
+        Metric(
+            'read:bytes',
+            ('stats', 'Read'),
+            {'metric:counter', 'unit:bytes'},
+        ),
+        Metric(
+            'write:bytes',
+            ('stats', 'Write'),
+            {'metric:counter', 'unit:bytes'},
+        ),
+        Metric(
+            'total:bytes',
+            ('stats', 'Total'),
+            {'metric:counter', 'unit:bytes'},
+        ),
+    ],
+    'io_serviced': [
+        Metric(
+            'async:operations',
+            ('stats', 'Async'),
+            {'metric:counter'},
+        ),
+        Metric(
+            'sync:operations',
+            ('stats', 'Sync'),
+            {'metric:counter'},
+        ),
+        Metric(
+            'read:operations',
+            ('stats', 'Read'),
+            {'metric:counter'},
+        ),
+        Metric(
+            'write:operations',
+            ('stats', 'Write'),
+            {'metric:counter'},
+        ),
+        Metric(
+            'total:operations',
+            ('stats', 'Total'),
+            {'metric:counter'},
+        ),
+    ],
+    'io_queued': [
+        Metric(
+            'async:operations:queued',
+            ('stats', 'Async'),
+            {'metric:counter'},
+        ),
+        Metric(
+            'sync:operations:queued',
+            ('stats', 'Sync'),
+            {'metric:counter'},
+        ),
+        Metric(
+            'read:operations:queued',
+            ('stats', 'Read'),
+            {'metric:counter'},
+        ),
+        Metric(
+            'write:operations:queued',
+            ('stats', 'Write'),
+            {'metric:counter'},
+        ),
+        Metric(
+            'total:operations:queued',
+            ('stats', 'Total'),
+            {'metric:counter'},
+        ),
+    ],
+    'io_merged': [
+        Metric(
+            'async:operations:merged',
+            ('stats', 'Async'),
+            {'metric:counter'},
+        ),
+        Metric(
+            'sync:operations:merged',
+            ('stats', 'Sync'),
+            {'metric:counter'},
+        ),
+        Metric(
+            'read:operations:merged',
+            ('stats', 'Read'),
+            {'metric:counter'},
+        ),
+        Metric(
+            'write:operations:merged',
+            ('stats', 'Write'),
+            {'metric:counter'},
+        ),
+        Metric(
+            'total:operations:merged',
+            ('stats', 'Total'),
+            {'metric:counter'},
+        ),
+    ],
+    'io_service_time': [
+        NanosecondMetric(
+            'async:time',
+            ('stats', 'Async'),
+            {'metric:counter', 'unit:seconds', 'time:duration'},
+        ),
+        NanosecondMetric(
+            'sync:time',
+            ('stats', 'Sync'),
+            {'metric:counter', 'unit:seconds', 'time:duration'},
+        ),
+        NanosecondMetric(
+            'read:time',
+            ('stats', 'Read'),
+            {'metric:counter', 'unit:seconds', 'time:duration'},
+        ),
+        NanosecondMetric(
+            'write:time',
+            ('stats', 'Write'),
+            {'metric:counter', 'unit:seconds', 'time:duration'},
+        ),
+        NanosecondMetric(
+            'total:time',
+            ('stats', 'Total'),
+            {'metric:counter', 'unit:seconds', 'time:duration'},
+        ),
+    ],
+    'io_wait_time': [
+        NanosecondMetric(
+            'async:time:wait',
+            ('stats', 'Async'),
+            {'metric:counter', 'unit:seconds', 'time:duration'},
+        ),
+        NanosecondMetric(
+            'sync:time:wait',
+            ('stats', 'Sync'),
+            {'metric:counter', 'unit:seconds', 'time:duration'},
+        ),
+        NanosecondMetric(
+            'read:time:wait',
+            ('stats', 'Read'),
+            {'metric:counter', 'unit:seconds', 'time:duration'},
+        ),
+        NanosecondMetric(
+            'write:time:wait',
+            ('stats', 'Write'),
+            {'metric:counter', 'unit:seconds', 'time:duration'},
+        ),
+        NanosecondMetric(
+            'total:time:wait',
+            ('stats', 'Total'),
+            {'metric:counter', 'unit:seconds', 'time:duration'},
+        ),
+    ],
+    'sectors': [
+        Metric(
+            'sectors',
+            ('stats', 'Count'),
+            {'metric:counter'},
+        ),
+    ],
+    'io_time': [
+        MillisecondMetric(
+            'time',
+            ('stats', 'Count'),
+            {'metric:counter', 'unit:seconds', 'time:duration'},
+        ),
+    ],
+}

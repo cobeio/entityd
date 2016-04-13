@@ -541,6 +541,108 @@ def point_to_attributes(point, update):
             if metric.transform:
                 value = metric.transform(value)
             update.attrs.set(metric.name, value, metric.traits)
+    diskio_attributes(point, update)
+    filesystem_attributes(point, update)
+
+
+def diskio_attributes(point, update):
+    pass
+
+
+def filesystem_attributes(point, update):
+    for filesystem in point.data.get('filesystem', []):
+        uuid = filesystem['device'].rsplit('/', 1)[-1]
+        prefix = 'file-system:' + uuid + ':'
+        update.attrs.set(
+            prefix + 'device',
+            filesystem['device'],
+            {},
+        )
+        update.attrs.set(
+            prefix + 'type',
+            filesystem['type'],
+            {},
+        )
+        update.attrs.set(
+            prefix + 'capacity:total',
+            filesystem['capacity'],
+            {'metric:guage', 'unit:bytes'},
+        )
+        update.attrs.set(
+            prefix + 'capacity:usage',
+            filesystem['usage'],
+            {'metric:guage', 'unit:bytes'},
+        )
+        update.attrs.set(
+            prefix + 'capacity:base-usage',
+            filesystem['base_usage'],
+            {'metric:guage', 'unit:bytes'},
+        )
+        update.attrs.set(
+            prefix + 'capacity:available',
+            filesystem['available'],
+            {'metric:guage', 'unit:bytes'},
+        )
+        update.attrs.set(
+            prefix + 'inodes-free',
+            filesystem['inodes_free'],
+            {'metric:guage'},
+        )
+        update.attrs.set(
+            prefix + 'read:completed',
+            filesystem['reads_completed'],
+            {'metric:counter'},
+        )
+        update.attrs.set(
+            prefix + 'read:merged',
+            filesystem['reads_merged'],
+            {'metric:counter'},
+        )
+        update.attrs.set(
+            prefix + 'read:time',
+            filesystem['read_time'] / (10 ** 6),
+            {'metric:counter', 'unit:seconds', 'time:duration'},
+        )
+        update.attrs.set(
+            prefix + 'sector:read',
+            filesystem['sectors_read'],
+            {'metric:counter'},
+        )
+        update.attrs.set(
+            prefix + 'sector:written',
+            filesystem['sectors_written'],
+            {'metric:counter'},
+        )
+        update.attrs.set(
+            prefix + 'write:completed',
+            filesystem['writes_completed'],
+            {'metric:counter'},
+        )
+        update.attrs.set(
+            prefix + 'write:merged',
+            filesystem['writes_merged'],
+            {'metric:counter'},
+        )
+        update.attrs.set(
+            prefix + 'write:time',
+            filesystem['write_time'] / (10 ** 6),
+            {'metric:counter', 'unit:seconds', 'time:duration'},
+        )
+        update.attrs.set(
+            prefix + 'io:in-progress',
+            filesystem['io_in_progress'],
+            {'metric:gauge'},
+        )
+        update.attrs.set(
+            prefix + 'io:time',
+            filesystem['io_time'] / (10 ** 6),
+            {'metric:counter', 'unit:seconds', 'time:duration'},
+        )
+        update.attrs.set(
+            prefix + 'io:time:weighted',
+            filesystem['weighted_io_time'] / (10 ** 6),
+            {'metric:gauge', 'unit:seconds', 'time:duration'},
+        )
 
 
 def container_metrics(cluster, container, update):

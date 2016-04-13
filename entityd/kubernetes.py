@@ -25,244 +25,90 @@ ENTITIES_PROVIDED = {
     'Kubernetes:Pod': 'generate_pods',
 }
 Point = collections.namedtuple('Point', ('timestamp', 'data'))
-Metric = collections.namedtuple(
-    'Metric', ('name', 'path', 'traits', 'transform'))
-CONTAINER_METRICS = [Metric(*specification) for specification in (
-    (
-        'cpu:cumulative:total',
-        ('cpu', 'usage', 'total'),
-        {'metric:counter', 'unit:seconds', 'time:duration'},
-        lambda ns: ns / (10 ** 9),
-    ),
-    (
-        'cpu:cumulative:user',
-        ('cpu', 'usage', 'user'),
-        {'metric:counter', 'unit:seconds', 'time:duration'},
-        lambda ns: ns / (10 ** 9),
-    ),
-    (
-        'cpu:cumulative:system',
-        ('cpu', 'usage', 'system'),
-        {'metric:counter', 'unit:seconds', 'time:duration'},
-        lambda ns: ns / (10 ** 9),
-    ),
-    (
-        'cpu:total',
-        ('cpu_inst', 'usage', 'total'),
-        {'metric:gauge', 'unit:percent'},
-        lambda ins: ins / (10 ** 9),
-    ),
-    (
-        'cpu:user',
-        ('cpu_inst', 'usage', 'user'),
-        {'metric:gauge', 'unit:percent'},
-        lambda ins: ins / (10 ** 9),
-    ),
-    (
-        'cpu:system',
-        ('cpu_inst', 'usage', 'system'),
-        {'metric:gauge', 'unit:percent'},
-        lambda ins: ins / (10 ** 9),
-    ),
-    (
-        'cpu:load-average',
-        ('cpu', 'usage', 'load_average'),
-        {'metric:guage'},
-        None,
-    ),
-    (
-        'load:sleeping',
-        ('load_stats', 'nr_sleeping'),
-        {'metric:guage'},
-        None,
-    ),
-    (
-        'load:running',
-        ('load_stats', 'nr_running'),
-        {'metric:guage'},
-        None,
-    ),
-    (
-        'load:stopped',
-        ('load_stats', 'nr_stopped'),
-        {'metric:guage'},
-        None,
-    ),
-    (
-        'load:uninterruptible',
-        ('load_stats', 'nr_uninterruptible'),
-        {'metric:guage'},
-        None,
-    ),
-    (
-        'load:io-wait',
-        ('load_stats', 'nr_io_wait'),
-        {'metric:guage'},
-        None,
-    ),
-    (
-        'memory:usage',
-        ('memory', 'usage'),
-        {'metric:guage', 'unit:bytes'},
-        None,
-    ),
-    (
-        'memory:working-set',
-        ('memory', 'working_set'),
-        {'metric:guage', 'unit:bytes'},
-        None,
-    ),
-    (
-        'memory:fail-count',
-        ('memory', 'failcnt'),
-        {'metric:counter'},
-        None,
-    ),
-    (
-        'memory:page-fault',
-        ('memory', 'container_data', 'pgfault'),
-        {'metric:counter'},
-        None,
-    ),
-    (
-        'memory:page-fault:major',
-        ('memory', 'container_data', 'pgmajfault'),
-        {'metric:counter'},
-        None,
-    ),
-    (
-        'network:tcp:established',
-        ('network', 'tcp', 'Established'),
-        {'metric:gauge'},
-        None,
-    ),
-    (
-        'network:tcp:syn-sent',
-        ('network', 'tcp', 'SynSent'),
-        {'metric:gauge'},
-        None,
-    ),
-    (
-        'network:tcp:syn-recv',
-        ('network', 'tcp', 'SynRecv'),
-        {'metric:gauge'},
-        None,
-    ),
-    (
-        'network:tcp:fin-wait-1',
-        ('network', 'tcp', 'FinWait1'),
-        {'metric:gauge'},
-        None,
-    ),
-    (
-        'network:tcp:fin-wait-2',
-        ('network', 'tcp', 'FinWait2'),
-        {'metric:gauge'},
-        None,
-    ),
-    (
-        'network:tcp:time-wait',
-        ('network', 'tcp', 'TimeWait'),
-        {'metric:gauge'},
-        None,
-    ),
-    (
-        'network:tcp:close',
-        ('network', 'tcp', 'Close'),
-        {'metric:gauge'},
-        None,
-    ),
-    (
-        'network:tcp:close-wait',
-        ('network', 'tcp', 'CloseWait'),
-        {'metric:gauge'},
-        None,
-    ),
-    (
-        'network:tcp:last-ack',
-        ('network', 'tcp', 'LastAck'),
-        {'metric:gauge'},
-        None,
-    ),
-    (
-        'network:tcp:listen',
-        ('network', 'tcp', 'Listen'),
-        {'metric:gauge'},
-        None,
-    ),
-    (
-        'network:tcp:closing',
-        ('network', 'tcp', 'Closing'),
-        {'metric:gauge'},
-        None,
-    ),
-    (
-        'network:tcp6:established',
-        ('network', 'tcp6', 'Established'),
-        {'metric:gauge'},
-        None,
-    ),
-    (
-        'network:tcp6:syn-sent',
-        ('network', 'tcp6', 'SynSent'),
-        {'metric:gauge'},
-        None,
-    ),
-    (
-        'network:tcp6:syn-recv',
-        ('network', 'tcp6', 'SynRecv'),
-        {'metric:gauge'},
-        None,
-    ),
-    (
-        'network:tcp6:fin-wait-1',
-        ('network', 'tcp6', 'FinWait1'),
-        {'metric:gauge'},
-        None,
-    ),
-    (
-        'network:tcp6:fin-wait-2',
-        ('network', 'tcp6', 'FinWait2'),
-        {'metric:gauge'},
-        None,
-    ),
-    (
-        'network:tcp6:time-wait',
-        ('network', 'tcp6', 'TimeWait'),
-        {'metric:gauge'},
-        None,
-    ),
-    (
-        'network:tcp6:close',
-        ('network', 'tcp6', 'Close'),
-        {'metric:gauge'},
-        None,
-    ),
-    (
-        'network:tcp6:close-wait',
-        ('network', 'tcp6', 'CloseWait'),
-        {'metric:gauge'},
-        None,
-    ),
-    (
-        'network:tcp6:last-ack',
-        ('network', 'tcp6', 'LastAck'),
-        {'metric:gauge'},
-        None,
-    ),
-    (
-        'network:tcp6:listen',
-        ('network', 'tcp6', 'Listen'),
-        {'metric:gauge'},
-        None,
-    ),
-    (
-        'network:tcp6:closing',
-        ('network', 'tcp6', 'Closing'),
-        {'metric:gauge'},
-        None,
-    ),
-)]
+
+
+class Metric:
+    """Represents a metric for a container.
+
+    :param str name: the name of the attribute that is set on the entity
+        update for the metric.
+    :param tuple path: a sequence of object keys that will be used to
+        traverse a cAdvisor JSON response to find the metric value. E.g.
+        a path of ``('A', 'B')`` is effectively ``response['A']['B']``.
+    :param frozenset traits: a set of string traits to set for the metric's
+        attribute.
+    """
+
+    def __init__(self, name, path, traits):
+        self._name = str(name)
+        self._path = tuple(path)
+        self._traits = frozenset(str(trait) for trait in traits)
+
+    def __repr__(self):
+        return '<{0} {1} @ {2} traits: {3}>'.format(
+            self.__class__.__name__,
+            self._name,
+            '.'.join(str(s) for s in self._path),
+            ', '.join(sorted(self._traits)),
+        )
+
+    def with_prefix(self, prefix, path):
+        """Get new :class:`Metric` with the name prefixed.
+
+        :param str prefix: the prefix to use for the metric name.
+        :param tuple path: the value path prefix.
+
+        :returns: a new :class:`Metric` with the same traits but
+            the name and path prefixed.
+        """
+        return self.__class__(
+            prefix + ':' + self._name, path + self._path, self._traits)
+
+    def transform(self, value):
+        """Transform metric value to a normalised form.
+
+        By default this returns the value as-is. Subclasses should override
+        this to modify how metric values are interpretted.
+        """
+        return value
+
+    def apply(self, object_, update):
+        """Apply the metric from an object to an entity update.
+
+        This will attempt to find the metric value from a given object by
+        walking the path to the metric. If a value is found it will be
+        tranformed according to :meth:`transform` and then set as an
+        attribute on the given update.
+
+        If the metric value couldn't be found then the attribute is deleted
+        on the update.
+
+        :param object_: the object to lookup the metric from.
+        :param entityd.EntityUpdate update: the update to set the attribute on.
+        """
+        value = object_
+        for step in self._path:
+            try:
+                value = value[step]
+            except KeyError:
+                update.attrs.delete(self._name)
+                log.debug(
+                    'Could not determine value for metric {}'.format(self))
+        update.attrs.set(self._name, self.transform(value), self._traits)
+
+
+class NanosecondMetric(Metric):
+    """Convert nanosecond metric values to seconds."""
+
+    def transform(self, value):
+        return value / (10 ** 9)
+
+
+class MillisecondMetric(Metric):
+    """Convert millisecond metric values to seconds."""
+
+    def transform(self, value):
+        return value / (10 ** 6)
 
 
 @entityd.pm.hookimpl
@@ -523,126 +369,15 @@ def cadvisor_to_points(raw_points):
     return points
 
 
-def point_to_attributes(point, update):
-    delete = []
-    for metric in CONTAINER_METRICS:
-        value = point.data
-        for step in metric.path:
-            try:
-                value = value[step]
-            except KeyError:
-                delete.append(metric.name)
-                log.debug(
-                    'Could not determine value for metric {}'.format(metric))
-                break
-        if metric.name in delete:
-            update.attrs.delete(metric.name)
-        else:
-            if metric.transform:
-                value = metric.transform(value)
-            update.attrs.set(metric.name, value, metric.traits)
-    diskio_attributes(point, update)
-    filesystem_attributes(point, update)
-
-
-def diskio_attributes(point, update):
-    pass
-
-
-def filesystem_attributes(point, update):
-    for filesystem in point.data.get('filesystem', []):
+def apply_container_metrics(point, update):
+    for metric in METRICS_CONTAINER:
+        metric.apply(point.data, update)
+    for index, filesystem in enumerate(point.data.get('filesystem', [])):
         uuid = filesystem['device'].rsplit('/', 1)[-1]
-        prefix = 'file-system:' + uuid + ':'
-        update.attrs.set(
-            prefix + 'device',
-            filesystem['device'],
-            {},
-        )
-        update.attrs.set(
-            prefix + 'type',
-            filesystem['type'],
-            {},
-        )
-        update.attrs.set(
-            prefix + 'capacity:total',
-            filesystem['capacity'],
-            {'metric:guage', 'unit:bytes'},
-        )
-        update.attrs.set(
-            prefix + 'capacity:usage',
-            filesystem['usage'],
-            {'metric:guage', 'unit:bytes'},
-        )
-        update.attrs.set(
-            prefix + 'capacity:base-usage',
-            filesystem['base_usage'],
-            {'metric:guage', 'unit:bytes'},
-        )
-        update.attrs.set(
-            prefix + 'capacity:available',
-            filesystem['available'],
-            {'metric:guage', 'unit:bytes'},
-        )
-        update.attrs.set(
-            prefix + 'inodes-free',
-            filesystem['inodes_free'],
-            {'metric:guage'},
-        )
-        update.attrs.set(
-            prefix + 'read:completed',
-            filesystem['reads_completed'],
-            {'metric:counter'},
-        )
-        update.attrs.set(
-            prefix + 'read:merged',
-            filesystem['reads_merged'],
-            {'metric:counter'},
-        )
-        update.attrs.set(
-            prefix + 'read:time',
-            filesystem['read_time'] / (10 ** 6),
-            {'metric:counter', 'unit:seconds', 'time:duration'},
-        )
-        update.attrs.set(
-            prefix + 'sector:read',
-            filesystem['sectors_read'],
-            {'metric:counter'},
-        )
-        update.attrs.set(
-            prefix + 'sector:written',
-            filesystem['sectors_written'],
-            {'metric:counter'},
-        )
-        update.attrs.set(
-            prefix + 'write:completed',
-            filesystem['writes_completed'],
-            {'metric:counter'},
-        )
-        update.attrs.set(
-            prefix + 'write:merged',
-            filesystem['writes_merged'],
-            {'metric:counter'},
-        )
-        update.attrs.set(
-            prefix + 'write:time',
-            filesystem['write_time'] / (10 ** 6),
-            {'metric:counter', 'unit:seconds', 'time:duration'},
-        )
-        update.attrs.set(
-            prefix + 'io:in-progress',
-            filesystem['io_in_progress'],
-            {'metric:gauge'},
-        )
-        update.attrs.set(
-            prefix + 'io:time',
-            filesystem['io_time'] / (10 ** 6),
-            {'metric:counter', 'unit:seconds', 'time:duration'},
-        )
-        update.attrs.set(
-            prefix + 'io:time:weighted',
-            filesystem['weighted_io_time'] / (10 ** 6),
-            {'metric:gauge', 'unit:seconds', 'time:duration'},
-        )
+        prefix = 'file-system:' + uuid
+        for filesystem_metric in METRICS_FILESYSTEM:
+            filesystem_metric.with_prefix(
+                prefix, ('filesystem', index)).apply(point.data, update)
 
 
 def container_metrics(cluster, container, update):
@@ -662,7 +397,295 @@ def container_metrics(cluster, container, update):
                 log.warning(
                     '{} for container with ID {}'.format(exc, container.id))
             else:
-                point_to_attributes(point, update)
+                apply_container_metrics(point, update)
             return
     log.warning(
         'Could not find node for container with ID {}'.format(container.id))
+
+
+METRICS_CONTAINER = [
+    NanosecondMetric(
+        'cpu:cumulative:total',
+        ('cpu', 'usage', 'total'),
+        {'metric:counter', 'unit:seconds', 'time:duration'},
+    ),
+    NanosecondMetric(
+        'cpu:cumulative:user',
+        ('cpu', 'usage', 'user'),
+        {'metric:counter', 'unit:seconds', 'time:duration'},
+    ),
+    NanosecondMetric(
+        'cpu:cumulative:system',
+        ('cpu', 'usage', 'system'),
+        {'metric:counter', 'unit:seconds', 'time:duration'},
+    ),
+    NanosecondMetric(
+        'cpu:total',
+        ('cpu_inst', 'usage', 'total'),
+        {'metric:gauge', 'unit:percent'},
+    ),
+    NanosecondMetric(
+        'cpu:user',
+        ('cpu_inst', 'usage', 'user'),
+        {'metric:gauge', 'unit:percent'},
+    ),
+    NanosecondMetric(
+        'cpu:system',
+        ('cpu_inst', 'usage', 'system'),
+        {'metric:gauge', 'unit:percent'},
+    ),
+    Metric(
+        'cpu:load-average',
+        ('cpu', 'usage', 'load_average'),
+        {'metric:guage'},
+    ),
+    Metric(
+        'load:sleeping',
+        ('load_stats', 'nr_sleeping'),
+        {'metric:guage'},
+    ),
+    Metric(
+        'load:running',
+        ('load_stats', 'nr_running'),
+        {'metric:guage'},
+    ),
+    Metric(
+        'load:stopped',
+        ('load_stats', 'nr_stopped'),
+        {'metric:guage'},
+    ),
+    Metric(
+        'load:uninterruptible',
+        ('load_stats', 'nr_uninterruptible'),
+        {'metric:guage'},
+    ),
+    Metric(
+        'load:io-wait',
+        ('load_stats', 'nr_io_wait'),
+        {'metric:guage'},
+    ),
+    Metric(
+        'memory:usage',
+        ('memory', 'usage'),
+        {'metric:guage', 'unit:bytes'},
+    ),
+    Metric(
+        'memory:working-set',
+        ('memory', 'working_set'),
+        {'metric:guage', 'unit:bytes'},
+    ),
+    Metric(
+        'memory:fail-count',
+        ('memory', 'failcnt'),
+        {'metric:counter'},
+    ),
+    Metric(
+        'memory:page-fault',
+        ('memory', 'container_data', 'pgfault'),
+        {'metric:counter'},
+    ),
+    Metric(
+        'memory:page-fault:major',
+        ('memory', 'container_data', 'pgmajfault'),
+        {'metric:counter'},
+    ),
+    Metric(
+        'network:tcp:established',
+        ('network', 'tcp', 'Established'),
+        {'metric:gauge'},
+    ),
+    Metric(
+        'network:tcp:syn-sent',
+        ('network', 'tcp', 'SynSent'),
+        {'metric:gauge'},
+    ),
+    Metric(
+        'network:tcp:syn-recv',
+        ('network', 'tcp', 'SynRecv'),
+        {'metric:gauge'},
+    ),
+    Metric(
+        'network:tcp:fin-wait-1',
+        ('network', 'tcp', 'FinWait1'),
+        {'metric:gauge'},
+    ),
+    Metric(
+        'network:tcp:fin-wait-2',
+        ('network', 'tcp', 'FinWait2'),
+        {'metric:gauge'},
+    ),
+    Metric(
+        'network:tcp:time-wait',
+        ('network', 'tcp', 'TimeWait'),
+        {'metric:gauge'},
+    ),
+    Metric(
+        'network:tcp:close',
+        ('network', 'tcp', 'Close'),
+        {'metric:gauge'},
+    ),
+    Metric(
+        'network:tcp:close-wait',
+        ('network', 'tcp', 'CloseWait'),
+        {'metric:gauge'},
+    ),
+    Metric(
+        'network:tcp:last-ack',
+        ('network', 'tcp', 'LastAck'),
+        {'metric:gauge'},
+    ),
+    Metric(
+        'network:tcp:listen',
+        ('network', 'tcp', 'Listen'),
+        {'metric:gauge'},
+    ),
+    Metric(
+        'network:tcp:closing',
+        ('network', 'tcp', 'Closing'),
+        {'metric:gauge'},
+    ),
+    Metric(
+        'network:tcp6:established',
+        ('network', 'tcp6', 'Established'),
+        {'metric:gauge'},
+    ),
+    Metric(
+        'network:tcp6:syn-sent',
+        ('network', 'tcp6', 'SynSent'),
+        {'metric:gauge'},
+    ),
+    Metric(
+        'network:tcp6:syn-recv',
+        ('network', 'tcp6', 'SynRecv'),
+        {'metric:gauge'},
+    ),
+    Metric(
+        'network:tcp6:fin-wait-1',
+        ('network', 'tcp6', 'FinWait1'),
+        {'metric:gauge'},
+    ),
+    Metric(
+        'network:tcp6:fin-wait-2',
+        ('network', 'tcp6', 'FinWait2'),
+        {'metric:gauge'},
+    ),
+    Metric(
+        'network:tcp6:time-wait',
+        ('network', 'tcp6', 'TimeWait'),
+        {'metric:gauge'},
+    ),
+    Metric(
+        'network:tcp6:close',
+        ('network', 'tcp6', 'Close'),
+        {'metric:gauge'},
+    ),
+    Metric(
+        'network:tcp6:close-wait',
+        ('network', 'tcp6', 'CloseWait'),
+        {'metric:gauge'},
+    ),
+    Metric(
+        'network:tcp6:last-ack',
+        ('network', 'tcp6', 'LastAck'),
+        {'metric:gauge'},
+    ),
+    Metric(
+        'network:tcp6:listen',
+        ('network', 'tcp6', 'Listen'),
+        {'metric:gauge'},
+    ),
+    Metric(
+        'network:tcp6:closing',
+        ('network', 'tcp6', 'Closing'),
+        {'metric:gauge'},
+    ),
+]
+
+
+METRICS_FILESYSTEM = [
+    Metric(
+        'type',
+        ('type',),
+        {},
+    ),
+    Metric(
+        'capacity:total',
+        ('capacity',),
+        {'metric:guage', 'unit:bytes'},
+    ),
+    Metric(
+        'capacity:usage',
+        ('usage',),
+        {'metric:guage', 'unit:bytes'},
+    ),
+    Metric(
+        'capacity:base-usage',
+        ('base_usage',),
+        {'metric:guage', 'unit:bytes'},
+    ),
+    Metric(
+        'capacity:available',
+        ('available',),
+        {'metric:guage', 'unit:bytes'},
+    ),
+    Metric(
+        'inodes-free',
+        ('inodes_free',),
+        {'metric:guage'},
+    ),
+    Metric(
+        'read:completed',
+        ('reads_completed',),
+        {'metric:counter'},
+    ),
+    Metric(
+        'read:merged',
+        ('reads_merged',),
+        {'metric:counter'},
+    ),
+    MillisecondMetric(
+        'read:time',
+        ('read_time',),
+        {'metric:counter', 'unit:seconds', 'time:duration'},
+    ),
+    Metric(
+        'sector:read',
+        ('sectors_read',),
+        {'metric:counter'},
+    ),
+    Metric(
+        'sector:written',
+        ('sectors_written',),
+        {'metric:counter'},
+    ),
+    Metric(
+        'write:completed',
+        ('writes_completed',),
+        {'metric:counter'},
+    ),
+    Metric(
+        'write:merged',
+        ('writes_merged',),
+        {'metric:counter'},
+    ),
+    MillisecondMetric(
+        'write:time',
+        ('write_time',),
+        {'metric:counter', 'unit:seconds', 'time:duration'},
+    ),
+    Metric(
+        'io:in-progress',
+        ('io_in_progress',),
+        {'metric:gauge'},
+    ),
+    MillisecondMetric(
+        'io:time',
+        ('io_time',),
+        {'metric:counter', 'unit:seconds', 'time:duration'},
+    ),
+    MillisecondMetric(
+        'io:time:weighted',
+        ('weighted_io_time',),
+        {'metric:gauge', 'unit:seconds', 'time:duration'},
+    ),
+]

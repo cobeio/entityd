@@ -97,9 +97,10 @@ class Metric:
             try:
                 value = value[step]
             except KeyError:
-                update.attrs.delete(self._name)
                 log.debug(
                     'Could not determine value for metric {}'.format(self))
+                update.attrs.delete(self._name)
+                return
         update.attrs.set(self._name, self.transform(value), self._traits)
 
 
@@ -341,27 +342,26 @@ def container_update(container, update):
             update.attrs.delete('state:' + attribute)
 
 
-def select_nearest_point(when, points, threshold):
+def select_nearest_point(target, points, threshold):
     """Select data point nearest to a given point in time.
 
-    :param datetime.datetime when: the target timestamp for the point.
+    :param datetime.datetime target: the target timestamp for the point.
     :param points: an iterator of :class:`Point`s to search.
     :param float threshold: the maximum number of seconds the selected
         point can be away from the target timestamp.
 
     :raises ValueError: if the selected data point exceeds the threshold.
 
-    :returns: the :class:`Point` nearest to ``when``.
+    :returns: the :class:`Point` nearest to ``target``.
     """
-    differences = []
-    for point in points:
-        differences.append(
-            (abs((when - point.timestamp).total_seconds()), point))
-    differences.sort(key=lambda d: d[0])
-    difference, point = differences[0]
-    if difference > threshold:
-        raise ValueError('No metric point within {} seconds'.format(threshold))
-    return point
+    sorted_points = sorted(
+        points, key=lambda p: abs(target - p.timestamp))
+    if not sorted_points:
+        raise ValueError('No points given')
+    if abs(target - sorted_points[0].timestamp).total_seconds() > 5:
+        raise ValueError(
+            'No metric point within {} seconds'.format(threshold))
+    return sorted_points[0]
 
 
 def cadvisor_to_points(raw_points):
@@ -388,6 +388,8 @@ def cadvisor_to_points(raw_points):
                     hours, minutes = raw_offset.split(':', 1)
                     offset = datetime.timedelta(
                         hours=int(hours), minutes=int(minutes))
+                    if offset_separator == '+':
+                        offset = -offset
                 else:
                     offset = datetime.timedelta()
                 break
@@ -398,16 +400,34 @@ def cadvisor_to_points(raw_points):
     return points
 
 
-def apply_container_metrics(point, update):
+def simple_metrics(point, update):
+    """Apply :data:`METRICS_CONTAINER` to an update.
+
+    :param Point point: the data point to use for metric values.
+    :param entityd.EntityUpdate update: the update to apply the metric
+        attributes to.
+    """
     for metric in METRICS_CONTAINER:
         metric.apply(point.data, update)
+
+
+def filesystem_metrics(point, update):
+    """Apply file-system metrics to an update.
+
+    Each file-system is identified by its UUID which as taken from the
+    ``device`` field. The UUID is used to form the attribute prefix
+    ``file-system:{uuid}``.
+
+    :param Point point: the data point to use for metric values.
+    :param entityd.EntityUpdate update: the update to apply the metric
+        attributes to.
+    """
     for index, filesystem in enumerate(point.data.get('filesystem', [])):
         uuid = filesystem['device'].rsplit('/', 1)[-1]
         prefix = 'file-system:' + uuid
         for filesystem_metric in METRICS_FILESYSTEM:
             filesystem_metric.with_prefix(
                 prefix, ('filesystem', index)).apply(point.data, update)
-    diskio_metrics(point, update)
 
 
 def diskio_metrics(point, update):
@@ -478,7 +498,9 @@ def container_metrics(container, update):
                 log.warning(
                     '{} for container with ID {}'.format(exc, container.id))
             else:
-                apply_container_metrics(point, update)
+                simple_metrics(point, update)
+                filesystem_metrics(point, update)
+                diskio_metrics(point, update)
             return
     log.warning(
         'Could not find node for container with ID {}'.format(container.id))
@@ -518,42 +540,42 @@ METRICS_CONTAINER = [
     Metric(
         'cpu:load-average',
         ('cpu', 'usage', 'load_average'),
-        {'metric:guage'},
+        {'metric:gauge'},
     ),
     Metric(
         'load:sleeping',
         ('load_stats', 'nr_sleeping'),
-        {'metric:guage'},
+        {'metric:gauge'},
     ),
     Metric(
         'load:running',
         ('load_stats', 'nr_running'),
-        {'metric:guage'},
+        {'metric:gauge'},
     ),
     Metric(
         'load:stopped',
         ('load_stats', 'nr_stopped'),
-        {'metric:guage'},
+        {'metric:gauge'},
     ),
     Metric(
         'load:uninterruptible',
         ('load_stats', 'nr_uninterruptible'),
-        {'metric:guage'},
+        {'metric:gauge'},
     ),
     Metric(
         'load:io-wait',
         ('load_stats', 'nr_io_wait'),
-        {'metric:guage'},
+        {'metric:gauge'},
     ),
     Metric(
         'memory:usage',
         ('memory', 'usage'),
-        {'metric:guage', 'unit:bytes'},
+        {'metric:gauge', 'unit:bytes'},
     ),
     Metric(
         'memory:working-set',
         ('memory', 'working_set'),
-        {'metric:guage', 'unit:bytes'},
+        {'metric:gauge', 'unit:bytes'},
     ),
     Metric(
         'memory:fail-count',
@@ -692,27 +714,27 @@ METRICS_FILESYSTEM = [
     Metric(
         'capacity:total',
         ('capacity',),
-        {'metric:guage', 'unit:bytes'},
+        {'metric:gauge', 'unit:bytes'},
     ),
     Metric(
         'capacity:usage',
         ('usage',),
-        {'metric:guage', 'unit:bytes'},
+        {'metric:gauge', 'unit:bytes'},
     ),
     Metric(
         'capacity:base-usage',
         ('base_usage',),
-        {'metric:guage', 'unit:bytes'},
+        {'metric:gauge', 'unit:bytes'},
     ),
     Metric(
         'capacity:available',
         ('available',),
-        {'metric:guage', 'unit:bytes'},
+        {'metric:gauge', 'unit:bytes'},
     ),
     Metric(
         'inodes-free',
         ('inodes_free',),
-        {'metric:guage'},
+        {'metric:gauge'},
     ),
     Metric(
         'read:completed',
@@ -775,27 +797,27 @@ METRICS_FILESYSTEM = [
 METRICS_DISKIO = {
     'io_service_bytes': [
         Metric(
-            'async:bytes',
+            'async',
             ('stats', 'Async'),
             {'metric:counter', 'unit:bytes'},
         ),
         Metric(
-            'sync:bytes',
+            'sync',
             ('stats', 'Sync'),
             {'metric:counter', 'unit:bytes'},
         ),
         Metric(
-            'read:bytes',
+            'read',
             ('stats', 'Read'),
             {'metric:counter', 'unit:bytes'},
         ),
         Metric(
-            'write:bytes',
+            'write',
             ('stats', 'Write'),
             {'metric:counter', 'unit:bytes'},
         ),
         Metric(
-            'total:bytes',
+            'total',
             ('stats', 'Total'),
             {'metric:counter', 'unit:bytes'},
         ),

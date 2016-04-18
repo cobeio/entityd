@@ -70,7 +70,7 @@ class Metric:
         return self.__class__(
             prefix + ':' + self._name, path + self._path, self._traits)
 
-    def transform(self, value):
+    def transform(self, value):  # pylint: disable=no-self-use
         """Transform metric value to a normalised form.
 
         By default this returns the value as-is. Subclasses should override
@@ -79,7 +79,7 @@ class Metric:
         return value
 
     def apply(self, object_, update):
-        """Apply the metric from an object to an entity update.
+        """Apply the metric from an data point to an entity update.
 
         This will attempt to find the metric value from a given object by
         walking the path to the metric. If a value is found it will be
@@ -89,8 +89,10 @@ class Metric:
         If the metric value couldn't be found then the attribute is deleted
         on the update.
 
-        :param object_: the object to lookup the metric from.
-        :param entityd.EntityUpdate update: the update to set the attribute on.
+        :param object_: a :class:`Point`'s' data object to lookup the
+            metric from.
+        :param entityd.EntityUpdate update: the update to set the
+            attribute on.
         """
         value = object_
         for step in self._path:
@@ -372,18 +374,19 @@ def cadvisor_to_points(raw_points):
     timestamps with second fractions which are too long to be parsed by
     :meth:`datetime.datetime.strptime`, so they are truncated to six digits.
 
-    :param dict raw_points: the raw JSON object as returned by cAdvisor
+    :param list raw_points: the raw JSON objects as returned by cAdvisor
         for a specific container.
 
     :returns: a list of :class:`Point`s.
     """
     points = []
     for point in raw_points:
-        date_and_time, us_and_offset = point['timestamp'].split('.')
+        date_and_time, fraction_and_offset = point['timestamp'].split('.')
         for offset_separator in ('Z', '+', '-'):
-            if offset_separator in us_and_offset:
-                us, raw_offset = us_and_offset.split(offset_separator)
-                us = us[:6]
+            if offset_separator in fraction_and_offset:
+                fraction, raw_offset = \
+                    fraction_and_offset.split(offset_separator)
+                fraction = fraction[:6]
                 if raw_offset:
                     hours, minutes = raw_offset.split(':', 1)
                     offset = datetime.timedelta(
@@ -393,7 +396,7 @@ def cadvisor_to_points(raw_points):
                 else:
                     offset = datetime.timedelta()
                 break
-        normalised_datetime = date_and_time + '.' + us
+        normalised_datetime = date_and_time + '.' + fraction
         timestamp = datetime.datetime.strptime(
             normalised_datetime, '%Y-%m-%dT%H:%M:%S.%f') + offset
         points.append(Point(timestamp, point))

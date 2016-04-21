@@ -639,8 +639,8 @@ class TestFileSystemMetrics:
         )
         update = entityd.entityupdate.EntityUpdate('Entity')
         entityd.kubernetes.filesystem_metrics(point, update)
-        attribute_foo = update.attrs.get('file-system:foo:attribute')
-        attribute_bar = update.attrs.get('file-system:bar:attribute')
+        attribute_foo = update.attrs.get('filesystem:foo:attribute')
+        attribute_bar = update.attrs.get('filesystem:bar:attribute')
         assert attribute_foo.value == 50
         assert attribute_foo.traits == set()
         assert attribute_bar.value == 100

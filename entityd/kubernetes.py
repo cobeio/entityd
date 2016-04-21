@@ -415,11 +415,11 @@ def simple_metrics(point, update):
 
 
 def filesystem_metrics(point, update):
-    """Apply file-system metrics to an update.
+    """Apply filesystem metrics to an update.
 
-    Each file-system is identified by its UUID which as taken from the
+    Each filesystem is identified by its UUID which as taken from the
     ``device`` field. The UUID is used to form the attribute prefix
-    ``file-system:{uuid}``.
+    ``filesystem:{uuid}``.
 
     :param Point point: the data point to use for metric values.
     :param entityd.EntityUpdate update: the update to apply the metric
@@ -427,7 +427,7 @@ def filesystem_metrics(point, update):
     """
     for index, filesystem in enumerate(point.data.get('filesystem', [])):
         uuid = filesystem['device'].rsplit('/', 1)[-1]
-        prefix = 'file-system:' + uuid
+        prefix = 'filesystem:' + uuid
         for filesystem_metric in METRICS_FILESYSTEM:
             filesystem_metric.with_prefix(
                 prefix, ('filesystem', index)).apply(point.data, update)

@@ -1,3 +1,5 @@
+import collections
+import datetime
 import socket
 
 import kube
@@ -490,3 +492,293 @@ class TestContainers:
         containers = list(
             entityd.kubernetes.entityd_find_entity('Kubernetes:Container'))
         assert not containers
+
+
+class TestMetric:
+
+    def test_repr(self):
+        metric = entityd.kubernetes.Metric('foo', ('A', 'B'), {'spam', 'eggs'})
+        assert repr(metric) == '<Metric foo @ A.B traits: eggs, spam>'
+
+    def test(self):
+        metric = entityd.kubernetes.Metric('foo', ('A', 'B'), {'trait'})
+        update = entityd.entityupdate.EntityUpdate('Entity')
+        object_ = {'A': {'B': 'value'}}
+        metric.apply(object_, update)
+        attribute = update.attrs.get('foo')
+        assert attribute.name == 'foo'
+        assert attribute.value is object_['A']['B']
+        assert attribute.traits == {'trait'}
+
+    def test_unresolvable(self):
+        metric = entityd.kubernetes.Metric('foo', ('A', 'B'), {'trait'})
+        update = entityd.entityupdate.EntityUpdate('Entity')
+        object_ = {'A': {'C': 'value'}}
+        metric.apply(object_, update)
+        assert update.attrs.deleted() == {'foo'}
+        with pytest.raises(KeyError):
+            update.attrs.get('foo')
+
+    def test_with_prefix(self):
+        metric = entityd.kubernetes.Metric('bar', ('B', 'C'), {'trait'})
+        update = entityd.entityupdate.EntityUpdate('Entity')
+        object_ = {'A': {'B': {'C': 'value'}}}
+        metric.with_prefix('foo', ('A',)).apply(object_, update)
+        attribute = update.attrs.get('foo:bar')
+        assert attribute.name == 'foo:bar'
+        assert attribute.value is object_['A']['B']['C']
+        assert attribute.traits == {'trait'}
+
+    def test_nanosecond(self):
+        metric = entityd.kubernetes.NanosecondMetric('foo', ('A',), set())
+        update = entityd.entityupdate.EntityUpdate('Entity')
+        object_ = {'A': 123000000000}
+        metric.apply(object_, update)
+        attribute = update.attrs.get('foo')
+        assert attribute.name == 'foo'
+        assert attribute.value == 123
+        assert attribute.traits == set()
+
+    def test_millisecond(self):
+        metric = entityd.kubernetes.MillisecondMetric('foo', ('A',), set())
+        update = entityd.entityupdate.EntityUpdate('Entity')
+        object_ = {'A': 123000000}
+        metric.apply(object_, update)
+        attribute = update.attrs.get('foo')
+        assert attribute.name == 'foo'
+        assert attribute.value == 123
+        assert attribute.traits == set()
+
+
+class TestNearestPoint:
+
+    def test(self):
+        target = datetime.datetime(2000, 8, 1)
+        points = [entityd.kubernetes.Point(t, {}) for t in (
+            target + datetime.timedelta(seconds=-1),
+            target + datetime.timedelta(seconds=0),
+            target + datetime.timedelta(seconds=1),
+        )]
+        point = entityd.kubernetes.select_nearest_point(target, points, 5.0)
+        assert point is points[1]
+
+    def test_no_points(self):
+        target = datetime.datetime(2000, 8, 1)
+        with pytest.raises(ValueError):
+            entityd.kubernetes.select_nearest_point(target, [], 5.0)
+
+    @pytest.mark.parametrize('delta', [-5.1, 5.1])
+    def test_exceed_threshold(self, delta):
+        target = datetime.datetime(2000, 8, 1)
+        points = [entityd.kubernetes.Point(
+            target + datetime.timedelta(seconds=delta), {})]
+        with pytest.raises(ValueError):
+            entityd.kubernetes.select_nearest_point(target, points, 5.0)
+
+
+class TestCAdvisorToPoints:
+
+    @pytest.mark.parametrize('fraction', ['0', '000000', '000000000'])
+    @pytest.mark.parametrize(('timestamp', 'offset'), [
+        ('2000-08-01T12:00:00', 'Z'),
+        ('2000-08-01T16:00:00', '+04:00'),
+        ('2000-08-01T06:00:00', '-06:00'),
+    ])
+    def test(self, fraction, timestamp, offset):
+        raw_points = [{'timestamp': timestamp + '.' + fraction + offset}]
+        points = entityd.kubernetes.cadvisor_to_points(raw_points)
+        assert len(points) == 1
+        assert points[0].timestamp == datetime.datetime(2000, 8, 1, 12)
+        assert points[0].data is raw_points[0]
+
+
+class TestSimpleMetrics:
+
+    def test(self, monkeypatch):
+        point = entityd.kubernetes.Point(pytest.Mock(), {
+            'foo': 50,
+            'bar': 100,
+        })
+        monkeypatch.setattr(
+            entityd.kubernetes,
+            'METRICS_CONTAINER',
+            [
+                entityd.kubernetes.Metric('foo', ('foo',), set()),
+                entityd.kubernetes.Metric('bar', ('bar',), set()),
+            ],
+        )
+        update = entityd.entityupdate.EntityUpdate('Entity')
+        entityd.kubernetes.simple_metrics(point, update)
+        attribute_foo = update.attrs.get('foo')
+        attribute_bar = update.attrs.get('bar')
+        assert attribute_foo.value == 50
+        assert attribute_foo.traits == set()
+        assert attribute_bar.value == 100
+        assert attribute_bar.traits == set()
+
+
+class TestFileSystemMetrics:
+
+    def test(self, monkeypatch):
+        point = entityd.kubernetes.Point(pytest.Mock(), {
+            'filesystem': [
+                {
+                    'device': '/dev/disk/by-uuid/foo',
+                    'spam': 50,
+                },
+                {
+                    'device': '/dev/disk/by-uuid/bar',
+                    'spam': 100,
+                },
+            ],
+        })
+        monkeypatch.setattr(
+            entityd.kubernetes,
+            'METRICS_FILESYSTEM',
+            [entityd.kubernetes.Metric('attribute', ('spam',), set())],
+        )
+        update = entityd.entityupdate.EntityUpdate('Entity')
+        entityd.kubernetes.filesystem_metrics(point, update)
+        attribute_foo = update.attrs.get('filesystem:foo:attribute')
+        attribute_bar = update.attrs.get('filesystem:bar:attribute')
+        assert attribute_foo.value == 50
+        assert attribute_foo.traits == set()
+        assert attribute_bar.value == 100
+        assert attribute_bar.traits == set()
+
+    def test_no_filesystem_field(self):
+        point = entityd.kubernetes.Point(pytest.Mock(), {})
+        update = entityd.entityupdate.EntityUpdate('Entity')
+        entityd.kubernetes.filesystem_metrics(point, update)
+        assert len(list(update.attrs)) == 0
+
+
+class TestDiskIOMetrics:
+
+    def test(self, monkeypatch):
+        point = entityd.kubernetes.Point(pytest.Mock(), {
+            'diskio': {
+                'foo': [
+                    {
+                        'major': 8,
+                        'minor': 0,
+                        'stats': {
+                            'value': 50,
+                        },
+                    },
+                    {
+                        'major': 16,
+                        'minor': 0,
+                        'stats': {
+                            'value': 100,
+                        },
+                    },
+                ],
+            },
+        })
+        monkeypatch.setattr(
+            entityd.kubernetes,
+            'METRICS_DISKIO',
+            {'foo': [entityd.kubernetes.Metric(
+                'attribute', ('stats', 'value',), set())]},
+        )
+        update = entityd.entityupdate.EntityUpdate('Entity')
+        entityd.kubernetes.diskio_metrics(point, update)
+        attribute_8_0 = update.attrs.get('io:8:0:attribute')
+        attribute_16_0 = update.attrs.get('io:16:0:attribute')
+        assert attribute_8_0.value == 50
+        assert attribute_8_0.traits == set()
+        assert attribute_16_0.value == 100
+        assert attribute_16_0.traits == set()
+
+    def test_missing_key(self, monkeypatch):
+        # Order matters as we want to ensure that it continues even
+        # after failing to find the first 'foo' field.
+        metrics = collections.OrderedDict([
+            ('foo', [entityd.kubernetes.Metric(
+                'foo', ('stats', 'value'), set())]),
+            ('bar', [entityd.kubernetes.Metric(
+                'bar', ('stats', 'value'), set())]),
+        ])
+        point = entityd.kubernetes.Point(pytest.Mock(), {
+            'diskio': {
+                'bar': [
+                    {
+                        'major': 8,
+                        'minor': 0,
+                        'stats': {
+                            'value': 50,
+                        },
+                    },
+                ],
+            },
+        })
+        monkeypatch.setattr(entityd.kubernetes, 'METRICS_DISKIO', metrics)
+        update = entityd.entityupdate.EntityUpdate('Entity')
+        entityd.kubernetes.diskio_metrics(point, update)
+        with pytest.raises(KeyError):
+            update.attrs.get('io:8:0:foo')
+        attribute = update.attrs.get('io:8:0:bar')
+        assert attribute.value == 50
+        assert attribute.traits == set()
+
+
+class TestContainerMetrics:
+
+    @pytest.fixture()
+    def metrics(self, monkeypatch):
+        monkeypatch.setattr(entityd.kubernetes,
+                            'simple_metrics', pytest.Mock())
+        monkeypatch.setattr(entityd.kubernetes,
+                            'filesystem_metrics', pytest.Mock())
+        monkeypatch.setattr(entityd.kubernetes,
+                            'diskio_metrics', pytest.Mock())
+        return (entityd.kubernetes.simple_metrics,
+                entityd.kubernetes.filesystem_metrics,
+                entityd.kubernetes.diskio_metrics)
+
+    def test(self, monkeypatch, cluster, metrics):
+        point_data = {'timestamp':
+            datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')}
+        pod = pytest.Mock(cluster=cluster)
+        container = kube.Container({'containerID': 'foo'}, pod)
+        update = entityd.entityupdate.EntityUpdate('Entity')
+        cluster.nodes = [
+            kube.NodeResource(cluster, {'metadata': {'name': 'node'}})]
+        cluster.proxy.get.return_value = {'/foo': [point_data]}
+        entityd.kubernetes.container_metrics(container, update)
+        assert metrics[0].called
+        assert metrics[1].called
+        assert metrics[2].called
+        assert metrics[0].call_args[0][0].data is point_data
+        assert metrics[0].call_args[0][1] is update
+        assert metrics[1].call_args[0][0].data is point_data
+        assert metrics[1].call_args[0][1] is update
+        assert metrics[2].call_args[0][0].data is point_data
+        assert metrics[2].call_args[0][1] is update
+
+    def test_apierror(self, cluster, metrics):
+        pod = pytest.Mock(cluster=cluster)
+        container = kube.Container({'containerID': 'foo'}, pod)
+        update = entityd.entityupdate.EntityUpdate('Entity')
+        cluster.nodes = [
+            kube.NodeResource(cluster, {'metadata': {'name': 'node'}})]
+        cluster.proxy.get.side_effect = kube.APIError(pytest.Mock())
+        entityd.kubernetes.container_metrics(container, update)
+        assert not metrics[0].called
+        assert not metrics[1].called
+        assert not metrics[2].called
+
+    def test_timestamp_threshold(self, cluster, metrics):
+        point_data = {'timestamp':
+            datetime.datetime(2000, 8, 1).strftime('%Y-%m-%dT%H:%M:%S.%fZ')}
+        pod = pytest.Mock(cluster=cluster)
+        container = kube.Container({'containerID': 'foo'}, pod)
+        update = entityd.entityupdate.EntityUpdate('Entity')
+        cluster.nodes = [
+            kube.NodeResource(cluster, {'metadata': {'name': 'node'}})]
+        cluster.proxy.get.return_value = {'/foo': [point_data]}
+        entityd.kubernetes.container_metrics(container, update)
+        assert not metrics[0].called
+        assert not metrics[1].called
+        assert not metrics[2].called

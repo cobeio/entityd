@@ -126,11 +126,12 @@ def test_send_entity(sender_receiver, deleted):
     if not receiver.poll(1000):
         assert False, "No message received"
     protocol, message = receiver.recv_multipart()
-    assert protocol == b'streamapi/2'
+    assert protocol == b'streamapi/3'
     message = msgpack.unpackb(message, encoding='utf-8')
     assert message['ueid'] == entity.ueid
     if not deleted:
         assert message['label'] == entity.label
+    assert message['ttl'] == 120
     assert message.get('deleted', False) is deleted
 
 
@@ -143,7 +144,7 @@ def test_send_label_unset(sender_receiver):
     if not receiver.poll(1000):
         assert False, "No message received"
     protocol, message = receiver.recv_multipart()
-    assert protocol == b'streamapi/2'
+    assert protocol == b'streamapi/3'
     message = msgpack.unpackb(message, encoding='utf-8')
     assert 'label' not in message
 

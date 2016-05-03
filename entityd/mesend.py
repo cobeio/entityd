@@ -23,7 +23,7 @@ class MonitoredEntitySender:
     def __init__(self):
         self.context = None
         self.session = None
-        self.packed_protocol_version = b'streamapi/2'
+        self.packed_protocol_version = b'streamapi/3'
         self._socket = None
 
     @property
@@ -124,13 +124,16 @@ class MonitoredEntitySender:
                 'type': entity.metype,
                 'ueid': entity.ueid,
                 'timestamp': entity.timestamp,
+                'ttl': entity.ttl,
                 'deleted': True,
+                'label': entity.label
             }
         else:
             data = {
                 'type': entity.metype,
                 'ueid': entity.ueid,
                 'timestamp': entity.timestamp,
+                'ttl': entity.ttl,
                 'attrs': {},
                 'parents': list(entity.parents),
                 'children': list(entity.children),

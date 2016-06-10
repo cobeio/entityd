@@ -131,10 +131,15 @@ class UpdateRelations:
         """Add entity to the relations for this update.
 
         :param entity: Either a UEID or an EntityUpdate object.
+        :type entity: cobe.UEID or entityd.EntityUpdate
 
+        :raises ValueError: If not given a valid UEID.
         """
         if isinstance(entity, EntityUpdate):
             ueid = entity.ueid
         else:
             ueid = entity
+        if not isinstance(ueid, cobe.UEID):
+            raise ValueError('Can only add UEID or EntityUpdate '
+                             'as relations but got {!r}'.format(type(ueid)))
         self._relations.add(ueid)

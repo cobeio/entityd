@@ -4,6 +4,7 @@ import cobe
 import pytest
 
 import entityd
+import entityd.entityupdate
 
 
 @pytest.fixture
@@ -23,17 +24,19 @@ def test_timestamp():
 
 
 def test_children(update):
+    ueid = cobe.UEID('a' * 32)
     assert not list(update.children)
-    update.children.add('ueid')
-    assert 'ueid' in update.children
+    update.children.add(ueid)
+    assert ueid in update.children
     update.children.add(update)
     assert update.ueid in update.children
 
 
 def test_parents(update):
+    ueid = cobe.UEID('a' * 32)
     assert not list(update.parents)
-    update.parents.add('ueid')
-    assert 'ueid' in update.parents
+    update.parents.add(ueid)
+    assert ueid in update.parents
     update.parents.add(update)
     assert update.ueid in update.parents
 
@@ -128,3 +131,45 @@ def test_ueid_wrong_type(object_):
     update.attrs.set('bar', object_, {'entity:id'})
     with pytest.raises(cobe.UEIDError):
         assert update.ueid
+
+
+class TestUpdateRelations:
+
+    @pytest.mark.parametrize('entity', [
+        cobe.UEID('a' * 32),
+        entityd.EntityUpdate('Foo', ueid='a' * 32),
+    ])
+    def test_add(self, entity):
+        relations = entityd.entityupdate.UpdateRelations()
+        relations.add(entity)
+        assert list(relations) == [cobe.UEID('a' * 32)]
+
+    @pytest.mark.parametrize('entity', [
+        cobe.UEID('a' * 32),
+        entityd.EntityUpdate('Foo', ueid='a' * 32),
+    ])
+    def test_add_duplicate(self, entity):
+        relations = entityd.entityupdate.UpdateRelations()
+        relations.add(entity)
+        relations.add(entity)
+        assert list(relations) == [cobe.UEID('a' * 32)]
+
+    def test_add_wrong_type(self):
+        relations = entityd.entityupdate.UpdateRelations()
+        with pytest.raises(ValueError):
+            relations.add('a' * 32)
+
+    def test_contains(self):
+        relations = entityd.entityupdate.UpdateRelations()
+        relations.add(cobe.UEID('a' * 32))
+        assert cobe.UEID('a' * 32) in relations
+
+    def test_contains_update_operand(self):
+        relations = entityd.entityupdate.UpdateRelations()
+        relations.add(cobe.UEID('a' * 32))
+        assert entityd.EntityUpdate('Foo', 'a' * 32) not in relations
+
+    def test_contains_string_operand(self):
+        relations = entityd.entityupdate.UpdateRelations()
+        relations.add(entityd.EntityUpdate('Foo', 'a' * 32))
+        assert 'a' * 32 not in relations

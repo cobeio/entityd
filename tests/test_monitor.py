@@ -1,5 +1,6 @@
 import base64
 
+import cobe
 import pytest
 
 import entityd.monitor
@@ -22,12 +23,12 @@ def mock_session():
 def test_sessionstart_entities_loaded(mock_session):
     """Monitor will load entities listed in config.entities that have
     rows stored in the kvstore."""
-    mock_session.svc.kvstore.getmany.return_value = {'_': b'ueid'}
+    mock_session.svc.kvstore.getmany.return_value = {'_': 'a' * 32}
     monitor = entityd.monitor.Monitor()
     monitor.entityd_sessionstart(mock_session)
     assert monitor.session == mock_session
     assert monitor.config == mock_session.config
-    assert b'ueid' in monitor.last_batch['foo']
+    assert cobe.UEID('a' * 32) in monitor.last_batch['foo']
 
 
 def test_sessionfinish_entities_saved(mock_session):
@@ -35,34 +36,34 @@ def test_sessionfinish_entities_saved(mock_session):
     mock_session.config.entities = ['foo']
     monitor = entityd.monitor.Monitor()
     monitor.entityd_sessionstart(mock_session)
-    monitor.last_batch['foo'] = {b'ueid'}
+    monitor.last_batch['foo'] = {cobe.UEID('a' * 32)}
     monitor.entityd_sessionfinish()
     mock_session.svc.kvstore.deletemany.assert_called_once_with('ueids:')
     mock_session.svc.kvstore.addmany.assert_called_once_with({
-        'ueids:foo:' + base64.b64encode(b'ueid').decode('ascii'): b'ueid'
+        'ueids:foo:' + base64.b64encode(b'a' * 32).decode(): 'a' * 32
     })
 
 
 def test_sessionstart_types_loaded(mock_session):
     mock_session.svc.kvstore.get.return_value = ['foo', 'bar']
-    mock_session.svc.kvstore.getmany.return_value = {'_': b'ueid'}
+    mock_session.svc.kvstore.getmany.return_value = {'_': 'a' * 32}
     monitor = entityd.monitor.Monitor()
     monitor.entityd_sessionstart(mock_session)
     mock_session.svc.kvstore.get.assert_called_once_with('metypes')
     mock_session.svc.kvstore.getmany.assert_any_call('ueids:foo:')
     mock_session.svc.kvstore.getmany.assert_any_call('ueids:bar:')
-    assert b'ueid' in monitor.last_batch['foo']
-    assert b'ueid' in monitor.last_batch['bar']
+    assert cobe.UEID('a' * 32) in monitor.last_batch['foo']
+    assert cobe.UEID('a' * 32) in monitor.last_batch['bar']
 
 
 def test_sessionfinish_types_saved(mock_session):
     monitor = entityd.monitor.Monitor()
     monitor.session = mock_session
     print(mock_session)
-    monitor.last_batch['foo'].add(b'ueid')
+    monitor.last_batch['foo'].add(cobe.UEID('a' * 32))
     monitor.entityd_sessionfinish()
     mock_session.svc.kvstore.addmany.assert_called_once_with({
-        'ueids:foo:' + base64.b64encode(b'ueid').decode('ascii'): b'ueid'
+        'ueids:foo:' + base64.b64encode(b'a' * 32).decode(): 'a' * 32
     })
 
 
@@ -108,20 +109,20 @@ def test_collect_entities_deleted(pm, session, monitor, hookrec):
 
     plugin = pm.register(FooPlugin(), 'foo')
     session.config.addentity('foo', plugin)
-    session.svc.monitor.last_batch['foo'] = {b'ueid'}
+    session.svc.monitor.last_batch['foo'] = {cobe.UEID('a' * 32)}
     session.svc.monitor.collect_entities()
     send_entity = dict(hookrec.calls)['entityd_send_entity']
     assert send_entity['entity'].deleted
-    assert send_entity['entity'].ueid == b'ueid'
+    assert send_entity['entity'].ueid == cobe.UEID('a' * 32)
     assert not any(session.svc.monitor.last_batch.values())
 
 
 def test_collect_unregistered_type(pm, session, monitor, hookrec):
-    session.svc.monitor.last_batch['foo'] = {b'ueid'}
+    session.svc.monitor.last_batch['foo'] = {cobe.UEID('a' * 32)}
     session.svc.monitor.collect_entities()
     send_entity = dict(hookrec.calls)['entityd_send_entity']
     assert send_entity['entity'].deleted
-    assert send_entity['entity'].ueid == b'ueid'
+    assert send_entity['entity'].ueid == cobe.UEID('a' * 32)
     assert 'foo' not in session.svc.monitor.last_batch
 
 

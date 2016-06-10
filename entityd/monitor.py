@@ -10,6 +10,7 @@ The app main loop will call monitor.gather()
 import base64
 import collections
 
+import cobe
 import logbook
 
 import entityd.pm
@@ -38,8 +39,10 @@ class Monitor:
             last_types = set()
         for metype in set(self.config.entities) | last_types:
             prefix = 'ueids:{}:'.format(metype)
-            self.last_batch[metype] = set(session.svc.kvstore.getmany(prefix)
-                                          .values())
+            self.last_batch[metype] = set(
+                cobe.UEID(ueid) for ueid in
+                session.svc.kvstore.getmany(prefix).values()
+            )
 
     @entityd.pm.hookimpl(before='entityd.kvstore')
     def entityd_sessionfinish(self):
@@ -47,9 +50,10 @@ class Monitor:
         self.session.svc.kvstore.deletemany('ueids:')
         for metype, entities in self.last_batch.items():
             prefix = 'ueids:{}:'.format(metype)
-            to_store = {
-                prefix + base64.b64encode(ueid).decode('ascii'): ueid
-                for ueid in entities}
+            to_store = {}
+            for ueid in entities:
+                key = prefix + base64.b64encode(str(ueid).encode()).decode()
+                to_store[key] = str(ueid)
             self.session.svc.kvstore.addmany(to_store)
         self.session.svc.kvstore.add('metypes', list(self.last_batch.keys()))
 
@@ -71,7 +75,7 @@ class Monitor:
         for metype in types:
             deleted_ueids = self.last_batch[metype] - this_batch[metype]
             for ueid in deleted_ueids:
-                update = entityd.entityupdate.EntityUpdate(metype, ueid)
+                update = entityd.entityupdate.EntityUpdate(metype, str(ueid))
                 update.delete()
                 self.session.pluginmanager.hooks.entityd_send_entity(
                     session=self.session, entity=update)

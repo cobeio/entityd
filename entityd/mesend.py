@@ -122,14 +122,14 @@ class MonitoredEntitySender:
         if entity.deleted:
             data = {
                 'type': entity.metype,
-                'ueid': entity.ueid,
+                'ueid': str(entity.ueid),
                 'timestamp': entity.timestamp,
                 'deleted': True,
             }
         else:
             data = {
                 'type': entity.metype,
-                'ueid': entity.ueid,
+                'ueid': str(entity.ueid),
                 'timestamp': entity.timestamp,
                 'attrs': {},
                 'parents': list(entity.parents),

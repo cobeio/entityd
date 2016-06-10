@@ -128,7 +128,7 @@ def test_send_entity(sender_receiver, deleted):
     protocol, message = receiver.recv_multipart()
     assert protocol == b'streamapi/2'
     message = msgpack.unpackb(message, encoding='utf-8')
-    assert message['ueid'] == entity.ueid
+    assert message['ueid'] == str(entity.ueid)
     if not deleted:
         assert message['label'] == entity.label
     assert message.get('deleted', False) is deleted

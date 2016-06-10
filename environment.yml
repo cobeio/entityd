@@ -26,6 +26,7 @@ dependencies:
   - pyyaml
   - act
   - kube <0.2.0
+  - python-cobe ==0.1.0
 
   # development
   - pytest

@@ -4,6 +4,8 @@ import collections
 import hashlib
 import time
 
+import cobe
+
 
 class EntityUpdate:
     """An update for this Entity.
@@ -11,6 +13,14 @@ class EntityUpdate:
     Attributes and relations can be added via the methods on
     EntityUpdate.attrs, EntityUpdate.parents and EntityUpdate.children.
 
+    :param ueid: The explicit UEID for the update. This will be converted
+        to a :class:`cobe.UEID` if given.
+    :type ueid: str
+
+    :raises ValueError: If the given UEID is the wrong length or
+        contains invalid characters.
+    :raises TypeError: If the given UEID cannot be converted to a
+        :class:`cobe.UEID` instance.
     """
     # pylint: disable=too-many-instance-attributes
     def __init__(self, metype, ueid=None):
@@ -21,7 +31,10 @@ class EntityUpdate:
         self.parents = UpdateRelations()
         self.children = UpdateRelations()
         self.deleted = False
-        self._ueid = ueid
+        if ueid:
+            self._ueid = cobe.UEID(ueid)
+        else:
+            self._ueid = None
 
     def delete(self):
         """Mark this EntityUpdate as deleted."""
@@ -31,21 +44,29 @@ class EntityUpdate:
     def ueid(self):
         """Generate and return a UEID based on set attributes.
 
-        Only attributes with the trait 'entity:id' are used to create the ueid.
+        Only attributes with the trait 'entity:id' are used to create
+        the ueid.
 
         All identifying attributes *must* be set before accessing the
         ueid, otherwise it will be incorrect.
 
+        If a UEID was set explicitly when constructing the update then
+        that UEID will be returned instead of generating a new one.
+
+        :raises cobe.UEIDError: If a UEID cannot be generated for the
+            update. For example, if one of the identifying attributes is
+            not of a valid type.
+
+        :returns: A :class:`cobe.UEID` object representing the identifying
+            attributes of the update.
         """
         if self._ueid:
             return self._ueid
-        attr_parts = ['{name}={value}'.format(name=attr.name, value=attr.value)
-                      for attr in self.attrs
-                      if 'entity:id' in attr.traits]
-        attr_parts.sort()
-        strval = self.metype + '|' + '|'.join(attr_parts)
-        hash_ = hashlib.sha1(strval.encode('utf-8'))
-        return hash_.digest()
+        update = cobe.Update(self.metype)
+        for attribute in self.attrs:
+            update.attributes[attribute.name].set(attribute.value)
+            update.attributes[attribute.name].traits.update(attribute.traits)
+        return update.ueid()
 
 
 UpdateAttr = collections.namedtuple('UpdateAttr', ['name', 'value', 'traits'])

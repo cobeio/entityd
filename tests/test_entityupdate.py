@@ -1,5 +1,6 @@
 import time
 
+import cobe
 import pytest
 
 import entityd
@@ -46,6 +47,8 @@ def test_delete(update):
 def test_ueid():
     u1 = entityd.EntityUpdate('Type')
     u2 = entityd.EntityUpdate('Type')
+    assert isinstance(u1.ueid, cobe.UEID)
+    assert isinstance(u2.ueid, cobe.UEID)
     assert u1.ueid == u2.ueid
     u1.attrs.set('notAnId', 'aeue')
     assert u1.ueid == u2.ueid
@@ -69,22 +72,45 @@ def test_attr_delete_nonexistent(update):
     assert 'NA' in update.attrs.deleted()
 
 
+def test_explicit_ueid():
+    ueid = 'a' * 32
+    update = entityd.EntityUpdate('Endpoint', ueid=ueid)
+    assert isinstance(update.ueid, cobe.UEID)
+    assert update.ueid == cobe.UEID('a' * 32)
+
+
+def test_explicit_ueid_too_short():
+    with pytest.raises(ValueError):
+        entityd.EntityUpdate('Foo', ueid='aaa')
+
+
+@pytest.mark.parametrize('ueid', [object(), b'a' * 32])
+def test_explicit_ueid_type_type(ueid):
+    # Test a bytestring as previously it was considered an acceptable type.
+    with pytest.raises(TypeError):
+        entityd.EntityUpdate('Foo', ueid=ueid)
+
+
+def test_explicit_ueid_non_hex_character():
+    with pytest.raises(ValueError):
+        entityd.EntityUpdate('Foo', ueid='z' * 32)
+
+
 def test_create_deleted_from_ueid():
-    ueid = 'abdef'
+    ueid = 'a' * 32
     update = entityd.EntityUpdate('Endpoint', ueid=ueid)
     update.delete()
     assert update.deleted
-    assert update.ueid == ueid
+    assert isinstance(update.ueid, cobe.UEID)
+    assert update.ueid == cobe.UEID(ueid)
 
 
-@pytest.mark.xfail(reason='Known deficiency in UEID specification')
 @pytest.mark.parametrize(('literal', 'string'), [
     (None, 'None'),
     (0, '0'),
     (0.0, '0.0'),
     (b'foo', "b'foo'"),
     ([], '[]'),
-    ((), '()'),
     ({}, '{}'),
 ])
 def test_value_string_conversion(literal, string):
@@ -93,3 +119,12 @@ def test_value_string_conversion(literal, string):
     update_string = entityd.EntityUpdate('Foo')
     update_string.attrs.set('bar', string, {'entity:id'})
     assert update_literal.ueid != update_string.ueid
+
+
+@pytest.mark.parametrize('object_', [object(), ()])
+def test_ueid_wrong_type(object_):
+    # Test a tuple as previously it was considered an acceptable type.
+    update = entityd.EntityUpdate('Foo')
+    update.attrs.set('bar', object_, {'entity:id'})
+    with pytest.raises(cobe.UEIDError):
+        assert update.ueid

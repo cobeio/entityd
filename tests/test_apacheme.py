@@ -2,6 +2,7 @@ import os
 import subprocess
 import time
 
+import cobe
 import pytest
 import requests
 
@@ -80,7 +81,7 @@ apachectl = pytest.mark.skipif(not has_apachectl(),
 
 
 @pytest.fixture
-def fileme(pm, session):
+def fileme(pm, session, host_entity_plugin):
     gen = entityd.fileme.FileEntity()
     pm.register(gen, 'entityd.fileme.FileEntity')
     gen.entityd_configure(session.config)
@@ -89,7 +90,7 @@ def fileme(pm, session):
 
 
 @pytest.fixture
-def procent(pm, session):
+def procent(pm, session, host_entity_plugin):
     procent = entityd.processme.ProcessEntity()
     pm.register(procent,
                 name='entityd.processme')
@@ -98,7 +99,7 @@ def procent(pm, session):
 
 
 @pytest.fixture
-def entitygen(pm, session):
+def entitygen(pm, session, host_entity_plugin):
     """A entityd.apacheme.ApacheEntity instance.
 
     The plugin will be registered with the PluginManager but no hooks
@@ -112,7 +113,7 @@ def entitygen(pm, session):
 
 
 @pytest.fixture
-def patched_entitygen(monkeypatch, pm, session):
+def patched_entitygen(monkeypatch, pm, session, host_entity_plugin):
     """A entityd.apacheme.ApacheEntity instance.
 
     The plugin will be registered with the PluginManager but no hooks
@@ -363,7 +364,7 @@ def test_relations(monkeypatch, tmpdir, pm, session, kvstore,  # pylint: disable
     vhost = entityd.EntityUpdate('ApacheVHost')
     vhost.attrs.set('address', 'localhost', traits={'entity:id'})
     vhost.attrs.set('port', 80, traits={'entity:id'})
-    vhost.attrs.set('apache', entity.ueid, traits={'entity:id'})
+    vhost.attrs.set('apache', str(entity.ueid), traits={'entity:id'})
     assert vhost.ueid in entity.children._relations
 
     assert len(entity.parents._relations) == 1
@@ -413,7 +414,7 @@ def test_vhost_returned_separately(pm, session, kvstore,  # pylint: disable=unus
     vhost = entityd.EntityUpdate('ApacheVHost')
     vhost.attrs.set('address', 'localhost', traits={'entity:id'})
     vhost.attrs.set('port', 80, traits={'entity:id'})
-    vhost.attrs.set('apache', apache.ueid, traits={'entity:id'})
+    vhost.attrs.set('apache', str(apache.ueid), traits={'entity:id'})
 
     ueids = [e.ueid for e in entities if e.metype == 'ApacheVHost']
     assert vhost.ueid in ueids
@@ -589,9 +590,9 @@ def test_config_last_modified(apache, tmpdir):
 
 
 def test_apaches_on_different_hosts_have_different_ueids(patched_entitygen):
-    patched_entitygen._host_ueid = 1234
+    patched_entitygen._host_ueid = cobe.UEID('a' * 32)
     entity1 = next(patched_entitygen.entityd_find_entity('Apache', attrs=None))
-    patched_entitygen._host_ueid = 5678
+    patched_entitygen._host_ueid = cobe.UEID('b' * 32)
     entity2 = next(patched_entitygen.entityd_find_entity('Apache', attrs=None))
     assert entity1.ueid != entity2.ueid
 

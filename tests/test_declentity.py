@@ -261,7 +261,7 @@ def test_create_declarative_me(declent, conf_attrs, session):
     assert entity.label == 'testService'
     assert entity.attrs.get('owner').value == 'testOwner'
     assert entity.attrs.get('owner').traits == set()
-    assert entity.attrs.get('hostueid').value == declent.host_ueid
+    assert entity.attrs.get('hostueid').value == str(declent.host_ueid)
     assert entity.attrs.get('hostueid').traits == {'entity:id', 'entity:ueid'}
     assert entity.attrs.get('filepath').value == 'testFilePath'
     assert entity.attrs.get('filepath').traits == {'entity:id'}

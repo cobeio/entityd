@@ -2,10 +2,12 @@ import os
 import subprocess
 import time
 
+import cobe
 import syskit
 import pytest
 
 import entityd.hookspec
+import entityd.hostme
 import entityd.processme
 
 
@@ -14,7 +16,7 @@ import entityd.kvstore
 
 
 @pytest.fixture
-def procent(pm):
+def procent(pm, host_entity_plugin):
     """A entityd.processme.ProcessEntity instance.
 
     The plugin will be registered with the PluginManager but no hooks
@@ -99,6 +101,7 @@ def test_get_ueid_new(kvstore, session, procent):  # pylint: disable=unused-argu
     proc = syskit.Process(os.getpid())
     ueid = procent.get_ueid(proc)
     assert ueid
+    assert isinstance(ueid, cobe.UEID)
 
 
 def test_get_ueid_reuse(kvstore, session, procent):  # pylint: disable=unused-argument
@@ -122,7 +125,7 @@ def test_forget_entity(kvstore, session, procent):  # pylint: disable=unused-arg
     entity.attrs.set('pid', proc.pid, traits={'entity:id'})
     entity.attrs.set('starttime',
                      proc.start_time.timestamp(), traits={'entity:id'})
-    entity.attrs.set('host', procent.host_ueid, traits={'entity:id'})
+    entity.attrs.set('host', str(procent.host_ueid), traits={'entity:id'})
     procent.forget_entity(entity)
     assert ueid not in procent.known_ueids
 
@@ -130,12 +133,12 @@ def test_forget_entity(kvstore, session, procent):  # pylint: disable=unused-arg
 def test_forget_non_existent_entity(procent):
     # Should not raise an exception if a process is no longer there.
     assert not procent.known_ueids
-    update = entityd.EntityUpdate('Process', ueid='non-existent-ueid')
+    update = entityd.EntityUpdate('Process', ueid='a' * 32)
     procent.forget_entity(update)
     assert not procent.known_ueids
 
 
-def test_get_ueid(session):
+def test_get_ueid(session, host_entity_plugin):
     procent = entityd.processme.ProcessEntity()
     procent.session = session
     proc = syskit.Process(os.getpid())
@@ -159,7 +162,7 @@ def test_get_parents_nohost_parent(procent, session, kvstore):  # pylint: disabl
     pproc = syskit.Process(os.getppid())
     rels = procent.get_parents(proc.pid, {proc.pid: proc, pproc.pid: pproc})
     parent, = rels
-    assert isinstance(parent, bytes)
+    assert isinstance(parent, cobe.UEID)
 
 
 def test_non_root_proc_has_no_host(procent, session, kvstore, monkeypatch):  # pylint: disable=unused-argument

@@ -66,7 +66,12 @@ class ApacheEntity:
 
     @property
     def host_ueid(self):
-        """Get and store the host ueid."""
+        """Get and store the host ueid.
+
+        :raises LookupError: If a host UEID cannot be found.
+
+        :returns: A :class:`cobe.UEID` for the host.
+        """
         if self._host_ueid:
             return self._host_ueid
         results = self.session.pluginmanager.hooks.entityd_find_entity(
@@ -75,6 +80,7 @@ class ApacheEntity:
             for host in hosts:
                 self._host_ueid = host.ueid
                 return self._host_ueid
+        raise LookupError('Could not find the host UEID')
 
     def entities(self, include_ondemand=False):
         """Return a generator of ApacheEntity objects
@@ -89,7 +95,7 @@ class ApacheEntity:
                 continue
             update = entityd.EntityUpdate('Apache')
             update.label = 'Apache'
-            update.attrs.set('host', self.host_ueid,
+            update.attrs.set('host', str(self.host_ueid),
                              traits={'entity:id', 'entity:ueid'})
             update.attrs.set('version', apache.version)
             update.attrs.set('config_path',
@@ -119,8 +125,7 @@ class ApacheEntity:
                 update.children.add(entity)
                 if include_ondemand:
                     yield entity
-            if self.host_ueid:
-                update.parents.add(self.host_ueid)
+            update.parents.add(self.host_ueid)
             yield update
 
     def top_level_apache_processes(self):
@@ -154,7 +159,7 @@ class ApacheEntity:
         vhost.label = "{}:{}".format(address, port)
         vhost.attrs.set('address', address, traits={'entity:id'})
         vhost.attrs.set('port', port, traits={'entity:id'})
-        vhost.attrs.set('apache', apache.ueid,
+        vhost.attrs.set('apache', str(apache.ueid),
                         traits={'entity:id', 'entity:ueid'})
         return vhost
 

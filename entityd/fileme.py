@@ -70,13 +70,20 @@ class FileEntity:
 
     @property
     def host_ueid(self):
-        """Property to get the host ueid, used in a few places"""
+        """Property to get the host ueid, used in a few places.
+
+        :raises LookupError: If a host UEID cannot be found.
+
+        :returns: A :class:`cobe.UEID` for the  host.
+        """
         if not self._host_ueid:
             results = self.session.pluginmanager.hooks.entityd_find_entity(
                 name='Host', attrs=None)
             if results:
                 host_me = next(iter(results[0]))
                 self._host_ueid = host_me.ueid
+        if not self._host_ueid:
+            raise LookupError('Could not find the host UEID')
         return self._host_ueid
 
     def create_entity(self, path):
@@ -84,7 +91,7 @@ class FileEntity:
         fstat = os.stat(path)
         update = entityd.EntityUpdate('File')
         update.label = path
-        update.attrs.set('host', self.host_ueid,
+        update.attrs.set('host', str(self.host_ueid),
                          traits={'entity:id', 'entity:ueid'})
         update.attrs.set('path', path, traits={'entity:id'})
         update.attrs.set('uid', fstat.st_uid)

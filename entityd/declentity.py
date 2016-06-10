@@ -209,13 +209,20 @@ class DeclarativeEntity:
 
     @property
     def host_ueid(self):
-        """Property to get the host ueid, used in a few places"""
+        """Property to get the host ueid, used in a few places.
+
+        :raises LookupError: If a host UEID cannot be found.
+
+        :returns: A :class:`cobe.UEID` for the  host.
+        """
         if not self._host_ueid:
             results = self.session.pluginmanager.hooks.entityd_find_entity(
                 name='Host', attrs=None)
             if results:
                 host_me = next(iter(results[0]))
                 self._host_ueid = host_me.ueid
+        if not self._host_ueid:
+            raise LookupError('Could not find the host UEID')
         return self._host_ueid
 
     def _create_declarative_entity(self, config_properties):
@@ -231,7 +238,7 @@ class DeclarativeEntity:
         entity.attrs.set('filepath',
                          str(config_properties.filepath),
                          traits={'entity:id'})
-        entity.attrs.set('hostueid', self.host_ueid,
+        entity.attrs.set('hostueid', str(self.host_ueid),
                          traits={'entity:id', 'entity:ueid'})
         for name, value in config_properties.attrs.items():
             entity.attrs.set(name, value.value, traits=value.traits)

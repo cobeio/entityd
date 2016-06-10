@@ -70,8 +70,8 @@ def test_find_entity_with_attrs(endpoint_gen):
         endpoint_gen.entityd_find_entity('Endpoint', {})
 
 
-def test_endpoints_for_process(pm, session, kvstore, local_socket,  # pylint: disable=unused-argument
-                               remote_socket):
+def test_endpoints_for_process(pm, session, host_entity_plugin,
+                               kvstore, local_socket, remote_socket):  # pylint: disable=unused-argument
     # conn is required to keep the connection from being GC'd
     conn = local_socket.accept()  # pylint: disable=unused-variable
 
@@ -129,7 +129,7 @@ def test_endpoints_for_process(pm, session, kvstore, local_socket,  # pylint: di
     assert count == 3
 
 
-def test_unix_socket(pm, session, kvstore, unix_socket):  # pylint: disable=unused-argument
+def test_unix_socket(pm, session, host_entity_plugin, kvstore, unix_socket):  # pylint: disable=unused-argument
     """Unix sockets should not be returned"""
     pm.register(entityd.processme.ProcessEntity(),
                 name='entityd.processme')
@@ -149,7 +149,7 @@ def test_unix_socket(pm, session, kvstore, unix_socket):  # pylint: disable=unus
     assert count == 0
 
 
-def test_get_entities(pm, session, kvstore):  # pylint: disable=unused-argument
+def test_get_entities(pm, session, host_entity_plugin, kvstore):  # pylint: disable=unused-argument
     endpoint_gen = entityd.endpointme.EndpointEntity()
     endpoint_gen.session = session
 
@@ -171,7 +171,7 @@ def test_get_entities(pm, session, kvstore):  # pylint: disable=unused-argument
         pytest.fail('No endpoints found')
 
 
-def test_endpoint_for_deleted_process(pm, session,
+def test_endpoint_for_deleted_process(pm, session, host_entity_plugin,
                                       kvstore, local_socket, conn):  # pylint: disable=unused-argument
     endpoint_gen = entityd.endpointme.EndpointEntity()
     endpoint_gen.session = session

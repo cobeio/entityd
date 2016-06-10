@@ -46,7 +46,12 @@ class MySQLEntity:
 
     @property
     def host_ueid(self):
-        """Get and store the host ueid."""
+        """Get and store the host ueid.
+
+        :raises LookupError: If a host UEID cannot be found.
+
+        :returns: A :class:`cobe.UEID` for the host.
+        """
         if self._host_ueid:
             return self._host_ueid
         results = self.session.pluginmanager.hooks.entityd_find_entity(
@@ -55,13 +60,14 @@ class MySQLEntity:
             for host in hosts:
                 self._host_ueid = host.ueid
                 return self._host_ueid
+        raise LookupError('Could not find the host UEID')
 
     def entities(self, include_ondemand):
         """Return MySQLEntity objects."""
         for proc in self.top_level_mysql_processes():
             mysql = MySQL(proc)
             update = entityd.EntityUpdate('MySQL')
-            update.attrs.set('host', self.host_ueid,
+            update.attrs.set('host', str(self.host_ueid),
                              traits={'entity:id', 'entity:ueid'})
             update.attrs.set('config_path',
                              mysql.config_path(), traits={'entity:id'})

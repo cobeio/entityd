@@ -41,25 +41,34 @@ class ProcessEntity:
 
     @property
     def host_ueid(self):
-        """Property to get the host ueid, used in a few places"""
+        """Property to get the host ueid, used in a few places.
+
+        :raises LookupError: If a host UEID cannot be found.
+
+        :returns: A :class:`cobe.UEID` for the  host.
+        """
         if not self._host_ueid:
             results = self.session.pluginmanager.hooks.entityd_find_entity(
                 name='Host', attrs=None)
             if results:
                 host_me = next(iter(results[0]))
                 self._host_ueid = host_me.ueid
+        if not self._host_ueid:
+            raise LookupError('Could not find the host UEID')
         return self._host_ueid
 
     def get_ueid(self, proc):
         """Generate a ueid for this process.
 
         :param proc: syskit.Process instance.
+
+        :returns: A :class:`cobe.UEID` for the given process.
         """
         entity = entityd.EntityUpdate('Process')
         entity.attrs.set('pid', proc.pid, traits={'entity:id'})
         entity.attrs.set('starttime', proc.start_time.timestamp(),
                          traits={'entity:id'})
-        entity.attrs.set('host', self.host_ueid, traits={'entity:id'})
+        entity.attrs.set('host', str(self.host_ueid), traits={'entity:id'})
         self.known_ueids.add(entity.ueid)
         return entity.ueid
 
@@ -82,8 +91,8 @@ class ProcessEntity:
 
         :param pid: The process ID to get relations for.
         :param procs: A dictionary of all processes on the system.
-        :returns: A list of relations, as wire-protocol dicts.
 
+        :returns: A list of relations, as :class:`cobe.UEID`s.
         """
         parents = []
         proc = procs[pid]
@@ -191,7 +200,7 @@ class ProcessEntity:
         update.attrs.set('starttime', proc.start_time.timestamp(),
                          traits={'entity:id', 'time:posix', 'unit:seconds'})
         update.attrs.set('ppid', proc.ppid)
-        update.attrs.set('host', self.host_ueid,
+        update.attrs.set('host', str(self.host_ueid),
                          traits={'entity:id', 'entity:ueid'})
         update.attrs.set('cputime', float(proc.cputime),
                          traits={'metric:counter',

@@ -60,6 +60,14 @@ def kvstore(session):
     return kvstore
 
 
+@pytest.fixture
+def host_entity_plugin(pm, session, kvstore):
+    host_plugin = entityd.hostme.HostEntity()
+    host_plugin.session = session
+    pm.register(host_plugin, 'entityd.hostme.HostEntity')
+    return host_plugin
+
+
 class HookRecorder:
     """Recorder for hook calls.
 

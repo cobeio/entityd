@@ -9,7 +9,7 @@ import entityd.processme
 
 
 @pytest.fixture
-def procent(pm, session, monkeypatch):
+def procent(pm, session, host_entity_plugin, monkeypatch):
     procent = entityd.processme.ProcessEntity()
     proc = entityd.EntityUpdate('Process')
     proc.attrs.set('pid', 123)
@@ -97,7 +97,7 @@ def test_host_stored_and_returned(pm, session, kvstore, mock_postgres):  # pylin
         name='PostgreSQL', attrs=None, include_ondemand=False)
     entity = next(entities)
     assert ueid is mock_postgres._host_ueid
-    assert entity.attrs.get('host').value == ueid
+    assert entity.attrs.get('host').value == str(ueid)
     assert ueid in entity.parents._relations
 
 

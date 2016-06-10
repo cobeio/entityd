@@ -46,7 +46,12 @@ class PostgreSQLEntity:
 
     @property
     def host_ueid(self):
-        """Get and store the host ueid."""
+        """Get and store the host ueid.
+
+        :raises LookupError: If a host UEID cannot be found.
+
+        :returns: A :class:`cobe.UEID` for the host.
+        """
         if self._host_ueid:
             return self._host_ueid
         results = self.session.pluginmanager.hooks.entityd_find_entity(
@@ -55,13 +60,14 @@ class PostgreSQLEntity:
             for host in hosts:
                 self._host_ueid = host.ueid
                 return self._host_ueid
+        raise LookupError('Could not find the host UEID')
 
     def entities(self, include_ondemand):
         """Return PostgreSQLEntity objects."""
         for proc in self.top_level_postgresql_processes():
             postgres = PostgreSQL(proc)
             update = entityd.EntityUpdate('PostgreSQL')
-            update.attrs.set('host', self.host_ueid,
+            update.attrs.set('host', str(self.host_ueid),
                              traits={'entity:id', 'entity:ueid'})
             update.attrs.set(
                 'config_path', postgres.config_path(), traits={'entity:id'})

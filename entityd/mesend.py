@@ -23,7 +23,7 @@ class MonitoredEntitySender:
     def __init__(self):
         self.context = None
         self.session = None
-        self.packed_protocol_version = b'streamapi/2'
+        self.packed_protocol_version = b'streamapi/4'
         self._socket = None
 
     @property

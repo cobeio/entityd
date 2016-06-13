@@ -737,9 +737,10 @@ class TestContainerMetrics:
                 entityd.kubernetes.filesystem_metrics,
                 entityd.kubernetes.diskio_metrics)
 
-    def test(self, monkeypatch, cluster, metrics):
-        point_data = {'timestamp':
-            datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')}
+    def test(self, cluster, metrics):
+        point_data = {
+            'timestamp':
+                datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')}
         pod = pytest.Mock(cluster=cluster)
         container = kube.Container({'containerID': 'foo'}, pod)
         update = entityd.entityupdate.EntityUpdate('Entity')
@@ -770,8 +771,9 @@ class TestContainerMetrics:
         assert not metrics[2].called
 
     def test_timestamp_threshold(self, cluster, metrics):
-        point_data = {'timestamp':
-            datetime.datetime(2000, 8, 1).strftime('%Y-%m-%dT%H:%M:%S.%fZ')}
+        point_data = {
+            'timestamp': datetime.datetime(
+                2000, 8, 1).strftime('%Y-%m-%dT%H:%M:%S.%fZ')}
         pod = pytest.Mock(cluster=cluster)
         container = kube.Container({'containerID': 'foo'}, pod)
         update = entityd.entityupdate.EntityUpdate('Entity')

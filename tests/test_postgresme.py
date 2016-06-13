@@ -112,11 +112,12 @@ def test_config_file(pm, session, mock_postgres):
     assert file.ueid in postgres.children._relations
 
 
-@pytest.mark.parametrize('path',
-                         ['/var/lib/pgsql/data/postgresql.conf',
-                          '/etc/postgresql/2.7/main/postgresql.conf',
-                          '/etc/postgresql/10.21/main/postgresql.conf'])
-def test_config_path_defaults(monkeypatch, path):
+@pytest.mark.parametrize(('path', 'listdir'), [
+    ('/var/lib/pgsql/data/postgresql.conf', []),
+    ('/etc/postgresql/2.7/main/postgresql.conf', ['2.7']),
+    ('/etc/postgresql/10.21/main/postgresql.conf', ['10.21']),
+])
+def test_config_path_defaults(monkeypatch, path, listdir):
     """Test the 2 different location types. """
 
     def isfile(test_path):
@@ -127,14 +128,8 @@ def test_config_path_defaults(monkeypatch, path):
     postgres = entityd.postgresme.PostgreSQL(proc)
     monkeypatch.setattr(entityd.postgresme.os.path, 'isfile', isfile)
     # Patches for code looking for /etc/postgresql/x.x/main/postgresql.conf
-    monkeypatch.setattr(
-        entityd.postgresme.os.path, 'isdir', lambda x: True)
-    if path == '/etc/postgresql/2.7/main/postgresql.conf':
-        monkeypatch.setattr(
-            entityd.postgresme.os, 'listdir', lambda x: ['2.7'])
-    if path == '/etc/postgresql/10.21/main/postgresql.conf':
-        monkeypatch.setattr(
-            entityd.postgresme.os, 'listdir', lambda x: ['10.21'])
+    monkeypatch.setattr(entityd.postgresme.os.path, 'isdir', lambda _: True)
+    monkeypatch.setattr(entityd.postgresme.os, 'listdir', lambda _: listdir)
     assert postgres.config_path() == path
 
 

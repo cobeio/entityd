@@ -6,7 +6,7 @@ import entityd.fileme
 
 
 @pytest.fixture
-def fileent(pm, host_entity_plugin):
+def fileent(pm, host_entity_plugin):  # pylint: disable=unused-argument
     """A entityd.fileme.FileEntity instance.
 
     The plugin will be registered with the PluginManager but no hooks

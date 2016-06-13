@@ -81,7 +81,7 @@ apachectl = pytest.mark.skipif(not has_apachectl(),
 
 
 @pytest.fixture
-def fileme(pm, session, host_entity_plugin):
+def fileme(pm, session, host_entity_plugin):  # pylint: disable=unused-argument
     gen = entityd.fileme.FileEntity()
     pm.register(gen, 'entityd.fileme.FileEntity')
     gen.entityd_configure(session.config)
@@ -90,7 +90,7 @@ def fileme(pm, session, host_entity_plugin):
 
 
 @pytest.fixture
-def procent(pm, session, host_entity_plugin):
+def procent(pm, session, host_entity_plugin):  # pylint: disable=unused-argument
     procent = entityd.processme.ProcessEntity()
     pm.register(procent,
                 name='entityd.processme')
@@ -99,7 +99,7 @@ def procent(pm, session, host_entity_plugin):
 
 
 @pytest.fixture
-def entitygen(pm, session, host_entity_plugin):
+def entitygen(pm, session, host_entity_plugin):  # pylint: disable=unused-argument
     """A entityd.apacheme.ApacheEntity instance.
 
     The plugin will be registered with the PluginManager but no hooks
@@ -113,7 +113,7 @@ def entitygen(pm, session, host_entity_plugin):
 
 
 @pytest.fixture
-def patched_entitygen(monkeypatch, pm, session, host_entity_plugin):
+def patched_entitygen(monkeypatch, pm, session, host_entity_plugin):  # pylint: disable=unused-argument
     """A entityd.apacheme.ApacheEntity instance.
 
     The plugin will be registered with the PluginManager but no hooks

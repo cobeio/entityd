@@ -16,7 +16,7 @@ import entityd.kvstore
 
 
 @pytest.fixture
-def procent(pm, host_entity_plugin):
+def procent(pm, host_entity_plugin):  # pylint: disable=unused-argument
     """A entityd.processme.ProcessEntity instance.
 
     The plugin will be registered with the PluginManager but no hooks
@@ -138,7 +138,7 @@ def test_forget_non_existent_entity(procent):
     assert not procent.known_ueids
 
 
-def test_get_ueid(session, host_entity_plugin):
+def test_get_ueid(session, host_entity_plugin):  # pylint: disable=unused-argument
     procent = entityd.processme.ProcessEntity()
     procent.session = session
     proc = syskit.Process(os.getpid())

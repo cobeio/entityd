@@ -61,7 +61,7 @@ def kvstore(session):
 
 
 @pytest.fixture
-def host_entity_plugin(pm, session, kvstore):
+def host_entity_plugin(pm, session, kvstore):  # pylint: disable=unused-argument
     host_plugin = entityd.hostme.HostEntity()
     host_plugin.session = session
     pm.register(host_plugin, 'entityd.hostme.HostEntity')

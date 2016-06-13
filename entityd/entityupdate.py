@@ -1,7 +1,6 @@
 """An EntityUpdate contains the updated information for an Entity"""
 
 import collections
-import hashlib
 import time
 
 import cobe

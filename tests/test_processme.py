@@ -153,27 +153,18 @@ def test_get_parents_nohost_noparent(session, kvstore, procent):  # pylint: disa
     procent.entityd_sessionstart(session)
     proc = syskit.Process(os.getpid())
     rels = procent.get_parents(proc.pid, {proc.pid: proc})
-    assert not rels
+    assert rels
 
 
-def test_get_parents_nohost_parent(procent, session, kvstore):  # pylint: disable=unused-argument
+def test_get_parents_parent(procent, session, kvstore, host_entity_plugin):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
+    host = list(host_entity_plugin.entityd_find_entity('Host', None))[0]
     proc = syskit.Process(os.getpid())
     pproc = syskit.Process(os.getppid())
     rels = procent.get_parents(proc.pid, {proc.pid: proc, pproc.pid: pproc})
-    parent, = rels
-    assert isinstance(parent, cobe.UEID)
-
-
-def test_non_root_proc_has_no_host(procent, session, kvstore, monkeypatch):  # pylint: disable=unused-argument
-    procent.entityd_sessionstart(session)
-    hostupdate = entityd.EntityUpdate('Host')
-    monkeypatch.setattr(session.pluginmanager.hooks,
-                        'entityd_find_entity',
-                        pytest.Mock(return_value=[[hostupdate]]))
-    proc = syskit.Process(os.getpid())
-    rels = procent.get_parents(proc.pid, {proc.pid: proc})
-    assert not list(rels)
+    assert len(rels) == 1
+    assert rels[0] != host.ueid
+    assert isinstance(rels[0], cobe.UEID)
 
 
 def test_root_process_has_host_parent(procent, session, kvstore, monkeypatch):  #pylint: disable=unused-argument
@@ -372,3 +363,39 @@ def test_entity_has_label(procent, session, kvstore):  # pylint: disable=unused-
         assert entity.label == entity.attrs.get('binary').value
         count += 1
     assert count
+
+
+def test_host_ueid(procent, session, host_entity_plugin):
+    procent.entityd_sessionstart(session)
+    host = list(host_entity_plugin.entityd_find_entity('Host', None))[0]
+    assert procent.host_ueid == host.ueid
+
+
+def test_host_ueid_cached(procent, session, host_entity_plugin):
+    procent.entityd_sessionstart(session)
+    host = list(host_entity_plugin.entityd_find_entity('Host', None))[0]
+    first_ueid = procent.host_ueid
+    assert first_ueid == host.ueid
+    assert procent.host_ueid is first_ueid
+
+
+def test_host_ueid_no_host_plugin(monkeypatch, procent, session):
+    procent.entityd_sessionstart(session)
+    monkeypatch.setattr(
+        session.pluginmanager.hooks,
+        'entityd_find_entity',
+        pytest.Mock(return_value=[]),
+    )
+    with pytest.raises(LookupError):
+        assert procent.host_ueid
+
+
+def test_host_ueid_no_host_entity(monkeypatch, procent, session):
+    procent.entityd_sessionstart(session)
+    monkeypatch.setattr(
+        session.pluginmanager.hooks,
+        'entityd_find_entity',
+        pytest.Mock(return_value=[iter([])]),
+    )
+    with pytest.raises(LookupError):
+        assert procent.host_ueid

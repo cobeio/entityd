@@ -4,6 +4,7 @@ import socket
 
 import kube
 import pytest
+import requests
 
 import entityd.entityupdate
 import entityd.kubernetes
@@ -72,22 +73,28 @@ class TestFindEntity:
                 type_, {'meta:name': 'foo-entity-bar'})
 
 
-@pytest.fixture
-def localhost_8001():
-    """Check that nothing is listening on localhost:8001.
+@pytest.yield_fixture
+def unreachable_cluster(monkeypatch):
+    socket_ = socket.socket()
+    socket_.bind(('127.0.0.1', 0))
+    url = 'http://{0}:{1}/'.format(*socket_.getsockname())
 
-    If there is then the test will be failed.
-    """
-    try:
-        with socket.create_connection(('localhost', 8001), 0.5):
-            pytest.fail('Something is listening on localhost:8001')
-    except ConnectionRefusedError:
-        pass
+    class UnreachableCluster(kube.Cluster):
+
+        def __init__(self):
+            super().__init__(url)
+
+    with pytest.raises(requests.ConnectionError):
+        with UnreachableCluster() as unreachable:
+            unreachable.proxy.get()
+    monkeypatch.setattr(kube, 'Cluster', UnreachableCluster)
+    yield
+    socket_.close()
 
 
 @pytest.mark.parametrize(
     'update_generator', entityd.kubernetes.ENTITIES_PROVIDED.values())
-def test_cluster_unreachable(localhost_8001, update_generator):  # pylint: disable=unused-argument
+def test_cluster_unreachable(unreachable_cluster, update_generator):  # pylint: disable=unused-argument
     generator = entityd.kubernetes.generate_updates(
         getattr(entityd.kubernetes, update_generator))
     assert list(generator) == []
@@ -737,9 +744,10 @@ class TestContainerMetrics:
                 entityd.kubernetes.filesystem_metrics,
                 entityd.kubernetes.diskio_metrics)
 
-    def test(self, monkeypatch, cluster, metrics):
-        point_data = {'timestamp':
-            datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')}
+    def test(self, cluster, metrics):
+        point_data = {
+            'timestamp':
+                datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')}
         pod = pytest.Mock(cluster=cluster)
         container = kube.Container({'containerID': 'foo'}, pod)
         update = entityd.entityupdate.EntityUpdate('Entity')
@@ -770,8 +778,9 @@ class TestContainerMetrics:
         assert not metrics[2].called
 
     def test_timestamp_threshold(self, cluster, metrics):
-        point_data = {'timestamp':
-            datetime.datetime(2000, 8, 1).strftime('%Y-%m-%dT%H:%M:%S.%fZ')}
+        point_data = {
+            'timestamp': datetime.datetime(
+                2000, 8, 1).strftime('%Y-%m-%dT%H:%M:%S.%fZ')}
         pod = pytest.Mock(cluster=cluster)
         container = kube.Container({'containerID': 'foo'}, pod)
         update = entityd.entityupdate.EntityUpdate('Entity')

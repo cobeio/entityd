@@ -51,8 +51,8 @@ class ProcessEntity:
             results = self.session.pluginmanager.hooks.entityd_find_entity(
                 name='Host', attrs=None)
             if results:
-                host_me = next(iter(results[0]))
-                self._host_ueid = host_me.ueid
+                for host_me in results[0]:
+                    self._host_ueid = host_me.ueid
         if not self._host_ueid:
             raise LookupError('Could not find the host UEID')
         return self._host_ueid
@@ -101,7 +101,7 @@ class ProcessEntity:
             if ppid in procs:
                 pproc = procs[ppid]
                 parents.append(self.get_ueid(pproc))
-        elif self.host_ueid:
+        else:
             parents.append(self.host_ueid)
         return parents
 

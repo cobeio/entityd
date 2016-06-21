@@ -153,7 +153,7 @@ def test_get_parents_nohost_noparent(session, kvstore, procent):  # pylint: disa
     procent.entityd_sessionstart(session)
     proc = syskit.Process(os.getpid())
     rels = procent.get_parents(proc.pid, {proc.pid: proc})
-    assert rels
+    assert not rels
 
 
 def test_get_parents_parent(procent, session, kvstore, host_entity_plugin):  # pylint: disable=unused-argument

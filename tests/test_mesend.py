@@ -4,6 +4,7 @@ import re
 import time
 
 import act
+import cobe
 import msgpack
 import pytest
 import zmq
@@ -124,7 +125,7 @@ def test_send_entity(sender_receiver, deleted):
     sender.entityd_send_entity(entity)
     assert sender._socket is not None
     if not receiver.poll(1000):
-        assert False, "No message received"
+        assert False, 'No message received'
     protocol, message = receiver.recv_multipart()
     assert protocol == b'streamapi/4'
     message = msgpack.unpackb(message, encoding='utf-8')
@@ -132,6 +133,34 @@ def test_send_entity(sender_receiver, deleted):
     if not deleted:
         assert message['label'] == entity.label
     assert message.get('deleted', False) is deleted
+
+
+def test_send_relationships(sender_receiver):
+    sender, receiver = sender_receiver
+    entity = entityd.EntityUpdate('MeType')
+    entity.timestamp = 0
+    entity.parents.add(cobe.UEID('a' * 32))
+    entity.parents.add(cobe.UEID('b' * 32))
+    entity.children.add(cobe.UEID('c' * 32))
+    entity.children.add(cobe.UEID('d' * 32))
+    sender.entityd_send_entity(entity)
+    if not receiver.poll(1000):
+        assert False, 'No message received'
+    protocol, message = receiver.recv_multipart()
+    assert protocol == b'streamapi/4'
+    message = msgpack.unpackb(message, encoding='utf-8')
+    parents = message.pop('parents')
+    children = message.pop('children')
+    assert message == {
+        'ueid': str(entity.ueid),
+        'type': 'MeType',
+        'timestamp': 0,
+        'attrs': {},
+    }
+    assert isinstance(parents, list)
+    assert isinstance(children, list)
+    assert set(parents) == {'a' * 32, 'b' * 32}
+    assert set(children) == {'c' * 32, 'd' * 32}
 
 
 def test_send_label_unset(sender_receiver):

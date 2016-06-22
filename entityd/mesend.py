@@ -132,8 +132,8 @@ class MonitoredEntitySender:
                 'ueid': str(entity.ueid),
                 'timestamp': entity.timestamp,
                 'attrs': {},
-                'parents': list(entity.parents),
-                'children': list(entity.children),
+                'parents': [str(parent) for parent in entity.parents],
+                'children': [str(child) for child in entity.children],
             }
             if entity.label is not None:
                 data['label'] = entity.label

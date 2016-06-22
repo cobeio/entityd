@@ -14,12 +14,11 @@ class EntityUpdate:
 
     :param ueid: The explicit UEID for the update. This will be converted
         to a :class:`cobe.UEID` if given.
-    :type ueid: str
+    :type ueid: str or cobe.UEID
 
-    :raises ValueError: If the given UEID is the wrong length or
-        contains invalid characters.
-    :raises TypeError: If the given UEID cannot be converted to a
-        :class:`cobe.UEID` instance.
+    :raises cobe.UEIDError: If the given UEIUD is the wrong length or
+        contains invalid characters or otherwise cannot be converted to
+        a valid :class:`cobe.UEID` instance.
     """
     # pylint: disable=too-many-instance-attributes
     def __init__(self, metype, ueid=None):

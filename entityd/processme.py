@@ -233,7 +233,6 @@ class ProcessEntity:
         except AttributeError:
             # A zombie process doesn't allow access to these attributes
             pass
-
         for parent in self.get_parents(proc.pid, proctable):
             update.parents.add(parent)
         self.known_ueids.add(update.ueid)

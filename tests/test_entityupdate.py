@@ -83,19 +83,19 @@ def test_explicit_ueid():
 
 
 def test_explicit_ueid_too_short():
-    with pytest.raises(ValueError):
+    with pytest.raises(cobe.UEIDError):
         entityd.EntityUpdate('Foo', ueid='aaa')
 
 
 @pytest.mark.parametrize('ueid', [object(), b'a' * 32])
 def test_explicit_ueid_type_type(ueid):
     # Test a bytestring as previously it was considered an acceptable type.
-    with pytest.raises(TypeError):
+    with pytest.raises(cobe.UEIDError):
         entityd.EntityUpdate('Foo', ueid=ueid)
 
 
 def test_explicit_ueid_non_hex_character():
-    with pytest.raises(ValueError):
+    with pytest.raises(cobe.UEIDError):
         entityd.EntityUpdate('Foo', ueid='z' * 32)
 
 

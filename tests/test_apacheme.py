@@ -471,6 +471,14 @@ def test_config_path_from_proc(monkeypatch):
     assert apache.config_path == '/path/to.conf'
 
 
+def test_apache_config_no_output(monkeypatch):
+    apache = entityd.apacheme.Apache()
+    monkeypatch.setattr(subprocess,
+                        'check_output', pytest.Mock(return_value=''))
+    with pytest.raises(ApacheNotFound):
+        apache.apache_config()
+
+
 def test_root_dir_from_proc(monkeypatch):
     monkeypatch.setattr(subprocess, 'check_output', pytest.Mock(
         return_value=APACHECTL__V))

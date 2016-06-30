@@ -690,10 +690,16 @@ def test_listening_addresses(apache, monkeypatch):
                         pytest.Mock(return_value="""\
         VirtualHost configuration:
             *:8881                 localhost (/etc/apache2/sites-enabled/001-default-copy.conf:2)
+            127.0.0.1:8882                 127.0.0.1 (/etc/apache2/sites-enabled/foo.conf:2)
+            127.0.0.1:8883                 127.0.0.1 ()
     """))
-    vhost = VHost('localhost', 8881,
-                  '/etc/apache2/sites-enabled/001-default-copy.conf')
-    assert vhost in apache.vhosts()
+    vhost_8881 = VHost('localhost', 8881,
+                       '/etc/apache2/sites-enabled/001-default-copy.conf')
+    vhost_8882 = VHost('127.0.0.1', 8882, '/etc/apache2/sites-enabled/foo.conf')
+    vhost_8883 = VHost('127.0.0.1', 8883, '')
+    assert vhost_8881 in apache.vhosts()
+    assert vhost_8882 in apache.vhosts()
+    assert vhost_8883 in apache.vhosts()
 
 
 def test_get_all_includes(tmpdir):

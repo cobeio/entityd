@@ -65,7 +65,7 @@ class ApacheEntity:
             return self.entities(include_ondemand=include_ondemand)
 
     @property
-    def host_ueid(self):
+    def host_ueid(self):  # pragma: no cover
         """Get and store the host ueid.
 
         :raises LookupError: If a host UEID cannot be found.

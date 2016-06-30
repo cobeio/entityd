@@ -208,7 +208,7 @@ class DeclarativeEntity:
                 data.type, 'entityd.declentity.DeclarativeEntity')
 
     @property
-    def host_ueid(self):
+    def host_ueid(self):  # pragma: no cover
         """Property to get the host ueid, used in a few places.
 
         :raises LookupError: If a host UEID cannot be found.

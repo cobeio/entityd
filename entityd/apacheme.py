@@ -265,16 +265,11 @@ class Apache:
             self._version = lines[0].split(':')[1].strip()
         return self._version
 
-    def check_config(self, path=None):
-        """Check if the config passes basic checks.
-
-        :param path: Optionally supply a config file path to check.
-        """
-        if path is None:
-            path = self.config_path
+    def check_config(self):
+        """Check if the config passes basic checks."""
         try:
             exit_code = subprocess.check_call(
-                [self.apachectl_binary(), '-t', '-f', path],
+                [self.apachectl_binary(), '-t', '-f', self.config_path],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.STDOUT)
             return exit_code == 0

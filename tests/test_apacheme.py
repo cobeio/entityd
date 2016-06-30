@@ -602,6 +602,7 @@ def test_version(apache, monkeypatch):
                         pytest.Mock(return_value=APACHECTL__V))
     apache._apachectl_binary = 'apachectl'
     assert apache.version == 'Apache/2.4.7 (Ubuntu)'
+    assert apache.version is apache.version  # Test that it is cached
 
 
 def test_performance_data(apache, monkeypatch):

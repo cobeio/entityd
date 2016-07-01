@@ -53,6 +53,14 @@ def test_get_entities(mock_postgres):
     assert entity.attrs.get('process_id').value == 123
 
 
+def test_get_entities_ondemand_no_files(mock_postgres):
+    entities = mock_postgres.entityd_find_entity(
+        name='PostgreSQL', attrs=None, include_ondemand=True)
+    entities = list(entities)
+    assert len(entities) == 1
+    assert entities[0].metype == 'PostgreSQL'
+
+
 def test_multiple_processes(monkeypatch, procent, mock_postgres):
     p1 = entityd.EntityUpdate('Process')
     p1.attrs.set('pid', 123)

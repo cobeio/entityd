@@ -21,10 +21,11 @@ class EntityUpdate:
         a valid :class:`cobe.UEID` instance.
     """
     # pylint: disable=too-many-instance-attributes
-    def __init__(self, metype, ueid=None):
+    def __init__(self, metype, ueid=None, ttl=120):
         self.metype = metype
         self.label = None
         self.timestamp = time.time()
+        self.ttl = ttl
         self.attrs = UpdateAttributes()
         self.parents = UpdateRelations()
         self.children = UpdateRelations()

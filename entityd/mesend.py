@@ -124,13 +124,16 @@ class MonitoredEntitySender:
                 'type': entity.metype,
                 'ueid': str(entity.ueid),
                 'timestamp': entity.timestamp,
+                'ttl': entity.ttl,
                 'deleted': True,
+                'label': entity.label
             }
         else:
             data = {
                 'type': entity.metype,
                 'ueid': str(entity.ueid),
                 'timestamp': entity.timestamp,
+                'ttl': entity.ttl,
                 'attrs': {},
                 'parents': [str(parent) for parent in entity.parents],
                 'children': [str(child) for child in entity.children],

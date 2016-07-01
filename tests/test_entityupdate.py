@@ -23,6 +23,16 @@ def test_timestamp():
     assert st < update.timestamp < et
 
 
+def test_ttl():
+    update = entityd.EntityUpdate('Type')
+    assert update.ttl == 120
+
+
+def test_set_ttl():
+    update = entityd.EntityUpdate('Type', ttl=60)
+    assert update.ttl == 60
+
+
 def test_children(update):
     ueid = cobe.UEID('a' * 32)
     assert not list(update.children)

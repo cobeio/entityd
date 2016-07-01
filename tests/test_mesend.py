@@ -132,6 +132,7 @@ def test_send_entity(sender_receiver, deleted):
     assert message['ueid'] == str(entity.ueid)
     if not deleted:
         assert message['label'] == entity.label
+    assert message['ttl'] == 120
     assert message.get('deleted', False) is deleted
 
 
@@ -156,6 +157,7 @@ def test_send_relationships(sender_receiver):
         'type': 'MeType',
         'timestamp': 0,
         'attrs': {},
+        'ttl': 120,
     }
     assert isinstance(parents, list)
     assert isinstance(children, list)

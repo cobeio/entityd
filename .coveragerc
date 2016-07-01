@@ -6,4 +6,4 @@ omit =
      entityd/version.py
 
 [run]
-branch = True
+branch = False

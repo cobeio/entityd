@@ -374,6 +374,9 @@ def cadvisor_to_points(raw_points):
     timestamps with second fractions which are too long to be parsed by
     :meth:`datetime.datetime.strptime`, so they are truncated to six digits.
 
+    If any of the raw points have timestamps which cannot be parsed then
+    the point is skipped with a warning logged.
+
     :param list raw_points: the raw JSON objects as returned by cAdvisor
         for a specific container.
 
@@ -396,6 +399,10 @@ def cadvisor_to_points(raw_points):
                 else:
                     offset = datetime.timedelta()
                 break
+        else:
+            log.warning('Skipping point with unparsable '
+                        'timestamp {!r}', point['timestamp'])
+            continue
         normalised_datetime = date_and_time + '.' + fraction
         timestamp = datetime.datetime.strptime(
             normalised_datetime, '%Y-%m-%dT%H:%M:%S.%f') + offset

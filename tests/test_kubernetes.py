@@ -598,6 +598,18 @@ class TestCAdvisorToPoints:
         assert points[0].timestamp == datetime.datetime(2000, 8, 1, 12)
         assert points[0].data is raw_points[0]
 
+    def test_invalid_offset_separator(self):
+        raw_points = [
+            {'timestamp': '2000-08-01T10:00:00.0Z'},
+            {'timestamp': '2000-08-01T12:00:00.0#00:00'},
+            {'timestamp': '2000-08-01T14:00:00.0Z'},
+        ]
+        points = entityd.kubernetes.cadvisor_to_points(raw_points)
+        assert len(points) == 2
+        assert points[0].timestamp == datetime.datetime(2000, 8, 1, 10)
+        assert points[0].data is raw_points[0]
+        assert points[1].timestamp == datetime.datetime(2000, 8, 1, 14)
+        assert points[1].data is raw_points[2]
 
 class TestSimpleMetrics:
 

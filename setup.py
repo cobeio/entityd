@@ -3,34 +3,42 @@
 import setuptools
 
 
-def get_version():
-    """Retrieve the version number from conda/meta.yaml."""
-    with open('conda/entityd/meta.yaml') as fp:
-        for line in fp:
-            if 'set version =' in line:
-                break
-        else:
-            raise ValueError('Version number not found in meta.yaml')
-    try:
-        version = line.split('=')[1].split()[0].strip('"\'')  # pylint: disable=undefined-loop-variable
-    except Exception as err:
-        raise ValueError('Failed to parse version from meta.yaml') from err
-    return version
+__version__ = '0.11.0'
 
 
 setuptools.setup(
     name='entityd',
-    version=get_version(),
-    author='Abilisoft Ltd.',
-    author_email='info@abilisoft.com',
-    license='Proprietary',
-    url='http://abilisoft.com',
-    description='Abilisoft Entity Monitoring Agent',
-    packages=['entityd'],
-    scripts=['bin/entityd'],
+    version=__version__,
+    author='cobe.io',
+    author_email='info@cobe.io',
+    license='LGPLv3',
+    url='https://bitbucket.org/cobeio/act',
+    description=' Entity monitoring agent for cobe.io',
+    packages=setuptools.find_packages(),
+    entry_points={
+        'console_scripts': [
+            'entityd=entityd.__main__:main',
+        ],
+    },
+    install_requires=[
+        'setuptools',
+        'msgpack-python',
+        'Logbook',
+        'pyzmq',
+        'syskit',
+        'requests',
+        'pyyaml',
+        'kube >=0.1.0,<0.2.0',
+        'python-cobe',
+        'cobe-act',
+    ],
     classifiers=[
-        'Development Status :: 3 - Alpha',
-        'License :: Other/Proprietary License',
+        'Development Status :: 4 - Beta',
+        'License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)',
+        'Topic :: Software Development :: Libraries',
+        'Programming Language :: Python :: 3 :: Only',
+        'Programming Language :: Python :: 3.4',
+        'Programming Language :: Python :: 3.5',
     ],
     keywords='topology performance availability monitoring',
 )

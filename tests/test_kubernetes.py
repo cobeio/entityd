@@ -574,7 +574,7 @@ class TestNearestPoint:
         with pytest.raises(ValueError):
             entityd.kubernetes.select_nearest_point(target, [], 5.0)
 
-    @pytest.mark.parametrize('delta', [-5.1, 5.1])
+    @pytest.mark.parametrize('delta', [-20.1 * 60, 20.1 * 60])
     def test_exceed_threshold(self, delta):
         target = datetime.datetime(2000, 8, 1)
         points = [entityd.kubernetes.Point(

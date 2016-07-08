@@ -360,7 +360,7 @@ def select_nearest_point(target, points, threshold):
         points, key=lambda p: abs(target - p.timestamp))
     if not sorted_points:
         raise ValueError('No points given')
-    if abs(target - sorted_points[0].timestamp).total_seconds() > 5:
+    if abs(target - sorted_points[0].timestamp).total_seconds() > 60 * 20:
         raise ValueError(
             'No metric point within {} seconds'.format(threshold))
     return sorted_points[0]

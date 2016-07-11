@@ -574,13 +574,36 @@ class TestNearestPoint:
         with pytest.raises(ValueError):
             entityd.kubernetes.select_nearest_point(target, [], 5.0)
 
-    @pytest.mark.parametrize('delta', [-5.1, 5.1])
+    @pytest.mark.parametrize('delta', [-20.1 * 60, 20.1 * 60])
     def test_exceed_threshold(self, delta):
         target = datetime.datetime(2000, 8, 1)
         points = [entityd.kubernetes.Point(
             target + datetime.timedelta(seconds=delta), {})]
         with pytest.raises(ValueError):
-            entityd.kubernetes.select_nearest_point(target, points, 5.0)
+            entityd.kubernetes.select_nearest_point(target, points,
+                                                    threshold=20 * 60)
+
+    @pytest.mark.parametrize('threshold', [1, 5, 10, 20])
+    def test_threshold_used_ok(self, threshold):
+        target = datetime.datetime(2000, 8, 1)
+        points = [
+            entityd.kubernetes.Point(
+                target + datetime.timedelta(seconds=threshold), {})
+        ]
+        point = entityd.kubernetes.select_nearest_point(target, points,
+                                                        threshold=threshold)
+        assert point == points[0]
+
+    @pytest.mark.parametrize('threshold', [1, 5, 10, 20])
+    def test_threshold_used_exceed(self, threshold):
+        target = datetime.datetime(2000, 8, 1)
+        points = [
+            entityd.kubernetes.Point(
+                target + datetime.timedelta(seconds=threshold + 1), {})
+        ]
+        with pytest.raises(ValueError):
+            entityd.kubernetes.select_nearest_point(target, points,
+                                                    threshold=threshold)
 
 
 class TestCAdvisorToPoints:

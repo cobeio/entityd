@@ -199,11 +199,9 @@ def apply_meta_update(meta, update):
     :param entityd.EntityUpdate update: the update to apply the attributes to.
     """
     update.attrs.set('meta:name', meta.name, traits={'entity:id'})
-    try:
+    if meta.namespace:
         update.attrs.set('meta:namespace',
                          meta.namespace, traits={'entity:id'})
-    except kube.StatusError:
-        pass
     update.attrs.set('meta:version', meta.version)
     update.attrs.set(
         'meta:created',
@@ -313,8 +311,8 @@ def container_update(container, update):
     update.attrs.set('id', container.id, traits={'entity:id'})
     update.attrs.set('name', container.name, traits={'entity:id'})
     update.attrs.set('ready', container.ready)
-    update.attrs.set('image:id', container.image.id)
-    update.attrs.set('image:name', container.image.name)
+    update.attrs.set('image:id', container.image_id)
+    update.attrs.set('image:name', container.image)
     for state in ('running', 'waiting', 'terminated'):
         if getattr(container.state, state):
             update.attrs.set('state', state)

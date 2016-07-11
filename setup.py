@@ -28,13 +28,14 @@ setuptools.setup(
         'syskit',
         'requests',
         'pyyaml',
-        'kube >=0.1.0,<0.2.0',
+        'kube >=0.8.0,<0.10.0',
         'python-cobe',
         'cobe-act',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',
-        'License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)',
+        'License :: '
+        'OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)',
         'Topic :: Software Development :: Libraries',
         'Programming Language :: Python :: 3 :: Only',
         'Programming Language :: Python :: 3.4',

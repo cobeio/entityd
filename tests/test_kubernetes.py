@@ -155,7 +155,7 @@ class TestNamespaces:
 
     def test(self, cluster, meta_update):
         namespace_resources = [
-            kube.NamespaceResource(cluster, {
+            kube.NamespaceItem(cluster, {
                 'metadata': {
                     'name': 'namespace-1',
                     'namespace': 'andromeda',
@@ -164,7 +164,7 @@ class TestNamespaces:
                     'phase': 'Active',
                 },
             }),
-            kube.NamespaceResource(cluster, {
+            kube.NamespaceItem(cluster, {
                 'metadata': {
                     'name': 'namespace-2',
                 },
@@ -211,7 +211,7 @@ class TestPods:
 
     def test(self, cluster, meta_update, namespaces):
         pod_resources = [
-            kube.PodResource(cluster, {
+            kube.PodItem(cluster, {
                 'metadata': {
                     'name': 'pod-1',
                     'namespace': 'andromeda',
@@ -222,7 +222,7 @@ class TestPods:
                     'startTime': '2015-01-14T17:01:37Z',
                 },
             }),
-            kube.PodResource(cluster, {
+            kube.PodItem(cluster, {
                 'metadata': {
                     'name': 'pod-2',
                     'namespace': 'andromeda',
@@ -262,7 +262,7 @@ class TestPods:
 
     def test_with_message(self, cluster, meta_update):
         pod_resources = [
-            kube.PodResource(cluster, {
+            kube.PodItem(cluster, {
                 'metadata': {
                     'name': 'pod-1',
                     'namespace': 'andromeda',
@@ -288,7 +288,7 @@ class TestPods:
 
     def test_with_reason(self, cluster, meta_update):
         pod_resources = [
-            kube.PodResource(cluster, {
+            kube.PodItem(cluster, {
                 'metadata': {
                     'name': 'pod-1',
                     'namespace': 'andromeda',
@@ -314,7 +314,7 @@ class TestPods:
 
     def test_ipv6(self, cluster, meta_update):
         pod_resources = [
-            kube.PodResource(cluster, {
+            kube.PodItem(cluster, {
                 'metadata': {
                     'name': 'pod-1',
                     'namespace': 'andromeda',
@@ -379,7 +379,7 @@ class TestContainers:
         }
 
     def test(self, cluster, raw_pod_resource):
-        pod = kube.PodResource(cluster, raw_pod_resource)
+        pod = kube.PodItem(cluster, raw_pod_resource)
         cluster.pods.__iter__.return_value = iter([pod])
         mock_namespace = cluster.namespaces.fetch.return_value
         mock_namespace.pods.fetch.return_value = pod
@@ -389,14 +389,16 @@ class TestContainers:
         assert containers[0].metype == 'Kubernetes:Container'
         assert containers[0].label == 'container-1'
         assert containers[0].attrs.get('id').value == (
-            '3a542701e9896f6a4e526cc69e6191b221cf29e1cabb43edf3b47fe5b33a7a59')
+            'docker://3a542701e9896f6a4e526cc69e6'
+            '191b221cf29e1cabb43edf3b47fe5b33a7a59')
         assert containers[0].attrs.get('id').traits == {'entity:id'}
         assert containers[0].attrs.get('name').value == 'container-1'
         assert containers[0].attrs.get('name').traits == {'entity:id'}
         assert containers[0].attrs.get('ready').value is True
         assert containers[0].attrs.get('ready').traits == set()
         assert containers[0].attrs.get('image:id').value == (
-            '33688d2af35f810373734d5928f3e7c579e2569aa80ed80580436f1fd90e53c6')
+            'docker://33688d2af35f810373734d5928f'
+            '3e7c579e2569aa80ed80580436f1fd90e53c6')
         assert containers[0].attrs.get('image:id').traits == set()
         assert containers[0].attrs.get('image:name').value == (
             'repository/user/image:tag')
@@ -408,7 +410,7 @@ class TestContainers:
                 'startedAt': '2015-12-04T19:15:23Z',
             }
         }
-        pod = kube.PodResource(cluster, raw_pod_resource)
+        pod = kube.PodItem(cluster, raw_pod_resource)
         cluster.pods.__iter__.return_value = iter([pod])
         mock_namespace = cluster.namespaces.fetch.return_value
         mock_namespace.pods.fetch.return_value = pod
@@ -432,7 +434,7 @@ class TestContainers:
                 'reason': 'FooBar',
             }
         }
-        pod = kube.PodResource(cluster, raw_pod_resource)
+        pod = kube.PodItem(cluster, raw_pod_resource)
         cluster.pods.__iter__.return_value = iter([pod])
         mock_namespace = cluster.namespaces.fetch.return_value
         mock_namespace.pods.fetch.return_value = pod
@@ -459,7 +461,7 @@ class TestContainers:
                 'signal': 15,
             }
         }
-        pod = kube.PodResource(cluster, raw_pod_resource)
+        pod = kube.PodItem(cluster, raw_pod_resource)
         cluster.pods.__iter__.return_value = iter([pod])
         mock_namespace = cluster.namespaces.fetch.return_value
         mock_namespace.pods.fetch.return_value = pod
@@ -484,7 +486,7 @@ class TestContainers:
         assert container.attrs.deleted() == set()
 
     def test_missing_namespace(self, cluster, raw_pod_resource):
-        pod = kube.PodResource(cluster, raw_pod_resource)
+        pod = kube.PodItem(cluster, raw_pod_resource)
         cluster.pods.__iter__.return_value = iter([pod])
         cluster.namespaces.fetch.side_effect = LookupError
         containers = list(
@@ -492,7 +494,7 @@ class TestContainers:
         assert not containers
 
     def test_missing_pod(self, cluster, raw_pod_resource):
-        pod = kube.PodResource(cluster, raw_pod_resource)
+        pod = kube.PodItem(cluster, raw_pod_resource)
         cluster.pods.__iter__.return_value = iter([pod])
         mock_namespace = cluster.namespaces.fetch.return_value
         mock_namespace.pods.fetch.side_effect = LookupError
@@ -761,10 +763,10 @@ class TestContainerMetrics:
             'timestamp':
                 datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')}
         pod = pytest.Mock(cluster=cluster)
-        container = kube.Container({'containerID': 'foo'}, pod)
+        container = kube.Container(pod, {'containerID': 'foo'})
         update = entityd.entityupdate.EntityUpdate('Entity')
         cluster.nodes = [
-            kube.NodeResource(cluster, {'metadata': {'name': 'node'}})]
+            kube.NodeItem(cluster, {'metadata': {'name': 'node'}})]
         cluster.proxy.get.return_value = {'/foo': [point_data]}
         entityd.kubernetes.container_metrics(container, update)
         assert metrics[0].called
@@ -779,10 +781,10 @@ class TestContainerMetrics:
 
     def test_apierror(self, cluster, metrics):
         pod = pytest.Mock(cluster=cluster)
-        container = kube.Container({'containerID': 'foo'}, pod)
+        container = kube.Container(pod, {'containerID': 'foo'})
         update = entityd.entityupdate.EntityUpdate('Entity')
         cluster.nodes = [
-            kube.NodeResource(cluster, {'metadata': {'name': 'node'}})]
+            kube.NodeItem(cluster, {'metadata': {'name': 'node'}})]
         cluster.proxy.get.side_effect = kube.APIError(pytest.Mock())
         entityd.kubernetes.container_metrics(container, update)
         assert not metrics[0].called
@@ -794,10 +796,10 @@ class TestContainerMetrics:
             'timestamp': datetime.datetime(
                 2000, 8, 1).strftime('%Y-%m-%dT%H:%M:%S.%fZ')}
         pod = pytest.Mock(cluster=cluster)
-        container = kube.Container({'containerID': 'foo'}, pod)
+        container = kube.Container(pod, {'containerID': 'foo'})
         update = entityd.entityupdate.EntityUpdate('Entity')
         cluster.nodes = [
-            kube.NodeResource(cluster, {'metadata': {'name': 'node'}})]
+            kube.NodeItem(cluster, {'metadata': {'name': 'node'}})]
         cluster.proxy.get.return_value = {'/foo': [point_data]}
         entityd.kubernetes.container_metrics(container, update)
         assert not metrics[0].called

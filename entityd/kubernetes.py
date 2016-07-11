@@ -358,7 +358,7 @@ def select_nearest_point(target, points, threshold):
         points, key=lambda p: abs(target - p.timestamp))
     if not sorted_points:
         raise ValueError('No points given')
-    if abs(target - sorted_points[0].timestamp).total_seconds() > 60 * 20:
+    if abs(target - sorted_points[0].timestamp).total_seconds() > threshold:
         raise ValueError(
             'No metric point within {} seconds'.format(threshold))
     return sorted_points[0]
@@ -501,7 +501,7 @@ def container_metrics(container, update):
         else:
             points = cadvisor_to_points(response['/' + container.id])
             try:
-                point = select_nearest_point(now, points, 5.0)
+                point = select_nearest_point(now, points, 20.0 * 60)
             except ValueError as exc:
                 log.warning(
                     '{} for container with ID {}'.format(exc, container.id))

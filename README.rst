@@ -29,6 +29,22 @@ for entityd, the pipsi_ project makes this very convenient::
 .. _pipsi: https://github.com/mitsuhiko/pipsi
 
 
+Configuration
+-------------
+
+To securely communicate with cobe.io you need to install encryption
+keys which you can download from the agent installation page on
+cobe.io.  There are two files to download, ``modeld.key`` and
+``entityd.key_secret``, which need to be installed into an
+``etc/entityd/keys/`` directory.  If you installed entityd into a
+virtualenv, as recommended, then this directory is relative inside the
+virtualenv, e.g.: ``/path/to/venv/etc/entityd/keys/``.  You may have
+to create the directory before moving the keys there.
+
+
+Systemd
+-------
+
 Once installed you probably want to ensure it gets started
 automatically.  This will depend on the init system in use by your
 host.

@@ -289,8 +289,10 @@ def generate_containers(cluster):
         try:
             namespace = cluster.namespaces.fetch(
                 pod_update.attrs.get('meta:namespace').value)
-            pod = namespace.pods.fetch(
-                pod_update.attrs.get('meta:name').value)
+            pod = cluster.pods.fetch(
+                pod_update.attrs.get('meta:name').value,
+                namespace=namespace.meta.name
+            )
         except LookupError:
             pass
         else:
@@ -479,7 +481,7 @@ def container_metrics(container, update):
 
     As cAdvisor returns a range of stats for a container (a minutes worth
     at one second intervals), the closest matching data point is used for
-    the metrics. If there is no data point within five seconds, then no
+    the metrics. If there is no data point within 20 minutes, then no
     metrics will be added to the update to avoid stale metrics.
 
     If no node can be found for the container then no metrics are added.
@@ -490,28 +492,29 @@ def container_metrics(container, update):
     """
     cluster = container.pod.cluster
     now = datetime.datetime.utcnow()
+    container_id = container.id[len('docker://'):]
     for node in cluster.nodes:
         try:
             # TODO: See if it's possible to request a smaller range of values.
             response = cluster.proxy.get(
                 'proxy/nodes', node.meta.name + ':4194',
-                'api/v2.0/stats', container.id, type='docker')
+                'api/v2.0/stats', container_id, type='docker')
         except kube.APIError as exc:
             pass
         else:
-            points = cadvisor_to_points(response['/' + container.id])
+            points = cadvisor_to_points(response['/' + container_id])
             try:
                 point = select_nearest_point(now, points, 20.0 * 60)
             except ValueError as exc:
                 log.warning(
-                    '{} for container with ID {}'.format(exc, container.id))
+                    '{} for container with ID {}'.format(exc, container_id))
             else:
                 simple_metrics(point, update)
                 filesystem_metrics(point, update)
                 diskio_metrics(point, update)
             return
     log.warning(
-        'Could not find node for container with ID {}'.format(container.id))
+        'Could not find node for container with ID {}'.format(container_id))
 
 
 METRICS_CONTAINER = [
@@ -547,7 +550,12 @@ METRICS_CONTAINER = [
     ),
     Metric(
         'cpu:load-average',
-        ('cpu', 'usage', 'load_average'),
+        ('cpu', 'usage', 'load_average'),  # Old path for back compatibility
+        {'metric:gauge'},
+    ),
+    Metric(
+        'cpu:load-average',
+        ('cpu', 'load_average'),  # New path for load_average
         {'metric:gauge'},
     ),
     Metric(

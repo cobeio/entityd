@@ -381,8 +381,7 @@ class TestContainers:
     def test(self, cluster, raw_pod_resource):
         pod = kube.PodItem(cluster, raw_pod_resource)
         cluster.pods.__iter__.return_value = iter([pod])
-        mock_namespace = cluster.namespaces.fetch.return_value
-        mock_namespace.pods.fetch.return_value = pod
+        cluster.pods.fetch.return_value = pod
         containers = list(
             entityd.kubernetes.entityd_find_entity('Kubernetes:Container'))
         assert len(containers) == 1
@@ -412,8 +411,7 @@ class TestContainers:
         }
         pod = kube.PodItem(cluster, raw_pod_resource)
         cluster.pods.__iter__.return_value = iter([pod])
-        mock_namespace = cluster.namespaces.fetch.return_value
-        mock_namespace.pods.fetch.return_value = pod
+        cluster.pods.fetch.return_value = pod
         container = list(
             entityd.kubernetes.entityd_find_entity('Kubernetes:Container'))[0]
         assert container.attrs.get(
@@ -436,8 +434,7 @@ class TestContainers:
         }
         pod = kube.PodItem(cluster, raw_pod_resource)
         cluster.pods.__iter__.return_value = iter([pod])
-        mock_namespace = cluster.namespaces.fetch.return_value
-        mock_namespace.pods.fetch.return_value = pod
+        cluster.pods.fetch.return_value = pod
         container = list(
             entityd.kubernetes.entityd_find_entity('Kubernetes:Container'))[0]
         assert container.attrs.get('state:reason').value == 'FooBar'
@@ -463,8 +460,7 @@ class TestContainers:
         }
         pod = kube.PodItem(cluster, raw_pod_resource)
         cluster.pods.__iter__.return_value = iter([pod])
-        mock_namespace = cluster.namespaces.fetch.return_value
-        mock_namespace.pods.fetch.return_value = pod
+        cluster.pods.fetch.return_value = pod
         container = list(
             entityd.kubernetes.entityd_find_entity('Kubernetes:Container'))[0]
         assert container.attrs.get(
@@ -786,7 +782,7 @@ class TestContainerMetrics:
             'timestamp':
                 datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')}
         pod = pytest.Mock(cluster=cluster)
-        container = kube.Container(pod, {'containerID': 'foo'})
+        container = kube.Container(pod, {'containerID': 'docker://foo'})
         update = entityd.entityupdate.EntityUpdate('Entity')
         cluster.nodes = [
             kube.NodeItem(cluster, {'metadata': {'name': 'node'}})]
@@ -819,7 +815,7 @@ class TestContainerMetrics:
             'timestamp': datetime.datetime(
                 2000, 8, 1).strftime('%Y-%m-%dT%H:%M:%S.%fZ')}
         pod = pytest.Mock(cluster=cluster)
-        container = kube.Container(pod, {'containerID': 'foo'})
+        container = kube.Container(pod, {'containerID': 'docker://foo'})
         update = entityd.entityupdate.EntityUpdate('Entity')
         cluster.nodes = [
             kube.NodeItem(cluster, {'metadata': {'name': 'node'}})]

@@ -202,6 +202,8 @@ def apply_meta_update(meta, update):
     if meta.namespace:
         update.attrs.set('meta:namespace',
                          meta.namespace, traits={'entity:id'})
+    else:
+        update.attrs.delete('meta:namespace')
     update.attrs.set('meta:version', meta.version)
     update.attrs.set(
         'meta:created',

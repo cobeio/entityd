@@ -126,7 +126,6 @@ class MonitoredEntitySender:
                 'timestamp': entity.timestamp,
                 'ttl': entity.ttl,
                 'deleted': True,
-                'label': entity.label
             }
         else:
             data = {
@@ -138,12 +137,11 @@ class MonitoredEntitySender:
                 'parents': [str(parent) for parent in entity.parents],
                 'children': [str(child) for child in entity.children],
             }
-            if entity.label is not None:
-                data['label'] = entity.label
             for attr in entity.attrs:
                 data['attrs'][attr.name] = {'value': attr.value}
                 data['attrs'][attr.name]['traits'] = list(attr.traits)
             for del_attr in entity.attrs.deleted():
                 data['attrs'][del_attr] = {'deleted': True}
-
+        if entity.label is not None:
+            data['label'] = entity.label
         return msgpack.packb(data, use_bin_type=True)

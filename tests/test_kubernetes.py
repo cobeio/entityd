@@ -100,6 +100,27 @@ def test_cluster_unreachable(unreachable_cluster, update_generator):  # pylint: 
     assert list(generator) == []
 
 
+@pytest.mark.parametrize(
+    'update_generator', entityd.kubernetes.ENTITIES_PROVIDED.values())
+def test_uncaught_status_error(monkeypatch, update_generator):
+
+    def generator(_):
+        print('initial')
+        update = yield
+        update.label = 'first'
+        update = yield
+        update.label = 'second'
+        raise kube.StatusError
+        update = yield
+        update.label = 'third'
+
+    generator.__name__ = update_generator
+    generator = entityd.kubernetes.generate_updates(generator)
+    updates = list(generator)
+    assert len(updates) == 1
+    assert updates[0].label == 'first'
+
+
 class TestApplyMetaUpdate:
 
     def test(self):

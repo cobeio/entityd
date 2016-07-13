@@ -153,6 +153,11 @@ def generate_updates(generator_function):
     passed a :class:`kube.Cluster`. Then it is continually sent
     :class:`entityd.EntityUpdate`s until the generator is exhausted.
 
+    Any :exc:`kube.StatusError` raised from the generator function
+    are caught and logged. The update that resulted in the exception
+    will not be returned and no further updates will be retrieved from
+    inner generator.
+
     :param generator_function: a generator function that yields
         :class:`entityd.EntityUpdate`s.
 
@@ -174,6 +179,9 @@ def generate_updates(generator_function):
                     generator.send(update)
                 except StopIteration:
                     yield update
+                    break
+                except kube.StatusError:
+                    log.exception('Unexpected status error')
                     break
                 else:
                     yield update

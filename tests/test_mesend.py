@@ -165,10 +165,12 @@ def test_send_relationships(sender_receiver):
     assert set(children) == {'c' * 32, 'd' * 32}
 
 
-def test_send_label_unset(sender_receiver):
+@pytest.mark.parametrize('deleted', [True, False])
+def test_send_label_unset(sender_receiver, deleted):
     sender, receiver = sender_receiver
     entity = entityd.EntityUpdate('MeType')
     entity.label = None
+    entity.deleted = deleted
     sender.entityd_send_entity(entity)
     assert sender._socket is not None
     if not receiver.poll(1000):

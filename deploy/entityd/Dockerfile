@@ -3,9 +3,9 @@ RUN apt-get -y update \
     && apt-get -y upgrade \
     && apt-get -y install python3-pip libffi-dev libyaml-dev libzmq3-dev \
     && apt-get -y clean
-RUN pip3 install entityd
 LABEL entityd=0.12.0 \
-      image=v2
+    image=v2
+RUN pip3 install entityd
 COPY wrap.sh /usr/local/bin/wrap.sh
 ENTRYPOINT ["/usr/local/bin/wrap.sh"]
 CMD ["--help"]

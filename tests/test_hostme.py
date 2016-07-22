@@ -61,6 +61,7 @@ def test_metype(host):
 def test_free(host):
     memorystats = syskit.MemoryStats()
     free = memorystats.free + memorystats.buffers + memorystats.cached
+    free *= 1024
     assert abs(host.attrs.get('free').value - free) < 2 ** 10
 
 
@@ -68,12 +69,14 @@ def test_used(host):
     memorystats = syskit.MemoryStats()
     free = memorystats.free + memorystats.buffers + memorystats.cached
     used = memorystats.total - free
+    used *= 1024
     assert abs(host.attrs.get('used').value - used) < 2 ** 10
 
 
 def test_total(host):
     memorystats = syskit.MemoryStats()
     total = memorystats.total
+    total *= 1024
     assert host.attrs.get('total').value == total
     assert host.attrs.get('total').traits == {'metric:gauge', 'unit:bytes'}
 

@@ -67,10 +67,11 @@ class HostEntity:
         update.attrs.set('loadavg_15', load[2], {'metric:gauge'})
         memorystats = syskit.MemoryStats()
         free = memorystats.free + memorystats.buffers + memorystats.cached
-        update.attrs.set('free', free, {'unit:bytes', 'metric:gauge'})
-        update.attrs.set('total', memorystats.total,
+        update.attrs.set('free', free * 1024,
                          {'unit:bytes', 'metric:gauge'})
-        update.attrs.set('used', memorystats.total - free,
+        update.attrs.set('total', memorystats.total * 1024,
+                         {'unit:bytes', 'metric:gauge'})
+        update.attrs.set('used', (memorystats.total - free) * 1024,
                          {'unit:bytes', 'metric:gauge'})
         update.attrs.set('os', platform.system())
         update.attrs.set('osversion', platform.release())

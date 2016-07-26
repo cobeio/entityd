@@ -115,13 +115,13 @@ def test_sessionfinish():
     assert context.closed
 
 
-@pytest.mark.parametrize('deleted', [True, False])
-def test_send_entity(sender_receiver, deleted):
+@pytest.mark.parametrize('exists', [True, False])
+def test_send_entity(sender_receiver, exists):
     sender, receiver = sender_receiver
     entity = entityd.EntityUpdate('MeType')
     entity.label = 'entity label'
-    if deleted:
-        entity.delete()
+    if not exists:
+        entity.set_not_exists()
     sender.entityd_send_entity(entity)
     assert sender._socket is not None
     if not receiver.poll(1000):
@@ -130,10 +130,10 @@ def test_send_entity(sender_receiver, deleted):
     assert protocol == b'streamapi/4'
     message = msgpack.unpackb(message, encoding='utf-8')
     assert message['ueid'] == str(entity.ueid)
-    if not deleted:
+    if exists:
         assert message['label'] == entity.label
     assert message['ttl'] == 120
-    assert message.get('deleted', False) is deleted
+    assert message.get('exists', True) is exists
 
 
 def test_send_relationships(sender_receiver):

@@ -82,7 +82,7 @@ class EndpointEntity:
                 name='Process', attrs={'pid': conn.bound_pid})
             if results:
                 process = next(iter(results[0]))
-                if process.deleted:
+                if not process.exists:
                     return None
                 else:
                     update.parents.add(process)

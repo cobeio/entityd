@@ -226,7 +226,7 @@ def test_entity_removed_on_file_remove(declent, session, config, conf_file):
     declent.entityd_sessionstart(session)
     read_ent = next(declent.entityd_find_entity('Test', None))
     assert read_ent.attrs.get('owner').value == 'admin@default'
-    assert read_ent.deleted is False
+    assert read_ent.exists is True
     os.remove(conf_file.strpath)
     session.config.removeentity = pytest.Mock()
     with pytest.raises(StopIteration):

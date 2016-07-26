@@ -2,7 +2,7 @@
 
 Responsible for collecting, monitoring and sending entities. Entities are
 collected and their state is then monitored. If an entity is no longer
-present then the entity will be deleted.
+present then the entity will be configured as non existent.
 
 The app main loop will call monitor.gather()
 """
@@ -73,15 +73,15 @@ class Monitor:
                 log.debug('Sent {} {} entity updates.',
                           len(this_batch[metype]), metype)
         for metype in types:
-            deleted_ueids = self.last_batch[metype] - this_batch[metype]
-            for ueid in deleted_ueids:
+            non_existent_ueids = self.last_batch[metype] - this_batch[metype]
+            for ueid in non_existent_ueids:
                 update = entityd.entityupdate.EntityUpdate(metype, str(ueid))
-                update.delete()
+                update.set_not_exists()
                 self.session.pluginmanager.hooks.entityd_send_entity(
                     session=self.session, entity=update)
-            if deleted_ueids:
+            if non_existent_ueids:
                 log.debug('Sent {} {} entity deletions.',
-                          len(deleted_ueids), metype)
+                          len(non_existent_ueids), metype)
             if not this_batch[metype]:
                 del this_batch[metype]
         self.last_batch = this_batch

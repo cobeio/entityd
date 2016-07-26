@@ -50,7 +50,7 @@ def test_entity_attrs(procent, session, kvstore):  # pylint: disable=unused-argu
     count = 0
     for entity in entities:
         assert entity.metype == 'Process'
-        if entity.deleted:
+        if not entity.exists:
             continue
         for attr in 'binary pid starttime ppid host cputime utime stime vsz ' \
                     'rss uid suid euid username command gid sgid egid ' \
@@ -198,7 +198,7 @@ def test_processes(procent, proctable, monkeypatch, session, kvstore):  # pylint
     for me in gen:
         assert me.metype == 'Process'
         assert me.ueid
-        if me.deleted:
+        if not me.exists:
             continue
         pids.append(me.attrs.get('pid').value)
     assert pids
@@ -358,7 +358,7 @@ def test_entity_has_label(procent, session, kvstore):  # pylint: disable=unused-
     count = 0
     for entity in entities:
         assert entity.metype == 'Process'
-        if entity.deleted:
+        if not entity.exists:
             continue
         assert entity.label == entity.attrs.get('binary').value
         count += 1

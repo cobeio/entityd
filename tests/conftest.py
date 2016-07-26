@@ -13,6 +13,7 @@ import entityd.hookspec
 import entityd.kvstore
 import entityd.monitor
 import entityd.pm
+import entityd.hostme
 
 
 def pytest_namespace():

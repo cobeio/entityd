@@ -119,13 +119,13 @@ class MonitoredEntitySender:
         :type entity: entityd.EntityUpdate
 
         """
-        if entity.deleted:
+        if not entity.exists:
             data = {
                 'type': entity.metype,
                 'ueid': str(entity.ueid),
                 'timestamp': entity.timestamp,
                 'ttl': entity.ttl,
-                'deleted': True,
+                'exists': False,
             }
         else:
             data = {

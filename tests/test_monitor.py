@@ -112,7 +112,7 @@ def test_collect_entities_deleted(pm, session, monitor, hookrec):
     session.svc.monitor.last_batch['foo'] = {cobe.UEID('a' * 32)}
     session.svc.monitor.collect_entities()
     send_entity = dict(hookrec.calls)['entityd_send_entity']
-    assert send_entity['entity'].deleted
+    assert not send_entity['entity'].exists
     assert send_entity['entity'].ueid == cobe.UEID('a' * 32)
     assert not any(session.svc.monitor.last_batch.values())
 
@@ -121,7 +121,7 @@ def test_collect_unregistered_type(pm, session, monitor, hookrec):
     session.svc.monitor.last_batch['foo'] = {cobe.UEID('a' * 32)}
     session.svc.monitor.collect_entities()
     send_entity = dict(hookrec.calls)['entityd_send_entity']
-    assert send_entity['entity'].deleted
+    assert not send_entity['entity'].exists
     assert send_entity['entity'].ueid == cobe.UEID('a' * 32)
     assert 'foo' not in session.svc.monitor.last_batch
 

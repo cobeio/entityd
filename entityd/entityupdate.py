@@ -16,7 +16,7 @@ class EntityUpdate:
         to a :class:`cobe.UEID` if given.
     :type ueid: str or cobe.UEID
 
-    :raises cobe.UEIDError: If the given UEIUD is the wrong length or
+    :raises cobe.UEIDError: If the given UEID is the wrong length or
         contains invalid characters or otherwise cannot be converted to
         a valid :class:`cobe.UEID` instance.
     """
@@ -29,15 +29,15 @@ class EntityUpdate:
         self.attrs = UpdateAttributes()
         self.parents = UpdateRelations()
         self.children = UpdateRelations()
-        self.deleted = False
+        self.exists = True
         if ueid:
             self._ueid = cobe.UEID(ueid)
         else:
             self._ueid = None
 
-    def delete(self):
-        """Mark this EntityUpdate as deleted."""
-        self.deleted = True
+    def set_not_exists(self):
+        """Mark this EntityUpdate as non existent."""
+        self.exists = False
 
     @property
     def ueid(self):

@@ -51,10 +51,10 @@ def test_parents(update):
     assert update.ueid in update.parents
 
 
-def test_delete(update):
-    assert not update.deleted
-    update.delete()
-    assert update.deleted
+def test_set_not_exists(update):
+    assert update.exists
+    update.set_not_exists()
+    assert not update.exists
 
 
 def test_ueid():
@@ -112,8 +112,8 @@ def test_explicit_ueid_non_hex_character():
 def test_create_deleted_from_ueid():
     ueid = 'a' * 32
     update = entityd.EntityUpdate('Endpoint', ueid=ueid)
-    update.delete()
-    assert update.deleted
+    update.set_not_exists()
+    assert not update.exists
     assert isinstance(update.ueid, cobe.UEID)
     assert update.ueid == cobe.UEID(ueid)
 

@@ -182,11 +182,11 @@ def test_endpoint_for_deleted_process(pm, session, host_entity_plugin,  # pylint
     pm.hooks.entityd_sessionstart(session=endpoint_gen.session)
 
     proc = entityd.EntityUpdate('Process')
-    proc.delete()
+    proc.set_not_exists()
     session.pluginmanager.hooks.entityd_find_entity = pytest.Mock()
     session.pluginmanager.hooks.entityd_find_entity.return_value = [[proc]]
 
-    # If the process has been deleted, then the endpoint shouldn't be returned
+    # If the process no longer exists, then the endpoint shouldn't be returned
     entities = endpoint_gen.endpoints_for_process(os.getpid())
     assert not list(entities)
 

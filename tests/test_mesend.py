@@ -127,7 +127,7 @@ def test_send_entity(sender_receiver, exists):
     if not receiver.poll(1000):
         assert False, 'No message received'
     protocol, message = receiver.recv_multipart()
-    assert protocol == b'streamapi/4'
+    assert protocol == b'streamapi/5'
     message = msgpack.unpackb(message, encoding='utf-8')
     assert message['ueid'] == str(entity.ueid)
     if exists:
@@ -148,7 +148,7 @@ def test_send_relationships(sender_receiver):
     if not receiver.poll(1000):
         assert False, 'No message received'
     protocol, message = receiver.recv_multipart()
-    assert protocol == b'streamapi/4'
+    assert protocol == b'streamapi/5'
     message = msgpack.unpackb(message, encoding='utf-8')
     parents = message.pop('parents')
     children = message.pop('children')
@@ -176,7 +176,7 @@ def test_send_label_unset(sender_receiver, deleted):
     if not receiver.poll(1000):
         assert False, "No message received"
     protocol, message = receiver.recv_multipart()
-    assert protocol == b'streamapi/4'
+    assert protocol == b'streamapi/5'
     message = msgpack.unpackb(message, encoding='utf-8')
     assert 'label' not in message
 

@@ -14,7 +14,7 @@ import zmq.auth
 
 
 @invoke.task
-def pylint(context):
+def pylint(context):  # pylint: disable=unused-argument
     """Invoke pylint on modules and test code."""
     print(' Invoking pylint '.center(80, '+'))
     invoke.run('pylint entityd')
@@ -24,7 +24,7 @@ def pylint(context):
 
 
 @invoke.task
-def pytest(context):
+def pytest(context):  # pylint: disable=unused-argument
     """Run the entire test-suite."""
     print(' Invoking py.test '.center(80, '+'))
     invoke.run('py.test -q --cov-report=xml tests')
@@ -37,7 +37,7 @@ def pytest(context):
 
 
 @invoke.task
-def check(context):
+def check(context):  # pylint: disable=unused-argument
     """Perform all checks."""
     try:
         pylint(context)
@@ -57,7 +57,7 @@ def check(context):
                               '`<env>/etc/entityd/keys`.',
                    'force': 'Force overwriting of existing keys.',
                    'dry-run': 'Do a dry-run without making any keys.'})
-def certificates(context, dirpath=None, force=False, dry_run=False):
+def certificates(context, dirpath=None, force=False, dry_run=False):  # pylint: disable=unused-argument
     """Create certificates for ZMQ authentication."""
     dirpath = os.path.expanduser(dirpath) if dirpath else act.fsloc.sysconfdir
     dirpath = pathlib.Path(dirpath).absolute().joinpath('entityd', 'keys')

@@ -35,5 +35,5 @@ dependencies:
   - pylint
   - pylint-abilisoft
   - coverage
-  - invoke
+  - invoke >=0.13.0,<0.14.0
   - pip

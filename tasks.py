@@ -2,7 +2,6 @@
 
 At a bare minimum one should make sure the ``check`` command reports
 no issues at all when submitting a pullrequest.
-
 """
 
 import os
@@ -15,7 +14,7 @@ import zmq.auth
 
 
 @invoke.task
-def pylint():
+def pylint(context):
     """Invoke pylint on modules and test code."""
     print(' Invoking pylint '.center(80, '+'))
     invoke.run('pylint entityd')
@@ -25,7 +24,7 @@ def pylint():
 
 
 @invoke.task
-def pytest():
+def pytest(context):
     """Run the entire test-suite."""
     print(' Invoking py.test '.center(80, '+'))
     invoke.run('py.test -q --cov-report=xml tests')
@@ -38,15 +37,15 @@ def pytest():
 
 
 @invoke.task
-def check():
+def check(context):
     """Perform all checks."""
     try:
-        pylint()
+        pylint(context)
     except invoke.exceptions.Failure as err:
         error = err
     else:
         error = None
-    pytest()
+    pytest(context)
     if error:
         raise error
 
@@ -58,7 +57,7 @@ def check():
                               '`<env>/etc/entityd/keys`.',
                    'force': 'Force overwriting of existing keys.',
                    'dry-run': 'Do a dry-run without making any keys.'})
-def certificates(dirpath=None, force=False, dry_run=False):
+def certificates(context, dirpath=None, force=False, dry_run=False):
     """Create certificates for ZMQ authentication."""
     dirpath = os.path.expanduser(dirpath) if dirpath else act.fsloc.sysconfdir
     dirpath = pathlib.Path(dirpath).absolute().joinpath('entityd', 'keys')

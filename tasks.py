@@ -6,6 +6,7 @@ no issues at all when submitting a pullrequest.
 
 import os
 import pathlib
+import sys
 import xml.etree.ElementTree as etree
 
 import act
@@ -14,40 +15,29 @@ import zmq.auth
 
 
 @invoke.task
-def pylint(context):  # pylint: disable=unused-argument
+def pylint(context):
     """Invoke pylint on modules and test code."""
-    print(' Invoking pylint '.center(80, '+'))
-    invoke.run('pylint entityd')
-    invoke.run('cd tests; pylint *.py')
-    invoke.run('pylint setup.py')
-    invoke.run('pylint tasks.py')
+    context.run('pylint entityd')
+    context.run('cd tests; pylint *.py')
+    context.run('pylint setup.py')
+    context.run('pylint tasks.py')
 
 
 @invoke.task
-def pytest(context):  # pylint: disable=unused-argument
+def pytest(context):
     """Run the entire test-suite."""
-    print(' Invoking py.test '.center(80, '+'))
-    invoke.run('py.test -q --cov-report=xml tests')
+    context.run('py.test -q --cov-report=xml tests')
     tree = etree.parse('coverage.xml')  # Probably should use sax.
     root = tree.getroot()
     total = float(root.get('line-rate', 0))
     print('Test coverage: {:d}%'.format(int(total*100)))
     if total < 1:
-        invoke.run('false')     # Crappy way of making the task fail
+        context.run('false')     # Crappy way of making the task fail
 
 
-@invoke.task
+@invoke.task(pre=[pylint, pytest])
 def check(context):  # pylint: disable=unused-argument
     """Perform all checks."""
-    try:
-        pylint(context)
-    except invoke.exceptions.Failure as err:
-        error = err
-    else:
-        error = None
-    pytest(context)
-    if error:
-        raise error
 
 
 @invoke.task(help={'dirpath': 'The base path to install keys under. Keys will'
@@ -78,3 +68,13 @@ def certificates(context, dirpath=None, force=False, dry_run=False):  # pylint: 
     if not dry_run:
         zmq.auth.create_certificates(str(dirpath), 'entityd')
     print('Created entityd.key and entityd.key_secret in {}'.format(dirpath))
+
+
+# pylint: disable=invalid-name
+namespace = invoke.Collection.from_module(sys.modules[__name__])
+namespace.configure({
+    'run': {
+        'echo': True,
+        'warn': True,
+    },
+})

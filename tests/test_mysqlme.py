@@ -10,7 +10,7 @@ import entityd.processme
 
 
 @pytest.fixture
-def procent(pm, session, host_entity_plugin, monkeypatch):  # pylint: disable=unused-argument
+def procent(request, pm, session, host_entity_plugin, monkeypatch):  # pylint: disable=unused-argument
     procent = entityd.processme.ProcessEntity()
     proc = entityd.EntityUpdate('Process')
     proc.attrs.set('pid', 123)
@@ -22,6 +22,7 @@ def procent(pm, session, host_entity_plugin, monkeypatch):  # pylint: disable=un
     monkeypatch.setattr(
         procent, 'filtered_processes', pytest.Mock(return_value=[proc]))
     procent.entityd_sessionstart(session)
+    request.addfinalizer(procent.entityd_sessionfinish)
     return procent
 
 

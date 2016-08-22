@@ -127,6 +127,7 @@ def test_endpoints_for_process(pm, session, host_entity_plugin,  # pylint: disab
             assert update.ueid in endpoint.children
             assert update.ueid in endpoint.parents
     assert count == 3
+    pm.hooks.entityd_sessionfinish()
 
 
 def test_unix_socket(pm, session, host_entity_plugin, kvstore, unix_socket):  # pylint: disable=unused-argument
@@ -147,6 +148,7 @@ def test_unix_socket(pm, session, host_entity_plugin, kvstore, unix_socket):  # 
         if endpoint.attrs.get('family').value == 'UNIX':
             count += 1
     assert count == 0
+    pm.hooks.entityd_sessionfinish()
 
 
 def test_get_entities(pm, session, host_entity_plugin, kvstore):  # pylint: disable=unused-argument
@@ -169,6 +171,7 @@ def test_get_entities(pm, session, host_entity_plugin, kvstore):  # pylint: disa
 
     if endpoint is None:
         pytest.fail('No endpoints found')
+    pm.hooks.entityd_sessionfinish()
 
 
 def test_endpoint_for_deleted_process(pm, session, host_entity_plugin,  # pylint: disable=unused-argument
@@ -189,6 +192,7 @@ def test_endpoint_for_deleted_process(pm, session, host_entity_plugin,  # pylint
     # If the process no longer exists, then the endpoint shouldn't be returned
     entities = endpoint_gen.endpoints_for_process(os.getpid())
     assert not list(entities)
+    pm.hooks.entityd_sessionfinish()
 
 
 def test_get_ueid_new(endpoint_gen, conn):

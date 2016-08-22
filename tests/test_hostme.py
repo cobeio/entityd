@@ -62,7 +62,7 @@ def test_free(host):
     memorystats = syskit.MemoryStats()
     free = memorystats.free + memorystats.buffers + memorystats.cached
     free *= 1024
-    assert abs(host.attrs.get('free').value - free) < 2 ** 10
+    assert abs(host.attrs.get('free').value - free) < 1024 ** 2
 
 
 def test_used(host):
@@ -70,7 +70,7 @@ def test_used(host):
     free = memorystats.free + memorystats.buffers + memorystats.cached
     used = memorystats.total - free
     used *= 1024
-    assert abs(host.attrs.get('used').value - used) < 2 ** 10
+    assert abs(host.attrs.get('used').value - used) < 1024 ** 2
 
 
 def test_total(host):

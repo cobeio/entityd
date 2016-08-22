@@ -2,6 +2,7 @@ import os
 import subprocess
 import time
 
+import act
 import cobe
 import syskit
 import pytest
@@ -16,7 +17,7 @@ import entityd.kvstore
 
 
 @pytest.fixture
-def procent(pm, host_entity_plugin):  # pylint: disable=unused-argument
+def procent(request, pm, host_entity_plugin):  # pylint: disable=unused-argument
     """A entityd.processme.ProcessEntity instance.
 
     The plugin will be registered with the PluginManager but no hooks
@@ -25,6 +26,7 @@ def procent(pm, host_entity_plugin):  # pylint: disable=unused-argument
     """
     procent = entityd.processme.ProcessEntity()
     pm.register(procent, 'entityd.processme.ProcessEntity')
+    request.addfinalizer(procent.entityd_sessionfinish)
     return procent
 
 
@@ -140,13 +142,14 @@ def test_forget_non_existent_entity(procent):
 
 def test_get_ueid(session, host_entity_plugin):  # pylint: disable=unused-argument
     procent = entityd.processme.ProcessEntity()
-    procent.session = session
+    procent.entityd_sessionstart(session)
     proc = syskit.Process(os.getpid())
     assert not procent.known_ueids
     ueid = procent.get_ueid(proc)
     assert ueid in procent.known_ueids
     ueid2 = next(procent.filtered_processes({'pid': os.getpid()})).ueid
     assert ueid == ueid2
+    procent.entityd_sessionfinish()
 
 
 def test_get_parents_nohost_noparent(session, kvstore, procent):  # pylint: disable=unused-argument
@@ -190,7 +193,7 @@ def test_processes(procent, proctable, monkeypatch, session, kvstore):  # pylint
     # Wire up a fake process table
     procent.entityd_sessionstart(session)
     monkeypatch.setattr(procent, 'update_process_table',
-                        pytest.Mock(return_value=(proctable, {})))
+                        pytest.Mock(return_value=proctable))
 
     # Check we get MEs for the processes.
     gen = procent.processes()
@@ -209,8 +212,7 @@ def test_processes_deleted(procent, proctable, monkeypatch, session, kvstore):  
     # Wire up a fake process table
     procent.entityd_sessionstart(session)
     monkeypatch.setattr(procent, 'update_process_table',
-                        pytest.Mock(return_value=(proctable, {})))
-    this_process = proctable[os.getpid()]
+                        pytest.Mock(return_value=proctable))
 
     # Extract the ME for the py.test process
     gen = procent.processes()
@@ -223,19 +225,16 @@ def test_processes_deleted(procent, proctable, monkeypatch, session, kvstore):  
     monkeypatch.setattr(
         procent,
         'update_process_table',
-        pytest.Mock(return_value=(proctable, {os.getpid(): this_process})))
+        pytest.Mock(return_value=proctable))
     gen = procent.processes()
     pprocme2, = gen
     assert pprocme2.ueid == pprocme.ueid
-    assert this_process not in procent._process_times
 
 
 def test_update_process_table():
-    active, deleted = entityd.processme.ProcessEntity.update_process_table({})
-    assert active
-    assert isinstance(deleted, dict)
+    active = entityd.processme.ProcessEntity.update_process_table({})
     assert isinstance(active[os.getpid()], syskit.Process)
-    pt2 = entityd.processme.ProcessEntity.update_process_table(active)[0]
+    pt2 = entityd.processme.ProcessEntity.update_process_table(active)
     assert pt2[os.getpid()] is active[os.getpid()]
 
 
@@ -245,7 +244,7 @@ def test_process_table_vanished(monkeypatch):
                         pytest.Mock(side_effect=syskit.NoSuchProcessError))
     monkeypatch.setattr(syskit.Process, 'enumerate',
                         pytest.Mock(return_value=[42]))
-    pt = entityd.processme.ProcessEntity.update_process_table({})[0]
+    pt = entityd.processme.ProcessEntity.update_process_table({})
     assert not pt
 
 
@@ -256,7 +255,7 @@ def test_process_table_vanished_refresh(monkeypatch):
     monkeypatch.setattr(syskit.Process, 'enumerate',
                         pytest.Mock(return_value=[os.getpid()]))
     pt = entityd.processme.ProcessEntity.update_process_table(
-        {os.getpid(): proc})[0]
+        {os.getpid(): proc})
     assert not pt
 
 
@@ -323,33 +322,30 @@ def test_zombie_process(procent, session, kvstore, monkeypatch,  # pylint: disab
             assert entity.attrs.get(attr)
 
 
-def test_cpu_usage_attr(procent, session, kvstore):  # pylint: disable=unused-argument
+def test_cpu_usage_attr_not_present(procent, session, kvstore):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', {'pid': os.getpid()})
     entity = next(entities)
-    cpu_usage = entity.attrs.get('cpu')
-    assert isinstance(cpu_usage.value, float)
-    assert cpu_usage.traits == {'metric:gauge', 'unit:percent'}
+    # CPU usage only available after background thread has updated
+    with pytest.raises(KeyError):
+        _ = entity.attrs.get('cpu')
 
 
-def test_cpu_usage_calculation(procent):
-    proc = pytest.Mock()
-    proc.pid = 1
-    proc.cputime = 0.0
-    proc.start_time.timestamp.return_value = time.time()
-    assert procent.get_cpu_usage(proc) == 0.0
-
-    proc = pytest.Mock()
-    proc.pid = 2
-    proc.cputime = 1.0
-    proc.start_time.timestamp.return_value = time.time() - 1
-    assert procent.get_cpu_usage(proc) >= 99.0
-
-    proc = pytest.Mock()
-    proc.pid = 3
-    proc.cputime = 1.0
-    proc.start_time.timestamp.return_value = time.time() - 2
-    assert 49.0 <= procent.get_cpu_usage(proc) <= 51.0
+def test_cpu_usage_attr_is_present(procent, session, kvstore):  # pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
+    assert procent.cpu_usage_thread.is_alive()
+    while True:
+        entities = procent.entityd_find_entity('Process', {'pid': os.getpid()})
+        entity = next(entities)
+        try:
+            cpu_usage = entity.attrs.get('cpu')
+        except KeyError:
+            time.sleep(1)
+            continue
+        else:
+            assert isinstance(cpu_usage.value, float)
+            assert cpu_usage.traits == {'metric:gauge', 'unit:percent'}
+            break
 
 
 def test_entity_has_label(procent, session, kvstore):  # pylint: disable=unused-argument
@@ -399,3 +395,56 @@ def test_host_ueid_no_host_entity(monkeypatch, procent, session):
     )
     with pytest.raises(LookupError):
         assert procent.host_ueid
+
+
+class TestCpuUsage:
+    @pytest.fixture
+    def context(self):
+        return act.zkit.new_context()
+
+    @pytest.fixture
+    def cpuusage(self, context):
+        return entityd.processme.CpuUsage(context, timer=0.1)
+
+    def test_timer(self, monkeypatch, cpuusage):
+        """Test the timer is firing, and triggers an update."""
+        monkeypatch.setattr(cpuusage, 'update',
+                            pytest.Mock(side_effect=cpuusage.stop))
+        cpuusage.start()
+        cpuusage.join()
+        assert cpuusage.update.called
+        assert cpuusage.stopping.is_set()
+
+    def test_update(self, cpuusage):
+        """Test the update functionality."""
+        cpuusage.update()
+        for key, proc in cpuusage.last_run_processes.items():
+            assert isinstance(proc, syskit.Process)
+        assert not cpuusage.last_run_percentages
+        cpuusage.update()
+        for key, proc in cpuusage.last_run_processes.items():
+            assert isinstance(proc, syskit.Process)
+            assert cpuusage.last_run_percentages.get(key) is not None
+
+    def test_one_proc_cpu_calculation(self, cpuusage):
+        proc = pytest.Mock()
+        proc.pid = 1
+        proc.cputime = 0.0
+        now = time.time()
+        proc.start_time.timestamp.return_value = now
+        proc.refreshed.timestamp.return_value = now
+        assert cpuusage.percent_cpu_usage(proc, proc) == 0.0
+
+        proc1 = pytest.Mock()
+        proc1.start_time.timestamp.return_value = proc.start_time.timestamp()
+        proc1.cputime = 1.0
+        now += 1
+        proc1.refreshed.timestamp.return_value = now
+        assert cpuusage.percent_cpu_usage(proc, proc1) >= 99.0
+
+        proc2 = pytest.Mock()
+        proc2.cputime = 2.0
+        proc2.start_time.timestamp.return_value = proc.start_time.timestamp()
+        now += 2
+        proc2.refreshed.timestamp.return_value = now
+        assert cpuusage.percent_cpu_usage(proc1, proc2) == 50

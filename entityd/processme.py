@@ -1,11 +1,109 @@
 """Plugin providing the Process Monitored Entity."""
 
 import functools
-import time
+import threading
 
+import act
 import syskit
+import zmq
 
 import entityd.pm
+
+
+class CpuUsage(threading.Thread):
+    """A background thread-runner, fetching cpu times for all processes
+    and calculating their CPU percent.
+
+    Accessible via ZMQ Dealer/Router socket; receiving a pid and start time,
+    and returning the percentage cpu time calculated most recently.
+
+    Returns values as a Python namedtuple using pickled python objects.
+
+    :ivar last_run_process: A map of {(pid,start)->syskit.Process} from the
+       last update. Will change size during updates so cannot be iterated on.
+    :ivar last_run_percentages: A map of {(pid, start)->float} percentage
+       values. Will change size during updates so cannot be iterated on.
+
+    """
+    def __init__(self, context, endpoint='inproc://cpuusage', timer=15):
+        self._context = context
+        self.listen_endpoint = endpoint
+        self.last_run_processes = {}
+        self.last_run_percentages = {}
+        self._stream = None
+        self.stopping = threading.Event()
+        self._timer = timer
+        super().__init__()
+
+    @staticmethod
+    def percent_cpu_usage(previous, current):
+        """Return the percentage cpu time used since previous update."""
+        last_cpu_time = float(previous.cputime)
+        last_clock_time = float(previous.refreshed.timestamp())
+        cpu_time = float(current.cputime)
+        clock_time = current.refreshed.timestamp()
+        cpu_time_passed = cpu_time - last_cpu_time
+        clock_time_passed = clock_time - last_clock_time
+        if clock_time_passed == 0:
+            return 0
+        percent_cpu_usage = (cpu_time_passed / clock_time_passed) * 100
+        return percent_cpu_usage
+
+    def update(self):
+        """Update the cpu percentage values we have stored.
+
+        This means that self.last_run_processes and self.last_run_percentages
+        are modified in-place and should not be iterated over.
+        """
+        for pid in syskit.Process.enumerate():
+            if self.stopping.is_set():
+                break
+            try:
+                process = syskit.Process(pid)
+            except syskit.NoSuchProcessError:
+                continue
+            else:
+                key = (pid, process.start_time.timestamp())
+                try:
+                    percentage = self.percent_cpu_usage(
+                        self.last_run_processes[key], process)
+                except KeyError:
+                    pass
+                else:
+                    self.last_run_percentages[key] = percentage
+                self.last_run_processes[key] = process
+
+    def run(self):
+        """Run the thread main loop.
+
+        Registers the regular timer and polls for
+        events from the incoming request socket.
+        """
+        self._stream = act.zkit.EventStream(self._context)
+        timer = act.zkit.SimpleTimer()
+        timer.schedule(0)
+        sock = self._context.socket(zmq.PAIR)
+        sock.bind(self.listen_endpoint)
+        self._stream.register(sock, self._stream.POLLIN)
+        self._stream.register(timer, self._stream.TIMER)
+        try:
+            for event, _ in self._stream:
+                if event is timer:
+                    self.update()
+                    timer.schedule(self._timer * 1000)
+                elif event is sock:
+                    pid, start_time = sock.recv_pyobj()
+                    response = self.last_run_percentages.get((pid, start_time),
+                                                             None)
+                    sock.send_pyobj(response)
+        finally:
+            sock.close(linger=0)
+
+    def stop(self):
+        """Stop the thread safely."""
+        self.stopping.set()
+        if self._stream:
+            self._stream.send_term()
 
 
 class ProcessEntity:
@@ -14,11 +112,13 @@ class ProcessEntity:
     prefix = 'entityd.processme:'
 
     def __init__(self):
+        self.zmq_context = act.zkit.new_context()
         self.active_processes = {}
         self.known_ueids = set()
         self.session = None
         self._host_ueid = None
-        self._process_times = {}
+        self.cpu_usage_thread = None
+        self.cpu_usage_sock = None
 
     @staticmethod
     @entityd.pm.hookimpl
@@ -30,6 +130,20 @@ class ProcessEntity:
     def entityd_sessionstart(self, session):
         """Store the session for later usage."""
         self.session = session
+        self.cpu_usage_thread = CpuUsage(self.zmq_context)
+        self.cpu_usage_thread.start()
+        self.cpu_usage_sock = self.zmq_context.socket(zmq.PAIR)
+        self.cpu_usage_sock.connect('inproc://cpuusage')
+
+    @entityd.pm.hookimpl
+    def entityd_sessionfinish(self):
+        """Store the session for later usage."""
+        if self.cpu_usage_thread:
+            self.cpu_usage_thread.stop()
+            self.cpu_usage_thread.join()
+        if self.cpu_usage_sock:
+            self.cpu_usage_sock.close(linger=0)
+        self.zmq_context.destroy(linger=0)
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
@@ -121,12 +235,9 @@ class ProcessEntity:
 
     def processes(self):
         """Generator of Process MEs."""
-        active, deleted = self.update_process_table(self.active_processes)
+        active = self.update_process_table(self.active_processes)
         create_me = functools.partial(self.create_process_me, active)
         processed_ueids = set()
-
-        for proc in deleted.values():
-            del self._process_times[proc]
 
         # Active processes
         for proc in active.values():
@@ -140,20 +251,19 @@ class ProcessEntity:
     def update_process_table(procs):
         """Updates the process table, refreshing and adding processes.
 
-        Returns a tuple of two separate dicts of active and deleted processes.
+        Returns a dict of active processes.
 
         :param procs: Dictionary mapping pid to syskit.Process
 
         """
         active = {}
-        deleted = {}
         for pid in syskit.Process.enumerate():
             if pid in procs:
                 proc = procs[pid]
                 try:
                     proc.refresh()
                 except syskit.NoSuchProcessError:
-                    deleted[pid] = proc
+                    pass
                 else:
                     active[pid] = proc
             else:
@@ -161,7 +271,7 @@ class ProcessEntity:
                     active[pid] = syskit.Process(pid)
                 except (syskit.NoSuchProcessError, ProcessLookupError):
                     pass
-        return active, deleted
+        return active
 
     def get_cpu_usage(self, proc):
         """Return CPU usage percentage since the last sample or process start.
@@ -169,21 +279,9 @@ class ProcessEntity:
         :param proc: syskit.Process instance.
 
         """
-        if proc not in self._process_times:
-            last_cpu_time = 0.0
-            last_clock_time = proc.start_time.timestamp()
-        else:
-            old_proc = self._process_times[proc]
-            last_cpu_time = float(old_proc.cputime)
-            last_clock_time = old_proc.refreshed.timestamp()
-
-        cpu_time = float(proc.cputime)
-        clock_time = time.time()
-        cpu_time_passed = cpu_time - last_cpu_time
-        clock_time_passed = clock_time - last_clock_time
-        percent_cpu_usage = (cpu_time_passed / clock_time_passed) * 100
-        self._process_times[proc] = proc
-        return percent_cpu_usage
+        self.cpu_usage_sock.send_pyobj([proc.pid, proc.start_time.timestamp()])
+        percent = self.cpu_usage_sock.recv_pyobj()
+        return percent
 
     def create_process_me(self, proctable, proc):
         """Create a new Process ME structure for the process.
@@ -211,8 +309,10 @@ class ProcessEntity:
         update.attrs.set('stime', float(proc.stime),
                          traits={'metric:counter',
                                  'time:duration', 'unit:seconds'})
-        update.attrs.set('cpu', self.get_cpu_usage(proc),
-                         traits={'metric:gauge', 'unit:percent'})
+        cpu_usage = self.get_cpu_usage(proc)
+        if cpu_usage is not None:
+            update.attrs.set('cpu', self.get_cpu_usage(proc),
+                             traits={'metric:gauge', 'unit:percent'})
         update.attrs.set('vsz', proc.vsz,
                          traits={'metric:gauge', 'unit:bytes'})
         update.attrs.set('rss', proc.rss,

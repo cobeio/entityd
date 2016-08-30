@@ -1,11 +1,13 @@
+import functools
 import os
 import subprocess
 import time
 
 import act
 import cobe
-import syskit
 import pytest
+import syskit
+import zmq
 
 import entityd.hookspec
 import entityd.hostme
@@ -155,7 +157,7 @@ def test_get_ueid(session, host_entity_plugin):  # pylint: disable=unused-argume
 def test_get_parents_nohost_noparent(session, kvstore, procent):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
     proc = syskit.Process(os.getpid())
-    rels = procent.get_parents(proc.pid, {proc.pid: proc})
+    rels = procent.get_parents(proc, {proc.pid: proc})
     assert not rels
 
 
@@ -164,7 +166,7 @@ def test_get_parents_parent(procent, session, kvstore, host_entity_plugin):  # p
     host = list(host_entity_plugin.entityd_find_entity('Host', None))[0]
     proc = syskit.Process(os.getpid())
     pproc = syskit.Process(os.getppid())
-    rels = procent.get_parents(proc.pid, {proc.pid: proc, pproc.pid: pproc})
+    rels = procent.get_parents(proc, {proc.pid: proc, pproc.pid: pproc})
     assert len(rels) == 1
     assert rels[0] != host.ueid
     assert isinstance(rels[0], cobe.UEID)
@@ -178,7 +180,7 @@ def test_root_process_has_host_parent(procent, session, kvstore, monkeypatch):  
                         pytest.Mock(return_value=[[hostupdate]]))
     proc = syskit.Process(1)
     assert proc.ppid == 0
-    hostueid, = procent.get_parents(proc.pid, {proc.pid: proc})
+    hostueid, = procent.get_parents(proc, {proc.pid: proc})
     assert hostueid == hostupdate.ueid
 
 
@@ -314,8 +316,8 @@ def zombie_process(request):
 def test_zombie_process(procent, session, kvstore, monkeypatch,  # pylint: disable=unused-argument
                         zombie_process):
     procent.entityd_sessionstart(session)
-    entities = procent.entityd_find_entity('Process', {'pid':
-                                                           zombie_process.pid})
+    entities = procent.entityd_find_entity('Process',
+                                           {'pid': zombie_process.pid})
     entity = next(entities)
     for attr in ['executable', 'args', 'argcount']:
         with pytest.raises(KeyError):
@@ -331,7 +333,10 @@ def test_cpu_usage_attr_not_present(procent, session, kvstore):  # pylint: disab
         _ = entity.attrs.get('cpu')
 
 
-def test_cpu_usage_attr_is_present(procent, session, kvstore):  # pylint: disable=unused-argument
+def test_cpu_usage_attr_is_present(monkeypatch, procent, session, kvstore):  # pylint: disable=unused-argument
+    monkeypatch.setattr(entityd.processme, "CpuUsage",
+                        functools.partial(entityd.processme.CpuUsage,
+                                          timer=0.1))
     procent.entityd_sessionstart(session)
     assert procent.cpu_usage_thread.is_alive()
     while True:
@@ -413,7 +418,6 @@ class TestCpuUsage:
         cpuusage.start()
         cpuusage.join()
         assert cpuusage.update.called
-        assert cpuusage.stopping.is_set()
 
     def test_update(self, cpuusage):
         """Test the update functionality."""
@@ -448,3 +452,34 @@ class TestCpuUsage:
         now += 2
         proc2.refreshed.timestamp.return_value = now
         assert cpuusage.percent_cpu_usage(proc1, proc2) == 50
+
+    def test_get_one(self, request, context, cpuusage):
+        cpuusage.start()
+        request.addfinalizer(cpuusage.stop)
+        req = context.socket(zmq.PAIR)
+        req.connect('inproc://cpuusage')
+        pid = os.getpid()
+        while True:
+            req.send_pyobj(pid)
+            pc = req.recv_pyobj()
+            if pc is None:
+                continue
+            else:
+                assert isinstance(pc, float)
+                break
+
+    def test_get_all(self, request, context, cpuusage):
+        cpuusage.start()
+        request.addfinalizer(cpuusage.stop)
+        req = context.socket(zmq.PAIR)
+        req.connect('inproc://cpuusage')
+        pid = os.getpid()
+        while True:
+            req.send_pyobj(None)
+            pc = req.recv_pyobj()
+            if not pc:
+                continue
+            else:
+                assert isinstance(pc, dict)
+                assert isinstance(pc[pid], float)
+                break

@@ -14,14 +14,13 @@ class CpuUsage(threading.Thread):
     """A background thread-runner, fetching cpu times for all processes
     and calculating their CPU percent.
 
-    Accessible via ZMQ Dealer/Router socket; receiving a pid and start time,
-    and returning the percentage cpu time calculated most recently.
+    Accessible via ZMQ Dealer/Router socket; receiving a pid or ``None``,
+    and returning the percentage cpu time calculated most recently
+    for the given pid, or all known processes.
 
-    Returns values as a Python namedtuple using pickled python objects.
-
-    :ivar last_run_process: A map of {(pid,start)->syskit.Process} from the
+    :ivar last_run_process: A map of {pid->syskit.Process} from the
        last update. Will change size during updates so cannot be iterated on.
-    :ivar last_run_percentages: A map of {(pid, start)->float} percentage
+    :ivar last_run_percentages: A map of {pid->float} percentage
        values. Will change size during updates so cannot be iterated on.
 
     """
@@ -31,13 +30,16 @@ class CpuUsage(threading.Thread):
         self.last_run_processes = {}
         self.last_run_percentages = {}
         self._stream = None
-        self.stopping = threading.Event()
         self._timer = timer
         super().__init__()
 
     @staticmethod
     def percent_cpu_usage(previous, current):
-        """Return the percentage cpu time used since previous update."""
+        """Return the percentage cpu time used since previous update.
+
+        :param syskit.Process previous: The Process object from last update.
+        :param syskit.Process current: The current Process object.
+        """
         last_cpu_time = float(previous.cputime)
         last_clock_time = float(previous.refreshed.timestamp())
         cpu_time = float(current.cputime)
@@ -50,28 +52,25 @@ class CpuUsage(threading.Thread):
         return percent_cpu_usage
 
     def update(self):
-        """Update the cpu percentage values we have stored.
-
-        This means that self.last_run_processes and self.last_run_percentages
-        are modified in-place and should not be iterated over.
-        """
+        """Update the cpu percentage values we have stored."""
+        new_percentages = {}
+        new_processes = {}
         for pid in syskit.Process.enumerate():
-            if self.stopping.is_set():
-                break
             try:
                 process = syskit.Process(pid)
             except syskit.NoSuchProcessError:
                 continue
             else:
-                key = (pid, process.start_time.timestamp())
                 try:
                     percentage = self.percent_cpu_usage(
-                        self.last_run_processes[key], process)
+                        self.last_run_processes[pid], process)
                 except KeyError:
                     pass
                 else:
-                    self.last_run_percentages[key] = percentage
-                self.last_run_processes[key] = process
+                    new_percentages[pid] = percentage
+                new_processes[pid] = process
+        self.last_run_percentages = new_percentages
+        self.last_run_processes = new_processes
 
     def run(self):
         """Run the thread main loop.
@@ -92,18 +91,26 @@ class CpuUsage(threading.Thread):
                     self.update()
                     timer.schedule(self._timer * 1000)
                 elif event is sock:
-                    pid, start_time = sock.recv_pyobj()
-                    response = self.last_run_percentages.get((pid, start_time),
-                                                             None)
+                    pid = sock.recv_pyobj()
+                    if pid is None:
+                        response = self.last_run_percentages
+                    else:
+                        response = self.last_run_percentages.get(pid, None)
                     sock.send_pyobj(response)
         finally:
             sock.close(linger=0)
 
     def stop(self):
-        """Stop the thread safely."""
-        self.stopping.set()
+        """Stop the thread safely.
+
+        We have to consume the stream so that close() gets called.
+        """
         if self._stream:
             self._stream.send_term()
+            # XXX: Didn't we discuss changing the termination behaviour
+            #      of EventStream to handle this?
+            for _ in self._stream:
+                pass
 
 
 class ProcessEntity:
@@ -140,7 +147,6 @@ class ProcessEntity:
         """Store the session for later usage."""
         if self.cpu_usage_thread:
             self.cpu_usage_thread.stop()
-            self.cpu_usage_thread.join()
         if self.cpu_usage_sock:
             self.cpu_usage_sock.close(linger=0)
         self.zmq_context.destroy(linger=0)
@@ -196,7 +202,7 @@ class ProcessEntity:
         except KeyError:
             pass
 
-    def get_parents(self, pid, procs):
+    def get_parents(self, proc, procs):
         """Get relations for a process.
 
         Relations may include:
@@ -209,7 +215,6 @@ class ProcessEntity:
         :returns: A list of relations, as :class:`cobe.UEID`s.
         """
         parents = []
-        proc = procs[pid]
         ppid = proc.ppid
         if ppid:
             if ppid in procs:
@@ -224,14 +229,27 @@ class ProcessEntity:
 
         Special case for 'pid' since this should be efficient.
         """
-        for proc in self.processes():
+        if 'pid' in attrs and len(attrs) == 1:
             try:
-                match = all([proc.attrs.get(name).value == value
-                             for (name, value) in attrs.items()])
-                if match:
-                    yield proc
-            except KeyError:
-                continue
+                proc = syskit.Process(attrs['pid'])
+            except syskit.NoSuchProcessError:
+                return
+            entity = self.create_process_me(self.active_processes,
+                                            proc)
+            cpupc = self.get_cpu_percentage(proc)
+            if cpupc:
+                entity.attrs.set('cpu', cpupc,
+                                 traits={'metric:gauge', 'unit:percent'})
+            yield entity
+        else:
+            for proc in self.processes():
+                try:
+                    match = all([proc.attrs.get(name).value == value
+                                 for (name, value) in attrs.items()])
+                    if match:
+                        yield proc
+                except KeyError:
+                    continue
 
     def processes(self):
         """Generator of Process MEs."""
@@ -240,8 +258,14 @@ class ProcessEntity:
         processed_ueids = set()
 
         # Active processes
+        cpu_percentages = self.get_all_cpu_percentages()
         for proc in active.values():
             update = create_me(proc)
+            try:
+                update.attrs.set('cpu', cpu_percentages[proc.pid],
+                                 traits={'metric:gauge', 'unit:percent'})
+            except KeyError:
+                pass
             processed_ueids.add(update.ueid)
             yield update
 
@@ -273,15 +297,25 @@ class ProcessEntity:
                     pass
         return active
 
-    def get_cpu_usage(self, proc):
+    def get_cpu_percentage(self, proc):
         """Return CPU usage percentage since the last sample or process start.
 
         :param proc: syskit.Process instance.
 
         """
-        self.cpu_usage_sock.send_pyobj([proc.pid, proc.start_time.timestamp()])
+        self.cpu_usage_sock.send_pyobj(proc.pid)
         percent = self.cpu_usage_sock.recv_pyobj()
         return percent
+
+    def get_all_cpu_percentages(self):
+        """Return CPU usage percentage since the last sample or process start.
+
+        :param proc: syskit.Process instance.
+
+        """
+        self.cpu_usage_sock.send_pyobj(None)
+        percentages = self.cpu_usage_sock.recv_pyobj()
+        return percentages
 
     def create_process_me(self, proctable, proc):
         """Create a new Process ME structure for the process.
@@ -309,10 +343,6 @@ class ProcessEntity:
         update.attrs.set('stime', float(proc.stime),
                          traits={'metric:counter',
                                  'time:duration', 'unit:seconds'})
-        cpu_usage = self.get_cpu_usage(proc)
-        if cpu_usage is not None:
-            update.attrs.set('cpu', self.get_cpu_usage(proc),
-                             traits={'metric:gauge', 'unit:percent'})
         update.attrs.set('vsz', proc.vsz,
                          traits={'metric:gauge', 'unit:bytes'})
         update.attrs.set('rss', proc.rss,
@@ -333,7 +363,7 @@ class ProcessEntity:
         except AttributeError:
             # A zombie process doesn't allow access to these attributes
             pass
-        for parent in self.get_parents(proc.pid, proctable):
+        for parent in self.get_parents(proc, proctable):
             update.parents.add(parent)
         self.known_ueids.add(update.ueid)
         return update

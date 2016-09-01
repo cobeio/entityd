@@ -4,6 +4,7 @@ import functools
 import threading
 
 import act
+import logbook
 import syskit
 import zmq
 
@@ -31,6 +32,7 @@ class CpuUsage(threading.Thread):
         self.last_run_percentages = {}
         self._stream = None
         self._timer = timer
+        self._log = logbook.Logger('CpuUsage')
         super().__init__()
 
     @staticmethod
@@ -73,6 +75,18 @@ class CpuUsage(threading.Thread):
         self.last_run_processes = new_processes
 
     def run(self):
+        while True:
+            try:
+                self._run()
+            except Exception:  # pylint: disable=broad-except
+                self._log.exception('An unexpected exception occurred in '
+                                    'CpuUsage thread')
+            else:
+                break
+            finally:
+                self.stop()
+
+    def _run(self):
         """Run the thread main loop.
 
         Registers the regular timer and polls for
@@ -107,10 +121,6 @@ class CpuUsage(threading.Thread):
         """
         if self._stream:
             self._stream.send_term()
-            # XXX: Didn't we discuss changing the termination behaviour
-            #      of EventStream to handle this?
-            for _ in self._stream:
-                pass
 
 
 class ProcessEntity:
@@ -147,6 +157,7 @@ class ProcessEntity:
         """Store the session for later usage."""
         if self.cpu_usage_thread:
             self.cpu_usage_thread.stop()
+            self.cpu_usage_thread.join(timeout=2)
         if self.cpu_usage_sock:
             self.cpu_usage_sock.close(linger=0)
         self.zmq_context.destroy(linger=0)

@@ -419,6 +419,17 @@ class TestCpuUsage:
         cpuusage.join()
         assert cpuusage.update.called
 
+    def test_exception_logged(self, monkeypatch, cpuusage):
+        monkeypatch.setattr(cpuusage, '_run',
+                            pytest.Mock(side_effect=ZeroDivisionError))
+        monkeypatch.setattr(cpuusage, '_log', pytest.Mock())
+        stop = lambda: monkeypatch.setattr(cpuusage, '_run',
+                                           pytest.Mock())
+        cpuusage._log.exception.side_effect = stop
+        cpuusage.start()
+        cpuusage.join(timeout=2)
+        assert cpuusage._log.exception.called
+
     def test_update(self, cpuusage):
         """Test the update functionality."""
         cpuusage.update()

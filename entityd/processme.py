@@ -240,27 +240,14 @@ class ProcessEntity:
 
         Special case for 'pid' since this should be efficient.
         """
-        if 'pid' in attrs and len(attrs) == 1:
+        for proc in self.processes():
             try:
-                proc = syskit.Process(attrs['pid'])
-            except syskit.NoSuchProcessError:
-                return
-            entity = self.create_process_me(self.active_processes,
-                                            proc)
-            cpupc = self.get_cpu_percentage(proc)
-            if cpupc:
-                entity.attrs.set('cpu', cpupc,
-                                 traits={'metric:gauge', 'unit:percent'})
-            yield entity
-        else:
-            for proc in self.processes():
-                try:
-                    match = all([proc.attrs.get(name).value == value
-                                 for (name, value) in attrs.items()])
-                    if match:
-                        yield proc
-                except KeyError:
-                    continue
+                match = all([proc.attrs.get(name).value == value
+                             for (name, value) in attrs.items()])
+                if match:
+                    yield proc
+            except KeyError:
+                continue
 
     def processes(self):
         """Generator of Process MEs."""

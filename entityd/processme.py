@@ -82,20 +82,19 @@ class ProcessEntity:
         except KeyError:
             pass
 
-    def get_parents(self, pid, procs):
+    def get_parents(self, proc, procs):
         """Get relations for a process.
 
         Relations may include:
          - Host ME
          - Parent process ME
 
-        :param pid: The process ID to get relations for.
+        :param proc: The process ID to get relations for.
         :param procs: A dictionary of all processes on the system.
 
         :returns: A list of relations, as :class:`cobe.UEID`s.
         """
         parents = []
-        proc = procs[pid]
         ppid = proc.ppid
         if ppid:
             if ppid in procs:
@@ -110,14 +109,28 @@ class ProcessEntity:
 
         Special case for 'pid' since this should be efficient.
         """
-        for proc in self.processes():
+        if 'pid' in attrs and len(attrs) == 1:
             try:
-                match = all([proc.attrs.get(name).value == value
-                             for (name, value) in attrs.items()])
-                if match:
-                    yield proc
-            except KeyError:
-                continue
+                proc = syskit.Process(attrs['pid'])
+            except syskit.NoSuchProcessError:
+                return
+            entity = self.create_process_me(self.active_processes,
+                                            proc)
+            # From the other branch...
+            # cpupc = self.get_cpu_percentage(proc)
+            # if cpupc:
+            #     entity.attrs.set('cpu', cpupc,
+            #                      traits={'metric:gauge', 'unit:percent'})
+            yield entity
+        else:
+            for proc in self.processes():
+                try:
+                    match = all([proc.attrs.get(name).value == value
+                                 for (name, value) in attrs.items()])
+                    if match:
+                        yield proc
+                except KeyError:
+                    continue
 
     def processes(self):
         """Generator of Process MEs."""
@@ -233,7 +246,7 @@ class ProcessEntity:
         except AttributeError:
             # A zombie process doesn't allow access to these attributes
             pass
-        for parent in self.get_parents(proc.pid, proctable):
+        for parent in self.get_parents(proc, proctable):
             update.parents.add(parent)
         self.known_ueids.add(update.ueid)
         return update

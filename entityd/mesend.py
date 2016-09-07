@@ -4,7 +4,7 @@ This plugin implements the sending of Monitored Entities to the modeld
 destination.
 
 """
-
+from pprint import pprint
 import act
 import logbook
 import msgpack
@@ -98,6 +98,8 @@ class MonitoredEntitySender:
         Uses linger=0 and closes the socket in order to empty the buffers.
         """
         if isinstance(entity, entityd.EntityUpdate):
+            if entity.metype == 'Host':
+                pprint(msgpack.unpackb(self.encode_entity(entity)))
             packed_entity = self.encode_entity(entity)
         else:
             packed_entity = msgpack.packb(entity, use_bin_type=True)

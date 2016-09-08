@@ -3,6 +3,8 @@ import subprocess
 import time
 
 import cobe
+import docker
+import requests
 import syskit
 import pytest
 
@@ -177,6 +179,50 @@ def test_root_process_has_host_parent(procent, session, kvstore, monkeypatch):  
     assert proc.ppid == 0
     hostueid, = procent.get_parents(proc.pid, {proc.pid: proc})
     assert hostueid == hostupdate.ueid
+
+
+@pytest.yield_fixture
+def container():
+    try:
+        docker_client = docker.Client(base_url='unix://var/run/docker.sock')
+        container = docker_client.create_container(
+            image='eu.gcr.io/cobesaas/debian:8.5',
+            command='/bin/bash -c "while true; do sleep 1; done"',
+            name='sleeper'
+        )
+    except requests.exceptions.ConnectionError:
+        pytest.skip('Test not possible due to docker daemon not running.')
+    docker_client.start(container=container.get('Id'))
+    container_top_pid = int(docker_client.top('sleeper')['Processes'][0][1])
+    yield container_top_pid, container['Id']
+    docker_client.stop('sleeper')
+    docker_client.remove_container('sleeper')
+
+
+def test_find_single_container_parent(procent, session, container):
+    container_top_pid, container_id = container
+    update = entityd.EntityUpdate('Kubernetes:Container')
+    update.attrs.set('id', container_id, traits={'entity:id'})
+    container_ueid = update.ueid
+    procent.entityd_sessionstart(session)
+    entities = procent.entityd_find_entity('Process', None)
+    count = 0
+    for entity in entities:
+        pid = entity.attrs.get('pid').value
+        parents = [ueid_obj for ueid_obj in list(entity.parents)]
+        if container_ueid in parents:
+            assert pid == container_top_pid
+            count += 1
+    assert count == 1
+
+
+def test_handle_no_docker_daemon_working_on_host(procent, session):
+    entityd.processme.docker.Client.containers = pytest.Mock(
+        side_effect=requests.exceptions.ConnectionError
+    )
+    procent.entityd_sessionstart(session)
+    list(procent.entityd_find_entity('Process', None))
+    assert procent._containers == {}
 
 
 @pytest.fixture

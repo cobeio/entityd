@@ -413,7 +413,7 @@ class TestContainers:
             '191b221cf29e1cabb43edf3b47fe5b33a7a59')
         assert containers[0].attrs.get('id').traits == {'entity:id'}
         assert containers[0].attrs.get('name').value == 'container-1'
-        assert containers[0].attrs.get('name').traits == {'entity:id'}
+        assert containers[0].attrs.get('name').traits == set()
         assert containers[0].attrs.get('ready').value is True
         assert containers[0].attrs.get('ready').traits == set()
         assert containers[0].attrs.get('image:id').value == (

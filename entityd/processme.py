@@ -3,6 +3,8 @@
 import functools
 import time
 
+import docker
+import requests
 import syskit
 
 import entityd.pm
@@ -19,6 +21,9 @@ class ProcessEntity:
         self.session = None
         self._host_ueid = None
         self._process_times = {}
+        self._docker_client = docker.Client(
+            base_url='unix://var/run/docker.sock')
+        self._containers = {}
 
     @staticmethod
     @entityd.pm.hookimpl
@@ -124,17 +129,49 @@ class ProcessEntity:
         active, deleted = self.update_process_table(self.active_processes)
         create_me = functools.partial(self.create_process_me, active)
         processed_ueids = set()
-
         for proc in deleted.values():
             del self._process_times[proc]
-
+        self.identify_docker_containers()
         # Active processes
         for proc in active.values():
             update = create_me(proc)
             processed_ueids.add(update.ueid)
             yield update
-
         self.active_processes = active
+
+    @staticmethod
+    def get_container_ueid(container_id):
+        """Provide a container's ueid.
+
+        :param str container_id: Container's 64-character docker id.
+
+        :returns: A :class:`cobe.UEID` for the container.
+        """
+        update = entityd.EntityUpdate('Kubernetes:Container')
+        update.attrs.set('id', container_id, traits={'entity:id'})
+        return update.ueid
+
+    def identify_docker_containers(self):
+        """Identify the host's containers and their primary process pids.
+
+        This creates a dict of container primary process PIDs to
+        docker container UEIDs of format:
+
+            {<primary process pid>: <container UEID>, ...}.
+
+        The exception handling handles the docker client making no connection
+        if the docker daemon isn't available on the host.
+        """
+        self._containers = {}
+        try:
+            for container in self._docker_client.containers():
+                container_id = container['Id']
+                pid = self._docker_client.inspect_container(
+                    container_id)['State']['Pid']
+                ueid = self.get_container_ueid(container_id)
+                self._containers[pid] = ueid
+        except requests.exceptions.ConnectionError:
+            pass
 
     @staticmethod
     def update_process_table(procs):
@@ -188,6 +225,9 @@ class ProcessEntity:
     def create_process_me(self, proctable, proc):
         """Create a new Process ME structure for the process.
 
+        If the process is the primary process of a container that is running
+        on the host, then the container's ueid is added as a parent.
+
         :param proctable: Dict of pid -> syskit.Process instances for
            all processes on the host.
         :param proc: syskit.Process instance.
@@ -235,5 +275,7 @@ class ProcessEntity:
             pass
         for parent in self.get_parents(proc.pid, proctable):
             update.parents.add(parent)
+        if proc.pid in self._containers:
+            update.parents.add(self._containers[proc.pid])
         self.known_ueids.add(update.ueid)
         return update

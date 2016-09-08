@@ -321,7 +321,7 @@ def container_update(container, update):
     """
     update.label = container.name
     update.attrs.set('id', container.id, traits={'entity:id'})
-    update.attrs.set('name', container.name, traits={'entity:id'})
+    update.attrs.set('name', container.name)
     update.attrs.set('ready', container.ready)
     update.attrs.set('image:id', container.image_id)
     update.attrs.set('image:name', container.image)

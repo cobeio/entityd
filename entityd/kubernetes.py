@@ -20,7 +20,7 @@ log = logbook.Logger(__name__)
 RFC_3339_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 _LOGGED_K8S_UNREACHABLE = False
 ENTITIES_PROVIDED = {
-    'Kubernetes:Container': 'generate_containers',
+    'Container': 'generate_containers',
     'Kubernetes:Namespace': 'generate_namespaces',
     'Kubernetes:Pod': 'generate_pods',
 }
@@ -322,6 +322,7 @@ def container_update(container, update):
     update.label = container.name
     update.attrs.set('id', container.id, traits={'entity:id'})
     update.attrs.set('name', container.name)
+    update.attrs.set('manager', 'Docker')
     update.attrs.set('ready', container.ready)
     update.attrs.set('image:id', container.image_id)
     update.attrs.set('image:name', container.image)

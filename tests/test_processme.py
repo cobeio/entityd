@@ -190,7 +190,7 @@ def container():
             command='/bin/bash -c "while true; do sleep 1; done"',
             name='sleeper'
         )
-    except requests.exceptions.ConnectionError:
+    except requests.ConnectionError:
         pytest.skip('Test not possible due to docker daemon not running.')
     docker_client.start(container=container.get('Id'))
     container_top_pid = int(docker_client.top('sleeper')['Processes'][0][1])
@@ -201,7 +201,7 @@ def container():
 
 def test_find_single_container_parent(procent, session, container):
     container_top_pid, container_id = container
-    update = entityd.EntityUpdate('Kubernetes:Container')
+    update = entityd.EntityUpdate('Container')
     update.attrs.set('id', container_id, traits={'entity:id'})
     container_ueid = update.ueid
     procent.entityd_sessionstart(session)
@@ -218,11 +218,9 @@ def test_find_single_container_parent(procent, session, container):
 
 def test_handle_no_docker_daemon_working_on_host(procent, session):
     entityd.processme.docker.Client.containers = pytest.Mock(
-        side_effect=requests.exceptions.ConnectionError
+        side_effect=requests.ConnectionError
     )
-    procent.entityd_sessionstart(session)
-    list(procent.entityd_find_entity('Process', None))
-    assert procent._containers == {}
+    assert procent.identify_docker_containers() == {}
 
 
 @pytest.fixture

@@ -127,6 +127,7 @@ def test_endpoints_for_process(pm, session, host_entity_plugin,  # pylint: disab
             assert update.ueid in endpoint.children
             assert update.ueid in endpoint.parents
     assert count == 3
+    pm.hooks.entityd_sessionfinish()
 
 
 def test_unix_socket(pm, session, host_entity_plugin, kvstore, unix_socket):  # pylint: disable=unused-argument

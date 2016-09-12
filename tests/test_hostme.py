@@ -1,7 +1,11 @@
+import functools
 import socket
 import time
 
+import collections
 import pytest
+
+import act
 import syskit
 
 import entityd.hookspec
@@ -9,7 +13,10 @@ import entityd.hostme
 
 
 @pytest.yield_fixture
-def host_gen():
+def host_gen(monkeypatch):
+    monkeypatch.setattr(entityd.hostme, "HostCpuUsage",
+                        functools.partial(entityd.hostme.HostCpuUsage,
+                                          timer=0.1))
     host_gen = entityd.hostme.HostEntity()
     session = pytest.Mock()
     host_gen.entityd_sessionstart(session)
@@ -88,10 +95,11 @@ def test_cpu_usage(host_gen):
     entities = list(host_gen.entityd_find_entity(name='Host', attrs=None))
     host = entities[0]
     assert isinstance(host.attrs.get('usr').value, float)
-    assert 99 < sum([host.attrs.get(key).value
-                     for key in ['cpu:usr', 'cpu:sys', 'cpu:nice',
-                                 'cpu:idle', 'cpu:iowait', 'cpu:irq',
-                                 'cpu:softirq', 'cpu:steal']]) <= 100.1
+    for key in ['cpu:usr', 'cpu:sys', 'cpu:nice',
+                'cpu:idle', 'cpu:iowait', 'cpu:irq',
+                'cpu:softirq', 'cpu:steal']:
+        with pytest.raises(KeyError):
+            host.attrs.get(key)
     time.sleep(.1)
     entities = list(host_gen.entityd_find_entity(name='Host', attrs=None))
     host = entities[0]
@@ -99,20 +107,6 @@ def test_cpu_usage(host_gen):
                      for key in ['cpu:usr', 'cpu:sys', 'cpu:nice',
                                  'cpu:idle', 'cpu:iowait', 'cpu:irq',
                                  'cpu:softirq', 'cpu:steal']]) <= 100.1
-
-
-# def test_cpu_usage_zerodiv(host_gen, monkeypatch):
-#     # XXX: Rewrite to test thread
-#     entities = list(host_gen.entityd_find_entity(name='Host', attrs=None))
-#     host = entities[0]
-#     assert host.attrs.get('usr').value > 0
-#     assert host.attrs.get('cpu:usr').value > 0
-#     monkeypatch.setattr(syskit, 'cputimes',
-#                         pytest.Mock(return_value=host_gen.cputimes))
-#     entities = list(host_gen.entityd_find_entity(name='Host', attrs=None))
-#     host = entities[0]
-#     assert host.attrs.get('cpu:usr').value == 0
-#     assert host.attrs.get('usr').value == 0
 
 
 def test_loadavg(host_gen):
@@ -130,3 +124,102 @@ def test_loadavg(host_gen):
 def test_entity_has_label(host_gen):
     entity = next(host_gen.entityd_find_entity(name='Host', attrs=None))
     assert entity.label == socket.getfqdn()
+
+
+CpuTimes = collections.namedtuple('CpuTimes',
+                                  ['usr', 'nice', 'sys', 'idle', 'iowait',
+                                   'irq', 'softirq', 'steal', 'guest',
+                                   'guest_nice'])
+
+
+class TestHostCpuUsage:
+
+
+    @pytest.fixture
+    def context(self):
+        return act.zkit.new_context()
+
+    @pytest.fixture
+    def cpuusage(self, context):
+        return entityd.hostme.HostCpuUsage(context, timer=0.1)
+
+    def test_timer(self, monkeypatch, cpuusage):
+        """Test the timer is firing, and triggers an update."""
+        monkeypatch.setattr(cpuusage, '_update_times',
+                            pytest.Mock(side_effect=cpuusage.stop))
+        cpuusage.start()
+        cpuusage.join()
+        assert cpuusage._update_times.called
+
+    def test_exception_logged(self, monkeypatch, cpuusage):
+        monkeypatch.setattr(cpuusage, '_run',
+                            pytest.Mock(side_effect=ZeroDivisionError))
+        monkeypatch.setattr(cpuusage, '_log', pytest.Mock())
+        stop = lambda: monkeypatch.setattr(cpuusage, '_run',
+                                           pytest.Mock())
+        cpuusage._log.exception.side_effect = stop
+        cpuusage.start()
+        cpuusage.join(timeout=2)
+        assert cpuusage._log.exception.called
+
+    def test_first_update(self, cpuusage):
+        # On the first update, percentages not included
+        assert not cpuusage.last_cpu_times
+        assert not cpuusage.last_attributes
+        cpuusage._update_times()
+        assert cpuusage.last_cpu_times
+        for name, _, traits in cpuusage.last_attributes:
+            assert not name.startswith('cpu:')
+            assert 'unit:percent' not in traits
+
+    def test_time_unchanged(self, monkeypatch, cpuusage):
+        # On zero time change, percentages not included
+        times = syskit.cputimes()
+        monkeypatch.setattr(syskit, 'cputimes',
+                            pytest.Mock(return_value=times))
+        cpuusage._update_times()
+        cpuusage._update_times()
+        for name, _, traits in cpuusage.last_attributes:
+            assert not name.startswith('cpu:')
+            assert 'unit:percent' not in traits
+
+    def test_time_calc_equal(self, monkeypatch, cpuusage):
+        # If each time is increased by the same amount,
+        # percentages are equal
+        times = syskit.cputimes()
+        monkeypatch.setattr(syskit, 'cputimes',
+                            pytest.Mock(return_value=times))
+        cpuusage._update_times()
+        new_times = CpuTimes(*(val + 1 for val in times))
+        monkeypatch.setattr(syskit, 'cputimes',
+                            pytest.Mock(return_value=new_times))
+        cpuusage._update_times()
+        count = 0
+        percentage = 100.0 / len(new_times)
+        for name, value, traits in cpuusage.last_attributes:
+            if name.startswith('cpu:'):
+                assert 'unit:percent' in traits
+                assert value == percentage
+                count += 1
+        assert count == len(new_times)
+
+    def test_time_calc_single(self, monkeypatch, cpuusage):
+        # If one time is increased, it should be 100%
+        times = syskit.cputimes()
+        monkeypatch.setattr(syskit, 'cputimes',
+                            pytest.Mock(return_value=times))
+        cpuusage._update_times()
+        new_times = CpuTimes(*(val + int(i == 0)
+                               for i, val in enumerate(times)))
+        monkeypatch.setattr(syskit, 'cputimes',
+                            pytest.Mock(return_value=new_times))
+        cpuusage._update_times()
+        count = 0
+        for name, value, _ in cpuusage.last_attributes:
+            if name == 'cpu:usr':
+                assert value == 100
+                count += 1
+            elif name.startswith('cpu:'):
+                assert value == 0
+                count += 1
+        assert count == len(new_times)

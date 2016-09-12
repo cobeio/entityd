@@ -39,22 +39,18 @@ class HostCpuUsage(threading.Thread):
         attrs = ['usr', 'nice', 'sys', 'idle', 'iowait', 'irq', 'softirq',
                  'steal', 'guest', 'guest_nice']
         new_cputimes = syskit.cputimes()
-        if self.last_cpu_times:
-            cputime_diff = [x - y
-                            for x, y in zip(new_cputimes, self.last_cpu_times)]
-        else:
-            cputime_diff = new_cputimes
-        cputimes = {attr: diff for attr, diff in zip(attrs, cputime_diff)}
-        total = sum(cputimes.values())
         attributes = []
         for attr in attrs:
-            attr_name = 'cpu:' + attr
-            attributes.append((attr, float(cputimes[attr]),
+            attributes.append((attr, float(getattr(new_cputimes, attr)),
                                {'time:duration', 'unit:seconds'}))
+        if self.last_cpu_times:
+            diffs = [x - y for x, y in zip(new_cputimes, self.last_cpu_times)]
+            total = sum(diffs)
             if total != 0:
-                attributes.append((attr_name,
-                                   float(cputimes[attr]) / float(total) * 100,
-                                   {'metric:gauge', 'unit:percent'}))
+                attributes.extend([('cpu:' + attr,
+                                    float(diff) / float(total) * 100,
+                                    {'metric:gauge', 'unit:percent'})
+                                   for attr, diff in zip(attrs, diffs)])
         self.last_cpu_times = new_cputimes
         self.last_attributes = attributes
         return attributes

@@ -89,7 +89,7 @@ class ProcessEntity:
          - Host ME
          - Parent process ME
 
-        :param proc: The process ID to get relations for.
+        :param proc: The process to get relations for.
         :param procs: A dictionary of all processes on the system.
 
         :returns: A list of relations, as :class:`cobe.UEID`s.
@@ -114,13 +114,7 @@ class ProcessEntity:
                 proc = syskit.Process(attrs['pid'])
             except syskit.NoSuchProcessError:
                 return
-            entity = self.create_process_me(self.active_processes,
-                                            proc)
-            # From the other branch...
-            # cpupc = self.get_cpu_percentage(proc)
-            # if cpupc:
-            #     entity.attrs.set('cpu', cpupc,
-            #                      traits={'metric:gauge', 'unit:percent'})
+            entity = self.create_process_me(self.active_processes, proc)
             yield entity
         else:
             for proc in self.processes():

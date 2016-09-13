@@ -325,7 +325,7 @@ def test_zombie_process(procent, session, kvstore, monkeypatch,  # pylint: disab
 
 
 def test_cpu_usage_attr_not_present(procent, session, kvstore):  # pylint: disable=unused-argument
-    procent.entityd_sessionstart(session)
+    procent.session = session
     entities = procent.entityd_find_entity('Process', {'pid': os.getpid()})
     entity = next(entities)
     # CPU usage only available after background thread has updated
@@ -336,7 +336,7 @@ def test_cpu_usage_attr_not_present(procent, session, kvstore):  # pylint: disab
 def test_cpu_usage_attr_is_present(monkeypatch, procent, session, kvstore):  # pylint: disable=unused-argument
     monkeypatch.setattr(entityd.processme, "CpuUsage",
                         functools.partial(entityd.processme.CpuUsage,
-                                          timer=0.1))
+                                          interval=0.1))
     procent.entityd_sessionstart(session)
     assert procent.cpu_usage_thread.is_alive()
     while True:
@@ -351,6 +351,31 @@ def test_cpu_usage_attr_is_present(monkeypatch, procent, session, kvstore):  # p
             assert isinstance(cpu_usage.value, float)
             assert cpu_usage.traits == {'metric:gauge', 'unit:percent'}
             break
+
+
+def test_cpu_usage_not_running_one(procent, session, kvstore, monkeypatch):  # pylint: disable=unused-argument
+    cpuusage = pytest.Mock()
+    cpuusage.listen_endpoint = 'inproc://cpuusage'
+    monkeypatch.setattr(entityd.processme, 'CpuUsage',
+                        pytest.Mock(return_value=cpuusage))
+    procent.entityd_sessionstart(session)
+    entities = procent.entityd_find_entity('Process', {'pid': os.getpid()})
+    entity = next(entities)
+    with pytest.raises(KeyError):
+        _ = entity.attrs.get('cpu')
+
+
+def test_cpu_usage_not_running_all(procent, session, kvstore, monkeypatch):  # pylint: disable=unused-argument
+    cpuusage = pytest.Mock()
+    cpuusage.listen_endpoint = 'inproc://cpuusage'
+    monkeypatch.setattr(entityd.processme, 'CpuUsage',
+                        pytest.Mock(return_value=cpuusage))
+
+    procent.entityd_sessionstart(session)
+    entities = procent.entityd_find_entity('Process', {'pid': os.getpid()})
+    for entity in entities:
+        with pytest.raises(KeyError):
+            _ = entity.attrs.get('cpu')
 
 
 def test_entity_has_label(procent, session, kvstore):  # pylint: disable=unused-argument
@@ -409,7 +434,7 @@ class TestCpuUsage:
 
     @pytest.fixture
     def cpuusage(self, context):
-        return entityd.processme.CpuUsage(context, timer=0.1)
+        return entityd.processme.CpuUsage(context, interval=0.1)
 
     def test_timer(self, monkeypatch, cpuusage):
         """Test the timer is firing, and triggers an update."""

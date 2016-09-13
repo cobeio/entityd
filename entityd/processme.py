@@ -12,26 +12,23 @@ import entityd.pm
 
 
 class CpuUsage(threading.Thread):
-    """A background thread-runner, fetching cpu times for all processes
-    and calculating their CPU percent.
+    """A background thread to fetch CPU times and calculate percentages.
 
-    Accessible via ZMQ Dealer/Router socket; receiving a pid or ``None``,
+    Accessible via ZMQ Pair/Pair sockets; receiving a pid or ``None``,
     and returning the percentage cpu time calculated most recently
     for the given pid, or all known processes.
 
     :ivar last_run_process: A map of {pid->syskit.Process} from the
-       last update. Will change size during updates so cannot be iterated on.
-    :ivar last_run_percentages: A map of {pid->float} percentage
-       values. Will change size during updates so cannot be iterated on.
-
+       last update.
+    :ivar last_run_percentages: A map of {pid->float} percentage values.
     """
-    def __init__(self, context, endpoint='inproc://cpuusage', timer=15):
+    def __init__(self, context, endpoint='inproc://cpuusage', interval=15):
         self._context = context
         self.listen_endpoint = endpoint
         self.last_run_processes = {}
         self.last_run_percentages = {}
         self._stream = None
-        self._timer = timer
+        self._timer_interval = interval
         self._log = logbook.Logger('CpuUsage')
         super().__init__()
 
@@ -103,7 +100,7 @@ class CpuUsage(threading.Thread):
             for event, _ in self._stream:
                 if event is timer:
                     self.update()
-                    timer.schedule(self._timer * 1000)
+                    timer.schedule(self._timer_interval * 1000)
                 elif event is sock:
                     pid = sock.recv_pyobj()
                     if pid is None:
@@ -113,6 +110,7 @@ class CpuUsage(threading.Thread):
                     sock.send_pyobj(response)
         finally:
             sock.close(linger=0)
+            self._stream.close()
 
     def stop(self):
         """Stop the thread safely.
@@ -150,11 +148,11 @@ class ProcessEntity:
         self.cpu_usage_thread = CpuUsage(self.zmq_context)
         self.cpu_usage_thread.start()
         self.cpu_usage_sock = self.zmq_context.socket(zmq.PAIR)
-        self.cpu_usage_sock.connect('inproc://cpuusage')
+        self.cpu_usage_sock.connect(self.cpu_usage_thread.listen_endpoint)
 
     @entityd.pm.hookimpl
     def entityd_sessionfinish(self):
-        """Store the session for later usage."""
+        """Safely terminate the plugin."""
         if self.cpu_usage_thread:
             self.cpu_usage_thread.stop()
             self.cpu_usage_thread.join(timeout=2)
@@ -299,21 +297,30 @@ class ProcessEntity:
         """Return CPU usage percentage since the last sample or process start.
 
         :param proc: syskit.Process instance.
+        :returns float or None: the percentage value; None if no value
 
         """
+        if not self.cpu_usage_sock:
+            return None
         self.cpu_usage_sock.send_pyobj(proc.pid)
-        percent = self.cpu_usage_sock.recv_pyobj()
-        return percent
+        if self.cpu_usage_sock.poll(timeout=1000, flags=zmq.POLLIN):
+            return self.cpu_usage_sock.recv_pyobj()
+        else:
+            return None
 
     def get_all_cpu_percentages(self):
         """Return CPU usage percentage since the last sample or process start.
 
         :param proc: syskit.Process instance.
-
+        :returns dict: All available percentage (possibly empty).
         """
+        if not self.cpu_usage_sock:
+            return {}
         self.cpu_usage_sock.send_pyobj(None)
-        percentages = self.cpu_usage_sock.recv_pyobj()
-        return percentages
+        if self.cpu_usage_sock.poll(timeout=1000, flags=zmq.POLLIN):
+            return self.cpu_usage_sock.recv_pyobj()
+        else:
+            return {}
 
     def create_process_me(self, proctable, proc):
         """Create a new Process ME structure for the process.

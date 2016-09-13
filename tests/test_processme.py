@@ -483,13 +483,15 @@ class TestCpuUsage:
     def test_update(self, cpuusage):
         """Test the update functionality."""
         cpuusage.update()
-        for key, proc in cpuusage.last_run_processes.items():
+        first_run = cpuusage.last_run_processes.items()
+        for key, proc in first_run:
             assert isinstance(proc, syskit.Process)
         assert not cpuusage.last_run_percentages
         cpuusage.update()
         for key, proc in cpuusage.last_run_processes.items():
-            assert isinstance(proc, syskit.Process)
-            assert cpuusage.last_run_percentages.get(key) is not None
+            if key in [k for k, p in first_run]:
+                assert isinstance(proc, syskit.Process)
+                assert cpuusage.last_run_percentages.get(key) is not None
 
     def test_one_proc_cpu_calculation(self, cpuusage):
         proc = pytest.Mock()

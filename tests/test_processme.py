@@ -119,38 +119,11 @@ def test_get_ueid_reuse(kvstore, session, procent):  # pylint: disable=unused-ar
     assert ueid0 == ueid1
 
 
-def test_forget_entity(kvstore, session, procent):  # pylint: disable=unused-argument
-    procent.entityd_sessionstart(session)
-    # Insert a process into known_ueids
-    proc = syskit.Process(os.getpid())
-    ueid = procent.get_ueid(proc)
-    assert ueid in procent.known_ueids
-
-    # Check it is removed
-    entity = entityd.EntityUpdate('Process')
-    entity.attrs.set('pid', proc.pid, traits={'entity:id'})
-    entity.attrs.set('starttime',
-                     proc.start_time.timestamp(), traits={'entity:id'})
-    entity.attrs.set('host', str(procent.host_ueid), traits={'entity:id'})
-    procent.forget_entity(entity)
-    assert ueid not in procent.known_ueids
-
-
-def test_forget_non_existent_entity(procent):
-    # Should not raise an exception if a process is no longer there.
-    assert not procent.known_ueids
-    update = entityd.EntityUpdate('Process', ueid='a' * 32)
-    procent.forget_entity(update)
-    assert not procent.known_ueids
-
-
 def test_get_ueid(session, host_entity_plugin):  # pylint: disable=unused-argument
     procent = entityd.processme.ProcessEntity()
     procent.entityd_sessionstart(session)
     proc = syskit.Process(os.getpid())
-    assert not procent.known_ueids
     ueid = procent.get_ueid(proc)
-    assert ueid in procent.known_ueids
     ueid2 = next(procent.filtered_processes({'pid': os.getpid()})).ueid
     assert ueid == ueid2
     procent.entityd_sessionfinish()

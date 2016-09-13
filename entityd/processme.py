@@ -131,7 +131,6 @@ class ProcessEntity:
     def __init__(self):
         self.zmq_context = act.zkit.new_context()
         self.active_processes = {}
-        self.known_ueids = set()
         self.session = None
         self._host_ueid = None
         self.cpu_usage_thread = None
@@ -203,18 +202,7 @@ class ProcessEntity:
         entity.attrs.set('starttime', proc.start_time.timestamp(),
                          traits={'entity:id'})
         entity.attrs.set('host', str(self.host_ueid), traits={'entity:id'})
-        self.known_ueids.add(entity.ueid)
         return entity.ueid
-
-    def forget_entity(self, update):
-        """Remove the cached version of this Process Entity.
-
-        :param update: an entityd.EntityUpdate
-        """
-        try:
-            self.known_ueids.remove(update.ueid)
-        except KeyError:
-            pass
 
     def get_parents(self, proc, procs):
         """Get relations for a process.
@@ -430,5 +418,4 @@ class ProcessEntity:
             update.parents.add(parent)
         if proc.pid in containers:
             update.parents.add(containers[proc.pid])
-        self.known_ueids.add(update.ueid)
         return update

@@ -31,6 +31,7 @@ setuptools.setup(
         'kube >=0.8.0,<0.10.0',
         'python-cobe',
         'cobe-act',
+        'docker-py',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',

@@ -181,10 +181,10 @@ def test_root_process_has_host_parent(procent, session, kvstore, monkeypatch):  
     assert hostueid == hostupdate.ueid
 
 
-@pytest.yield_fixture
+@pytest.yield_fixture(scope='module')
 def container():
+    docker_client = docker.Client(base_url='unix://var/run/docker.sock')
     try:
-        docker_client = docker.Client(base_url='unix://var/run/docker.sock')
         container = docker_client.create_container(
             image='eu.gcr.io/cobesaas/debian:8.5',
             command='/bin/bash -c "while true; do sleep 1; done"',
@@ -195,8 +195,8 @@ def container():
     docker_client.start(container=container.get('Id'))
     container_top_pid = int(docker_client.top('sleeper')['Processes'][0][1])
     yield container_top_pid, container['Id']
-    docker_client.stop('sleeper')
-    docker_client.remove_container('sleeper')
+    docker_client.stop(container['Id'])
+    docker_client.remove_container(container['Id'])
 
 
 def test_find_single_container_parent(procent, session, container):
@@ -216,7 +216,7 @@ def test_find_single_container_parent(procent, session, container):
     assert count == 1
 
 
-def test_handle_no_docker_daemon_working_on_host(procent, session):
+def test_handle_no_docker_daemon_working_on_host(procent):
     entityd.processme.docker.Client.containers = pytest.Mock(
         side_effect=requests.ConnectionError
     )

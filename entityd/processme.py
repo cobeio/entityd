@@ -22,7 +22,7 @@ class ProcessEntity:
         self._host_ueid = None
         self._process_times = {}
         self._docker_client = docker.Client(
-            base_url='unix://var/run/docker.sock', timeout=0.001
+            base_url='unix://var/run/docker.sock', timeout=3
         )
 
     @staticmethod
@@ -132,7 +132,6 @@ class ProcessEntity:
         for proc in deleted.values():
             del self._process_times[proc]
         containers = self.identify_docker_containers()
-        # Active processes
         for proc in active.values():
             update = create_me(proc, containers)
             processed_ueids.add(update.ueid)

@@ -273,11 +273,9 @@ def pod_update(pod, update):
     apply_meta_update(pod.meta, update)
     update.attrs.set(
         'phase', pod.phase.value, traits={'kubernetes:pod-phase'})
-    update.attrs.set(
-        'start_time',
-        pod.start_time.strftime(RFC_3339_FORMAT),
-        traits={'chrono:rfc3339'},
-    )
+    update.attrs.set('start_time',
+                     pod.start_time.strftime(RFC_3339_FORMAT),
+                     traits={'chrono:rfc3339'})
     update.attrs.set('ip', str(pod.ip),
                      traits={'ipaddr:v{}'.format(pod.ip.version)})
     for attribute in ('message', 'reason'):

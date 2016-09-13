@@ -34,7 +34,7 @@ def test_entityd_configure(pm, config):
     plugin = pm.register(entityd.kubernetes)
     entityd.kubernetes.entityd_configure(config)
     assert set(config.entities.keys()) == set((
-        'Kubernetes:Container',
+        'Container',
         'Kubernetes:Pod',
         'Kubernetes:Namespace',
     ))
@@ -404,16 +404,18 @@ class TestContainers:
         cluster.pods.__iter__.return_value = iter([pod])
         cluster.pods.fetch.return_value = pod
         containers = list(
-            entityd.kubernetes.entityd_find_entity('Kubernetes:Container'))
+            entityd.kubernetes.entityd_find_entity('Container'))
         assert len(containers) == 1
-        assert containers[0].metype == 'Kubernetes:Container'
+        assert containers[0].metype == 'Container'
         assert containers[0].label == 'container-1'
         assert containers[0].attrs.get('id').value == (
             'docker://3a542701e9896f6a4e526cc69e6'
             '191b221cf29e1cabb43edf3b47fe5b33a7a59')
         assert containers[0].attrs.get('id').traits == {'entity:id'}
         assert containers[0].attrs.get('name').value == 'container-1'
-        assert containers[0].attrs.get('name').traits == {'entity:id'}
+        assert containers[0].attrs.get('name').traits == set()
+        assert containers[0].attrs.get('manager').value == 'Docker'
+        assert containers[0].attrs.get('manager').traits == set()
         assert containers[0].attrs.get('ready').value is True
         assert containers[0].attrs.get('ready').traits == set()
         assert containers[0].attrs.get('image:id').value == (
@@ -434,7 +436,7 @@ class TestContainers:
         cluster.pods.__iter__.return_value = iter([pod])
         cluster.pods.fetch.return_value = pod
         container = list(
-            entityd.kubernetes.entityd_find_entity('Kubernetes:Container'))[0]
+            entityd.kubernetes.entityd_find_entity('Container'))[0]
         assert container.attrs.get(
             'state:started-at').value == '2015-12-04T19:15:23Z'
         assert container.attrs.get(
@@ -457,7 +459,7 @@ class TestContainers:
         cluster.pods.__iter__.return_value = iter([pod])
         cluster.pods.fetch.return_value = pod
         container = list(
-            entityd.kubernetes.entityd_find_entity('Kubernetes:Container'))[0]
+            entityd.kubernetes.entityd_find_entity('Container'))[0]
         assert container.attrs.get('state:reason').value == 'FooBar'
         assert container.attrs.get('state:reason').traits == set()
         assert container.attrs.deleted() == {
@@ -483,7 +485,7 @@ class TestContainers:
         cluster.pods.__iter__.return_value = iter([pod])
         cluster.pods.fetch.return_value = pod
         container = list(
-            entityd.kubernetes.entityd_find_entity('Kubernetes:Container'))[0]
+            entityd.kubernetes.entityd_find_entity('Container'))[0]
         assert container.attrs.get(
             'state:started-at').value == '2015-12-04T19:15:23Z'
         assert container.attrs.get(
@@ -507,7 +509,7 @@ class TestContainers:
         cluster.pods.__iter__.return_value = iter([pod])
         cluster.namespaces.fetch.side_effect = LookupError
         containers = list(
-            entityd.kubernetes.entityd_find_entity('Kubernetes:Container'))
+            entityd.kubernetes.entityd_find_entity('Container'))
         assert not containers
 
     def test_missing_pod(self, cluster, raw_pod_resource):
@@ -516,7 +518,7 @@ class TestContainers:
         mock_namespace = cluster.namespaces.fetch.return_value
         mock_namespace.pods.fetch.side_effect = LookupError
         containers = list(
-            entityd.kubernetes.entityd_find_entity('Kubernetes:Container'))
+            entityd.kubernetes.entityd_find_entity('Container'))
         assert not containers
 
 

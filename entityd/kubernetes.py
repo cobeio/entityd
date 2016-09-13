@@ -20,7 +20,7 @@ log = logbook.Logger(__name__)
 RFC_3339_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 _LOGGED_K8S_UNREACHABLE = False
 ENTITIES_PROVIDED = {
-    'Kubernetes:Container': 'generate_containers',
+    'Container': 'generate_containers',
     'Kubernetes:Namespace': 'generate_namespaces',
     'Kubernetes:Pod': 'generate_pods',
 }
@@ -273,11 +273,9 @@ def pod_update(pod, update):
     apply_meta_update(pod.meta, update)
     update.attrs.set(
         'phase', pod.phase.value, traits={'kubernetes:pod-phase'})
-    update.attrs.set(
-        'start_time',
-        pod.start_time.strftime(RFC_3339_FORMAT),
-        traits={'chrono:rfc3339'},
-    )
+    update.attrs.set('start_time',
+                     pod.start_time.strftime(RFC_3339_FORMAT),
+                     traits={'chrono:rfc3339'})
     update.attrs.set('ip', str(pod.ip),
                      traits={'ipaddr:v{}'.format(pod.ip.version)})
     for attribute in ('message', 'reason'):
@@ -321,7 +319,8 @@ def container_update(container, update):
     """
     update.label = container.name
     update.attrs.set('id', container.id, traits={'entity:id'})
-    update.attrs.set('name', container.name, traits={'entity:id'})
+    update.attrs.set('name', container.name)
+    update.attrs.set('manager', 'Docker')
     update.attrs.set('ready', container.ready)
     update.attrs.set('image:id', container.image_id)
     update.attrs.set('image:name', container.image)

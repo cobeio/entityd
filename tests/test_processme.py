@@ -5,6 +5,8 @@ import time
 
 import act
 import cobe
+import docker
+import requests
 import pytest
 import syskit
 import zmq
@@ -184,6 +186,48 @@ def test_root_process_has_host_parent(procent, session, kvstore, monkeypatch):  
     assert hostueid == hostupdate.ueid
 
 
+@pytest.yield_fixture(scope='module')
+def container():
+    docker_client = docker.Client(base_url='unix://var/run/docker.sock')
+    try:
+        container = docker_client.create_container(
+            image='eu.gcr.io/cobesaas/debian:8.5',
+            command='/bin/bash -c "while true; do sleep 1; done"',
+            name='sleeper'
+        )
+    except requests.ConnectionError:
+        pytest.skip('Test not possible due to docker daemon not running.')
+    docker_client.start(container=container.get('Id'))
+    container_top_pid = int(docker_client.top('sleeper')['Processes'][0][1])
+    yield container_top_pid, container['Id']
+    docker_client.stop(container['Id'])
+    docker_client.remove_container(container['Id'])
+
+
+def test_find_single_container_parent(procent, session, container):
+    container_top_pid, container_id = container
+    update = entityd.EntityUpdate('Container')
+    update.attrs.set('id', container_id, traits={'entity:id'})
+    container_ueid = update.ueid
+    procent.entityd_sessionstart(session)
+    entities = procent.entityd_find_entity('Process', None)
+    count = 0
+    for entity in entities:
+        pid = entity.attrs.get('pid').value
+        parents = [ueid_obj for ueid_obj in list(entity.parents)]
+        if container_ueid in parents:
+            assert pid == container_top_pid
+            count += 1
+    assert count == 1
+
+
+def test_handle_no_docker_daemon_working_on_host(procent):
+    entityd.processme.docker.Client.containers = pytest.Mock(
+        side_effect=requests.ConnectionError
+    )
+    assert procent.identify_docker_containers() == {}
+
+
 @pytest.fixture
 def proctable():
     proc = syskit.Process(os.getpid())
@@ -324,13 +368,21 @@ def test_zombie_process(procent, session, kvstore, monkeypatch,  # pylint: disab
             assert entity.attrs.get(attr)
 
 
-def test_cpu_usage_attr_not_present(procent, session, kvstore):  # pylint: disable=unused-argument
+def test_cpu_usage_sock_not_present_one(procent, session, kvstore):  # pylint: disable=unused-argument
     procent.session = session
     entities = procent.entityd_find_entity('Process', {'pid': os.getpid()})
     entity = next(entities)
     # CPU usage only available after background thread has updated
     with pytest.raises(KeyError):
         _ = entity.attrs.get('cpu')
+
+
+def test_cpu_usage_sock_not_present_all(procent, session, kvstore):  # pylint: disable=unused-argument
+    procent.session = session
+    entities = procent.entityd_find_entity('Process', None)
+    for entity in entities:
+        with pytest.raises(KeyError):
+            _ = entity.attrs.get('cpu')
 
 
 def test_cpu_usage_attr_is_present(monkeypatch, procent, session, kvstore):  # pylint: disable=unused-argument
@@ -372,7 +424,7 @@ def test_cpu_usage_not_running_all(procent, session, kvstore, monkeypatch):  # p
                         pytest.Mock(return_value=cpuusage))
 
     procent.entityd_sessionstart(session)
-    entities = procent.entityd_find_entity('Process', {'pid': os.getpid()})
+    entities = procent.entityd_find_entity('Process', None)
     for entity in entities:
         with pytest.raises(KeyError):
             _ = entity.attrs.get('cpu')

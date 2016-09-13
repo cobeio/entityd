@@ -224,8 +224,9 @@ def test_entity_has_label(session, kvstore, endpoint_gen, local_socket):  # pyli
 
 
 def test_multiple_fds():
+    count = len(entityd.connections.Connections().retrieve('all', os.getpid()))
     s1 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     _ = socket.fromfd(s1.fileno(), socket.AF_INET, socket.SOCK_DGRAM)
     s1.bind(('127.0.0.1', 12345))
     conns = entityd.connections.Connections().retrieve('all', os.getpid())
-    assert len(conns) == 1
+    assert len(conns) == count + 1

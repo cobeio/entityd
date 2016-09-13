@@ -154,7 +154,7 @@ def test_get_ueid(session, host_entity_plugin):  # pylint: disable=unused-argume
 def test_get_parents_nohost_noparent(session, kvstore, procent):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
     proc = syskit.Process(os.getpid())
-    rels = procent.get_parents(proc.pid, {proc.pid: proc})
+    rels = procent.get_parents(proc, {proc.pid: proc})
     assert not rels
 
 
@@ -163,7 +163,7 @@ def test_get_parents_parent(procent, session, kvstore, host_entity_plugin):  # p
     host = list(host_entity_plugin.entityd_find_entity('Host', None))[0]
     proc = syskit.Process(os.getpid())
     pproc = syskit.Process(os.getppid())
-    rels = procent.get_parents(proc.pid, {proc.pid: proc, pproc.pid: pproc})
+    rels = procent.get_parents(proc, {proc.pid: proc, pproc.pid: pproc})
     assert len(rels) == 1
     assert rels[0] != host.ueid
     assert isinstance(rels[0], cobe.UEID)
@@ -177,7 +177,7 @@ def test_root_process_has_host_parent(procent, session, kvstore, monkeypatch):  
                         pytest.Mock(return_value=[[hostupdate]]))
     proc = syskit.Process(1)
     assert proc.ppid == 0
-    hostueid, = procent.get_parents(proc.pid, {proc.pid: proc})
+    hostueid, = procent.get_parents(proc, {proc.pid: proc})
     assert hostueid == hostupdate.ueid
 
 

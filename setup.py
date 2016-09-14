@@ -1,9 +1,20 @@
 """Distutils build script for entityd."""
 
+import io
+
 import setuptools
 
 
 __version__ = '0.13.0'
+
+
+def get_long_description():
+    """Generate a long description from the README file."""
+    descr = []
+    for fname in ('README.rst',):
+        with io.open(fname, encoding='utf-8') as file:
+            descr.append(file.read())
+    return '\n\n'.join(descr)
 
 
 setuptools.setup(
@@ -14,6 +25,7 @@ setuptools.setup(
     license='LGPLv3',
     url='https://bitbucket.org/cobeio/act',
     description=' Entity monitoring agent for cobe.io',
+    long_description=get_long_description(),
     packages=setuptools.find_packages(),
     entry_points={
         'console_scripts': [

@@ -16,7 +16,7 @@ import entityd.hostme
 def host_gen(monkeypatch):
     monkeypatch.setattr(entityd.hostme, "HostCpuUsage",
                         functools.partial(entityd.hostme.HostCpuUsage,
-                                          timer=0.1))
+                                          interval=0.1))
     host_gen = entityd.hostme.HostEntity()
     session = pytest.Mock()
     host_gen.entityd_sessionstart(session)
@@ -141,7 +141,7 @@ class TestHostCpuUsage:
 
     @pytest.fixture
     def cpuusage(self, context):
-        return entityd.hostme.HostCpuUsage(context, timer=0.1)
+        return entityd.hostme.HostCpuUsage(context, interval=0.1)
 
     def test_timer(self, monkeypatch, cpuusage):
         """Test the timer is firing, and triggers an update."""

@@ -20,6 +20,10 @@ class HostCpuUsage(threading.Thread):
     request and responds with  a list of tuples containing the required
     attribute values: (name, value, traits)
 
+    :param Context context: The ZMQ context to use
+    :param str endpoint: The ZMQ endpoint to listen for requests on
+    :param int interval: The period in seconds to wait between refreshes
+
     :ivar last_cpu_times: Last cpu times reported from syskit
     :ivar last_attributes: The last entity attributes constructed
     """

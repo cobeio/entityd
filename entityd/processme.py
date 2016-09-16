@@ -20,6 +20,11 @@ class CpuUsage(threading.Thread):
     and returning the percentage cpu time calculated most recently
     for the given pid, or all known processes.
 
+    :param Context context: The ZMQ context to use
+    :param str endpoint: The ZMQ endpoint to listen for requests on
+    :param int interval: The period in seconds to wait between refreshes
+
+
     :ivar last_run_process: A map of {pid->syskit.Process} from the
        last update.
     :ivar last_run_percentages: A map of {pid->float} percentage values.

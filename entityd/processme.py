@@ -237,13 +237,16 @@ class ProcessEntity:
         Special case for 'pid' since this should be efficient.
         """
         if 'pid' in attrs and len(attrs) == 1:
-            containers = self.identify_docker_containers()
+            prim_proc_containers = self.get_primary_process_containers()
+            all_proc_containers = self.get_all_process_containers()
             try:
                 proc = syskit.Process(attrs['pid'])
             except syskit.NoSuchProcessError:
                 return
-            entity = self.create_process_me(self.active_processes, proc,
-                                            containers)
+            entity = self.create_process_me(self.active_processes,
+                                            proc,
+                                            prim_proc_containers,
+                                            all_proc_containers)
             cpupc = self.get_cpu_percentage(proc)
             if cpupc:
                 entity.attrs.set('cpu', cpupc,

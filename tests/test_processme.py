@@ -343,13 +343,13 @@ def test_specific_parent_deleted(procent, session, kvstore, monkeypatch):  # pyl
     procent.entityd_sessionstart(session)
     proc = syskit.Process(os.getpid())
 
-    def patch_syskit(arg):  # pylint: disable=unused-argument
+    def patch_syskit():  # pylint: disable=unused-argument
         monkeypatch.setattr(syskit, 'Process',
                             pytest.Mock(side_effect=syskit.NoSuchProcessError))
         return proc
 
     monkeypatch.setattr(syskit, 'Process', pytest.Mock(
-        side_effect=patch_syskit))
+        return_value=patch_syskit()))
     monkeypatch.setattr(syskit.Process, 'enumerate',
                         pytest.Mock(return_value=[os.getpid()]))
 

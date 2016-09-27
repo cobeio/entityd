@@ -53,6 +53,19 @@ def test_get_entities(mock_mysql):
     assert entity.attrs.get('process_id').value == 123
 
 
+def test_mysql_process_but_no_files(monkeypatch, mock_mysql, loghandler):
+    # This covers situation of entityd running in container
+    def config_path_mock(self):  # pylint: disable=unused-argument
+        raise entityd.mysqlme.MySQLNotFoundError()
+    monkeypatch.setattr(entityd.mysqlme.MySQL,
+                        'config_path', config_path_mock)
+    entities = mock_mysql.entityd_find_entity(
+        name='MySQL', attrs=None, include_ondemand=True)
+    entities = list(entities)
+    assert len(entities) == 0
+    assert loghandler.has_warning()
+
+
 def test_multiple_processes(monkeypatch, procent, mock_mysql):
     p1 = entityd.EntityUpdate('Process')
     p1.attrs.set('pid', 123)

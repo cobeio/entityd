@@ -5,8 +5,8 @@ import time
 import cobe
 import docker
 import requests
-import syskit
 import pytest
+import syskit
 
 import entityd.hookspec
 import entityd.hostme
@@ -57,7 +57,11 @@ def test_entity_attrs(procent, session, kvstore):  # pylint: disable=unused-argu
         for attr in 'binary pid starttime ppid host cputime utime stime vsz ' \
                     'rss uid suid euid username command gid sgid egid ' \
                     'sessionid'.split():
-            assert entity.attrs.get(attr)
+            try:
+                assert entity.attrs.get(attr)
+            except KeyError:
+                assert attr == 'host'
+                assert entity.attrs.get('container_id')
             if attr in ['cputime']:
                 assert entity.attrs.get(attr).traits == {
                     'metric:counter', 'time:duration', 'unit:seconds'}
@@ -188,39 +192,83 @@ def container():
         container = docker_client.create_container(
             image='eu.gcr.io/cobesaas/debian:8.5',
             command='/bin/bash -c "while true; do sleep 1; done"',
-            name='sleeper'
         )
     except requests.ConnectionError:
         pytest.skip('Test not possible due to docker daemon not running.')
     docker_client.start(container=container.get('Id'))
-    container_top_pid = int(docker_client.top('sleeper')['Processes'][0][1])
+    container_top_pid = int(docker_client.top(container)['Processes'][0][1])
     yield container_top_pid, container['Id']
     docker_client.stop(container['Id'])
     docker_client.remove_container(container['Id'])
 
 
-def test_find_single_container_parent(procent, session, container):
+@pytest.fixture
+def container_entities(procent, session, container):
     container_top_pid, container_id = container
     update = entityd.EntityUpdate('Container')
-    update.attrs.set('id', container_id, traits={'entity:id'})
+    update.attrs.set('id', 'docker://' + container_id, traits={'entity:id'})
     container_ueid = update.ueid
     procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', None)
+    return entities, container_ueid, container_id, container_top_pid
+
+
+def test_find_single_container_parent(container_entities):
+    entities, container_ueid, _, contr_top_pid = container_entities
     count = 0
     for entity in entities:
         pid = entity.attrs.get('pid').value
         parents = [ueid_obj for ueid_obj in list(entity.parents)]
         if container_ueid in parents:
-            assert pid == container_top_pid
+            assert pid == contr_top_pid
             count += 1
     assert count == 1
 
 
-def test_handle_no_docker_daemon_working_on_host(procent):
-    entityd.processme.docker.Client.containers = pytest.Mock(
-        side_effect=requests.ConnectionError
-    )
-    assert procent.identify_docker_containers() == {}
+def test_set_entity_attribute_either_host_or_container_id(container_entities):
+    entities, container_ueid, container_id, _ = container_entities
+    for entity in entities:
+        if entity.attrs.get('pid').value == 1:
+            assert entity.attrs.get('host').value
+            assert entity.attrs.get('host').traits == {
+                'entity:id', 'entity:ueid'}
+            try:
+                entity.attrs.get('container_id').value
+            except KeyError:
+                assert True
+            else:
+                assert False
+        parents = [ueid_obj for ueid_obj in list(entity.parents)]
+        if container_ueid in parents:
+            assert entity.attrs.get('container_id').value == container_id
+            assert entity.attrs.get('container_id').traits == {'entity:id'}
+            try:
+                entity.attrs.get('host').value
+            except KeyError:
+                assert True
+            else:
+                assert False
+
+
+def test_no_possible_username_possible(monkeypatch, container_entities):
+    entities, _, _, _ = container_entities
+    @property
+    def syskit_error(self):  # pylint: disable=unused-argument
+        raise syskit.AttrNotAvailableError
+    monkeypatch.setattr(syskit.Process, 'user', syskit_error)
+    for entity in entities:
+        try:
+            entity.attrs.get('username')
+        except KeyError:
+            assert True
+        else:
+            assert False
+
+
+def test_handle_no_docker_daemon_working_on_host(monkeypatch, procent):
+    monkeypatch.setattr(entityd.processme.docker.Client, 'containers',
+                        pytest.Mock(side_effect=requests.ConnectionError))
+    assert procent.get_primary_process_containers() == {}
 
 
 @pytest.fixture

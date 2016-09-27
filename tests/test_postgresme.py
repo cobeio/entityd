@@ -61,6 +61,20 @@ def test_get_entities_ondemand_no_files(mock_postgres):
     assert entities[0].metype == 'PostgreSQL'
 
 
+def test_postgresql_process_but_no_files(monkeypatch,
+                                         mock_postgres, loghandler):
+    # This covers situation of entityd running in container
+    def config_path_mock(self):  # pylint: disable=unused-argument
+        raise entityd.postgresme.PostgreSQLNotFoundError()
+    monkeypatch.setattr(entityd.postgresme.PostgreSQL,
+                        'config_path', config_path_mock)
+    entities = mock_postgres.entityd_find_entity(
+        name='PostgreSQL', attrs=None, include_ondemand=True)
+    entities = list(entities)
+    assert len(entities) == 0
+    assert loghandler.has_warning()
+
+
 def test_multiple_processes(monkeypatch, procent, mock_postgres):
     p1 = entityd.EntityUpdate('Process')
     p1.attrs.set('pid', 123)

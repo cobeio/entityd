@@ -5,8 +5,8 @@ import time
 
 import docker
 import requests
-import syskit
 
+import syskit
 import entityd.pm
 
 
@@ -22,8 +22,7 @@ class ProcessEntity:
         self._host_ueid = None
         self._process_times = {}
         self._docker_client = docker.Client(
-            base_url='unix://var/run/docker.sock', timeout=3
-        )
+            base_url='unix://var/run/docker.sock', timeout=3, version='auto')
 
     @staticmethod
     @entityd.pm.hookimpl
@@ -131,12 +130,31 @@ class ProcessEntity:
         processed_ueids = set()
         for proc in deleted.values():
             del self._process_times[proc]
-        containers = self.identify_docker_containers()
+        prim_proc_containers = self.get_primary_process_containers()
+        all_proc_containers = self.get_all_process_containers()
         for proc in active.values():
-            update = create_me(proc, containers)
+            update = create_me(proc,
+                               prim_proc_containers, all_proc_containers)
             processed_ueids.add(update.ueid)
             yield update
         self.active_processes = active
+
+    def get_all_process_containers(self):
+        """Obtain the container IDs for all processes running in containers.
+
+        Returns: A dict of the process PIDs to docker container IDs of format:
+
+            {<process pid>: <container ID>, ...}.
+
+        """
+        containers = {}
+        for container in self._docker_client.containers():
+            container_id = container['Id']
+            processes = self._docker_client.top(container_id)
+            pid_index = processes['Titles'].index('PID')
+            for process in processes['Processes']:
+                containers[int(process[pid_index])] = container_id
+        return containers
 
     @staticmethod
     def get_container_ueid(container_id):
@@ -147,11 +165,12 @@ class ProcessEntity:
         :returns: A :class:`cobe.UEID` for the container.
         """
         update = entityd.EntityUpdate('Container')
-        update.attrs.set('id', container_id, traits={'entity:id'})
+        update.attrs.set(
+            'id', 'docker://' + container_id, traits={'entity:id'})
         return update.ueid
 
-    def identify_docker_containers(self):
-        """Identify the host's containers and their primary process pids.
+    def get_primary_process_containers(self):
+        """Identify host's docker containers and their primary process pids.
 
         The exception handling handles the docker client making no connection
         if the docker daemon isn't available on the host.
@@ -223,18 +242,32 @@ class ProcessEntity:
         self._process_times[proc] = proc
         return percent_cpu_usage
 
-    def create_process_me(self, proctable, proc, containers):
+    def create_process_me(self, proctable, proc,
+                          prim_proc_containers, all_proc_containers):
         """Create a new Process ME structure for the process.
 
         If the process is the primary process of a container that is running
         on the host, then the container's ueid is added as a parent.
 
+        If the process is running in a container, then its UEID is formed
+        from: its PID, container ID and start time.
+
+        If the process is NOT running in a container, then its UEID is formed
+        from: its PID, host UEID and start time.
+
+        In the present state of entityd development, multiple instances of
+        entityd should not be run on a host if they run in different
+        non-container/container environments, to avoid multiple entities
+        representing the same process. This is due to PID and host
+        attributes being derived from each entityd's environment.
+
         :param proctable: Dict of pid -> syskit.Process instances for
            all processes on the host.
         :param proc: syskit.Process instance.
-        :param containers: Dict of container primary process PIDs to
+        :param prim_proc_containers: Dict of container primary process PIDs to
            docker container UEIDs.
-
+        :param all_proc_containers: Dict of all the PIDs of processes
+           running in containers to docker container IDs.
         """
         update = entityd.EntityUpdate('Process')
         update.label = proc.name
@@ -243,8 +276,13 @@ class ProcessEntity:
         update.attrs.set('starttime', proc.start_time.timestamp(),
                          traits={'entity:id', 'time:posix', 'unit:seconds'})
         update.attrs.set('ppid', proc.ppid)
-        update.attrs.set('host', str(self.host_ueid),
-                         traits={'entity:id', 'entity:ueid'})
+        if proc.pid in all_proc_containers:
+            update.attrs.set('container_id',
+                             all_proc_containers[proc.pid],
+                             traits={'entity:id'})
+        else:
+            update.attrs.set('host', str(self.host_ueid),
+                             traits={'entity:id', 'entity:ueid'})
         update.attrs.set('cputime', float(proc.cputime),
                          traits={'metric:counter',
                                  'time:duration', 'unit:seconds'})
@@ -263,7 +301,10 @@ class ProcessEntity:
         update.attrs.set('uid', proc.ruid)
         update.attrs.set('euid', proc.euid)
         update.attrs.set('suid', proc.suid)
-        update.attrs.set('username', proc.user)
+        try:
+            update.attrs.set('username', proc.user)
+        except syskit.AttrNotAvailableError:
+            pass
         update.attrs.set('gid', proc.rgid)
         update.attrs.set('egid', proc.egid)
         update.attrs.set('sgid', proc.sgid)
@@ -278,7 +319,7 @@ class ProcessEntity:
             pass
         for parent in self.get_parents(proc.pid, proctable):
             update.parents.add(parent)
-        if proc.pid in containers:
-            update.parents.add(containers[proc.pid])
+        if proc.pid in prim_proc_containers:
+            update.parents.add(prim_proc_containers[proc.pid])
         self.known_ueids.add(update.ueid)
         return update

@@ -1,6 +1,5 @@
 """Distutils build script for entityd."""
 
-import io
 
 import setuptools
 
@@ -11,9 +10,8 @@ __version__ = '0.13.0'
 def get_long_description():
     """Generate a long description from the README file."""
     descr = []
-    for fname in ('README.rst',):
-        with io.open(fname, encoding='utf-8') as file:
-            descr.append(file.read())
+    with open('README.rst') as file:
+        descr.append(file.read())
     return '\n\n'.join(descr)
 
 

@@ -14,8 +14,13 @@ import itertools
 import os
 import shlex
 
+import logbook
+
 import entityd.pm
 
+
+
+log = logbook.Logger(__name__)
 
 class MySQLEntity:
     """Monitor for MySQL instances."""
@@ -69,8 +74,12 @@ class MySQLEntity:
             update = entityd.EntityUpdate('MySQL')
             update.attrs.set('host', str(self.host_ueid),
                              traits={'entity:id', 'entity:ueid'})
-            update.attrs.set('config_path',
-                             mysql.config_path(), traits={'entity:id'})
+            try:
+                update.attrs.set('config_path',
+                                 mysql.config_path(), traits={'entity:id'})
+            except MySQLNotFoundError:
+                log.warning('Could not find config path for MySQL.')
+                return
             update.attrs.set('process_id', proc.attrs.get('pid').value)
             if include_ondemand:
                 files = list(itertools.chain.from_iterable(

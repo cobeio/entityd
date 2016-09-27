@@ -4,7 +4,6 @@ This plugin implements the sending of Monitored Entities to the modeld
 destination.
 
 """
-
 import act
 import logbook
 import msgpack

@@ -90,11 +90,12 @@ def fileme(pm, session, host_entity_plugin):  # pylint: disable=unused-argument
 
 
 @pytest.fixture
-def procent(pm, session, host_entity_plugin):  # pylint: disable=unused-argument
+def procent(request, pm, session, host_entity_plugin):  # pylint: disable=unused-argument
     procent = entityd.processme.ProcessEntity()
     pm.register(procent,
                 name='entityd.processme')
     procent.entityd_sessionstart(session)
+    request.addfinalizer(procent.entityd_sessionfinish)
     return procent
 
 
@@ -113,7 +114,7 @@ def entitygen(pm, session, host_entity_plugin):  # pylint: disable=unused-argume
 
 
 @pytest.fixture
-def patched_entitygen(monkeypatch, pm, session, host_entity_plugin):  # pylint: disable=unused-argument
+def patched_entitygen(request, monkeypatch, pm, session, host_entity_plugin):  # pylint: disable=unused-argument
     """A entityd.apacheme.ApacheEntity instance.
 
     The plugin will be registered with the PluginManager but no hooks
@@ -129,6 +130,7 @@ def patched_entitygen(monkeypatch, pm, session, host_entity_plugin):  # pylint: 
     procgen = entityd.processme.ProcessEntity()
     pm.register(procgen, 'entityd.processme.ProcessEntity')
     procgen.entityd_sessionstart(session)
+    request.addfinalizer(procgen.entityd_sessionfinish)
     mock_apache_process = entityd.EntityUpdate('Process')
     mock_apache_process.attrs.set('pid', 123, traits={'entity:id'})
     mock_apache_process.attrs.set('ppid', 1, traits={'entity:id'})
@@ -210,11 +212,12 @@ def test_configure(entitygen, config):
 
 @running_apache
 @apachectl
-def test_find_entity(entitygen):
+def test_find_entity(request, entitygen):
     procgen = entityd.processme.ProcessEntity()
     entitygen.session.pluginmanager.register(procgen,
                                              'entityd.processme.ProcessEntity')
     procgen.entityd_sessionstart(entitygen.session)
+    request.addfinalizer(procgen.entityd_sessionfinish)
     entities = entitygen.entityd_find_entity('Apache', None)
     count = 0
     for entity in entities:
@@ -371,7 +374,7 @@ def test_relations(monkeypatch, tmpdir, pm, session, kvstore,  # pylint: disable
     assert entity.parents._relations == set(host.ueid for host in hosts)
 
 
-def test_config_file_returned_separately(pm, session, kvstore, procent,  # pylint: disable=unused-argument
+def test_config_file_returned_separately(pm, session, kvstore,  # pylint: disable=unused-argument
                                          patched_entitygen, fileme, tmpdir,
                                          monkeypatch):
     gen = patched_entitygen

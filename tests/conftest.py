@@ -61,12 +61,14 @@ def kvstore(session):
     return kvstore
 
 
-@pytest.fixture
+@pytest.yield_fixture
 def host_entity_plugin(pm, session, kvstore):  # pylint: disable=unused-argument
     host_plugin = entityd.hostme.HostEntity()
     host_plugin.session = session
     pm.register(host_plugin, 'entityd.hostme.HostEntity')
-    return host_plugin
+    host_plugin.entityd_sessionstart(session)
+    yield host_plugin
+    host_plugin.entityd_sessionfinish()
 
 
 class HookRecorder:

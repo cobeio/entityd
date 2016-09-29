@@ -141,8 +141,12 @@ class ProcessEntity:
         self._host_ueid = None
         self.cpu_usage_thread = None
         self.cpu_usage_sock = None
-        self._docker_client = docker.Client(
-            base_url='unix://var/run/docker.sock', timeout=3, version='auto')
+        try:
+            self._docker_client = docker.Client(
+                base_url='unix://var/run/docker.sock',
+                timeout=3, version='auto')
+        except docker.errors.DockerException:
+            self._docker_client = None
 
     @staticmethod
     @entityd.pm.hookimpl
@@ -290,6 +294,8 @@ class ProcessEntity:
             {<process pid>: <container ID>, ...}.
 
         """
+        if not self._docker_client:
+            return {}
         containers = {}
         for container in self._docker_client.containers():
             container_id = container['Id']
@@ -324,6 +330,8 @@ class ProcessEntity:
             {<primary process pid>: <container UEID>, ...}.
 
         """
+        if not self._docker_client:
+            return {}
         containers = {}
         try:
             for container in self._docker_client.containers():

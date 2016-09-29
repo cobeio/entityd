@@ -34,6 +34,17 @@ def procent(request, pm, host_entity_plugin):  # pylint: disable=unused-argument
     return procent
 
 
+@pytest.fixture
+def procent_no_docker(monkeypatch, request, pm, host_entity_plugin):  # pylint: disable=unused-argument
+    # A entityd.processme.ProcessEntity instance with no docker client.
+    monkeypatch.setattr(docker, 'Client', pytest.Mock(
+        side_effect=docker.errors.DockerException))
+    procent = entityd.processme.ProcessEntity()
+    pm.register(procent, 'entityd.processme.ProcessEntity')
+    request.addfinalizer(procent.entityd_sessionfinish)
+    return procent
+
+
 def test_configure(procent, config):
     procent.entityd_configure(config)
     assert config.entities['Process'].obj is procent
@@ -50,9 +61,52 @@ def test_find_entity(procent, session, kvstore):  # pylint: disable=unused-argum
     assert count
 
 
-def test_entity_attrs(procent, session, kvstore):  # pylint: disable=unused-argument
+def test_entity_attrs_with_containers(container, procent, session, kvstore): # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', None)
+    count_cont = count_nocont = 0
+    def attr_included(entity, attr):
+        try:
+            entity.attrs.get(attr)
+        except KeyError:
+            return False
+        return True
+    for entity in entities:
+        assert entity.metype == 'Process'
+        if not entity.exists:
+            continue
+        for attr in 'binary pid starttime ppid host cputime utime stime vsz ' \
+                    'rss uid suid euid username command gid sgid egid ' \
+                    'sessionid container_id'.split():
+            try:
+                assert entity.attrs.get(attr)
+            except KeyError:
+                if attr == 'container_id':
+                    assert attr_included(entity, 'host')
+                elif attr == 'host':
+                    assert attr_included(entity, 'container_id')
+                else:
+                    assert False
+            else:
+                if attr == 'host':
+                    assert not attr_included(entity, 'container_id')
+                    count_nocont += 1
+                elif attr == 'container_id':
+                    assert not attr_included(entity, 'host')
+                    count_cont += 1
+            if attr in ['cputime']:
+                assert entity.attrs.get(attr).traits == {
+                    'metric:counter', 'time:duration', 'unit:seconds'}
+            if attr in ['vsz', 'rss']:
+                assert entity.attrs.get(attr).traits == {
+                    'metric:gauge', 'unit:bytes'}
+    assert count_cont
+    assert count_nocont
+
+
+def test_entity_attrs_no_containers(procent_no_docker, session, kvstore): # pylint: disable=unused-argument
+    procent_no_docker.entityd_sessionstart(session)
+    entities = procent_no_docker.entityd_find_entity('Process', None)
     count = 0
     for entity in entities:
         assert entity.metype == 'Process'
@@ -60,19 +114,18 @@ def test_entity_attrs(procent, session, kvstore):  # pylint: disable=unused-argu
             continue
         for attr in 'binary pid starttime ppid host cputime utime stime vsz ' \
                     'rss uid suid euid username command gid sgid egid ' \
-                    'sessionid'.split():
+                    'sessionid container_id'.split():
             try:
                 assert entity.attrs.get(attr)
+                assert attr != 'container_id'
             except KeyError:
-                assert attr == 'host'
-                assert entity.attrs.get('container_id')
+                assert attr == 'container_id'
             if attr in ['cputime']:
                 assert entity.attrs.get(attr).traits == {
                     'metric:counter', 'time:duration', 'unit:seconds'}
             if attr in ['vsz', 'rss']:
                 assert entity.attrs.get(attr).traits == {
                     'metric:gauge', 'unit:bytes'}
-
         count += 1
     assert count
 

@@ -35,10 +35,12 @@ def entityd_main(pluginmanager, argv):
         logbook.compat.redirect_logging()
         pluginmanager.hooks.entityd_configure(config=config)
         session = Session(pluginmanager, config)
-        pluginmanager.hooks.entityd_sessionstart(session=session)
-        pluginmanager.hooks.entityd_mainloop(session=session)
-        pluginmanager.hooks.entityd_sessionfinish(session=session)
-        pluginmanager.hooks.entityd_unconfigure(config=config)
+        try:
+            pluginmanager.hooks.entityd_sessionstart(session=session)
+            pluginmanager.hooks.entityd_mainloop(session=session)
+        finally:
+            pluginmanager.hooks.entityd_sessionfinish(session=session)
+            pluginmanager.hooks.entityd_unconfigure(config=config)
     return 0
 
 

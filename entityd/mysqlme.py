@@ -28,6 +28,7 @@ class MySQLEntity:
     def __init__(self):
         self.session = None
         self._host_ueid = None
+        self._log_flag = False
 
     @staticmethod
     @entityd.pm.hookimpl
@@ -78,7 +79,9 @@ class MySQLEntity:
                 update.attrs.set('config_path',
                                  mysql.config_path(), traits={'entity:id'})
             except MySQLNotFoundError:
-                log.warning('Could not find config path for MySQL.')
+                if not self._log_flag:
+                    log.warning('Could not find config path for MySQL.')
+                    self._log_flag = True
                 return
             update.attrs.set('process_id', proc.attrs.get('pid').value)
             if include_ondemand:

@@ -77,21 +77,21 @@ def test_entity_attrs_with_containers(container, procent, session, kvstore): # p
             continue
         for attr in 'binary pid starttime ppid host cputime utime stime vsz ' \
                     'rss uid suid euid username command gid sgid egid ' \
-                    'sessionid container_id'.split():
+                    'sessionid container-id'.split():
             try:
                 assert entity.attrs.get(attr)
             except KeyError:
-                if attr == 'container_id':
+                if attr == 'container-id':
                     assert attr_included(entity, 'host')
                 elif attr == 'host':
-                    assert attr_included(entity, 'container_id')
+                    assert attr_included(entity, 'container-id')
                 else:
                     assert False
             else:
                 if attr == 'host':
-                    assert not attr_included(entity, 'container_id')
+                    assert not attr_included(entity, 'container-id')
                     count_nocont += 1
-                elif attr == 'container_id':
+                elif attr == 'container-id':
                     assert not attr_included(entity, 'host')
                     count_cont += 1
             if attr in ['cputime']:
@@ -114,12 +114,12 @@ def test_entity_attrs_no_containers(procent_no_docker, session, kvstore): # pyli
             continue
         for attr in 'binary pid starttime ppid host cputime utime stime vsz ' \
                     'rss uid suid euid username command gid sgid egid ' \
-                    'sessionid container_id'.split():
+                    'sessionid container-id'.split():
             try:
                 assert entity.attrs.get(attr)
-                assert attr != 'container_id'
+                assert attr != 'container-id'
             except KeyError:
-                assert attr == 'container_id'
+                assert attr == 'container-id'
             if attr in ['cputime']:
                 assert entity.attrs.get(attr).traits == {
                     'metric:counter', 'time:duration', 'unit:seconds'}
@@ -264,15 +264,15 @@ def test_set_entity_attribute_either_host_or_container_id(container_entities):
             assert entity.attrs.get('host').traits == {
                 'entity:id', 'entity:ueid'}
             try:
-                entity.attrs.get('container_id').value
+                entity.attrs.get('container-id').value
             except KeyError:
                 assert True
             else:
                 assert False
         parents = [ueid_obj for ueid_obj in list(entity.parents)]
         if container_ueid in parents:
-            assert entity.attrs.get('container_id').value == container_id
-            assert entity.attrs.get('container_id').traits == {'entity:id'}
+            assert entity.attrs.get('container-id').value == container_id
+            assert entity.attrs.get('container-id').traits == {'entity:id'}
             try:
                 entity.attrs.get('host').value
             except KeyError:

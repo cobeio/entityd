@@ -62,18 +62,36 @@ def test_get_entities_ondemand_no_files(mock_postgres):
     assert entities[0].metype == 'PostgreSQL'
 
 
-def test_postgresql_process_but_no_files(monkeypatch,
-                                         mock_postgres, loghandler):
+def test_postgresql_process_but_no_files_with_log(monkeypatch,
+                                                  mock_postgres, loghandler):
     # This covers situation of entityd running in container
     def config_path_mock(self):  # pylint: disable=unused-argument
         raise entityd.postgresme.PostgreSQLNotFoundError()
     monkeypatch.setattr(entityd.postgresme.PostgreSQL,
                         'config_path', config_path_mock)
+    assert mock_postgres._log_flag is False
     entities = mock_postgres.entityd_find_entity(
         name='PostgreSQL', attrs=None, include_ondemand=True)
     entities = list(entities)
     assert len(entities) == 0
     assert loghandler.has_warning()
+    assert mock_postgres._log_flag is True
+
+
+def test_postgresql_process_but_no_files_no_log(monkeypatch,
+                                                mock_postgres, loghandler):
+    # This covers situation of entityd running in container
+    def config_path_mock(self):  # pylint: disable=unused-argument
+        raise entityd.postgresme.PostgreSQLNotFoundError()
+    monkeypatch.setattr(entityd.postgresme.PostgreSQL,
+                        'config_path', config_path_mock)
+    mock_postgres._log_flag = True
+    entities = mock_postgres.entityd_find_entity(
+        name='PostgreSQL', attrs=None, include_ondemand=True)
+    entities = list(entities)
+    assert len(entities) == 0
+    assert not loghandler.has_warning()
+    assert mock_postgres._log_flag is True
 
 
 def test_multiple_processes(monkeypatch, procent, mock_postgres):

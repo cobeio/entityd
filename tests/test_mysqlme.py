@@ -54,17 +54,35 @@ def test_get_entities(mock_mysql):
     assert entity.attrs.get('process_id').value == 123
 
 
-def test_mysql_process_but_no_files(monkeypatch, mock_mysql, loghandler):
+def test_mysql_process_but_no_files_with_log(monkeypatch,
+                                             mock_mysql, loghandler):
     # This covers situation of entityd running in container
     def config_path_mock(self):  # pylint: disable=unused-argument
         raise entityd.mysqlme.MySQLNotFoundError()
     monkeypatch.setattr(entityd.mysqlme.MySQL,
                         'config_path', config_path_mock)
+    assert mock_mysql._log_flag is False
     entities = mock_mysql.entityd_find_entity(
         name='MySQL', attrs=None, include_ondemand=True)
     entities = list(entities)
     assert len(entities) == 0
     assert loghandler.has_warning()
+    assert mock_mysql._log_flag is True
+
+
+def test_mysql_process_but_no_files_no_log(monkeypatch,
+                                           mock_mysql, loghandler):
+    def config_path_mock(self):  # pylint: disable=unused-argument
+        raise entityd.mysqlme.MySQLNotFoundError()
+    monkeypatch.setattr(entityd.mysqlme.MySQL,
+                        'config_path', config_path_mock)
+    mock_mysql._log_flag = True
+    entities = mock_mysql.entityd_find_entity(
+        name='MySQL', attrs=None, include_ondemand=True)
+    entities = list(entities)
+    assert len(entities) == 0
+    assert not loghandler.has_warning()
+    assert mock_mysql._log_flag is True
 
 
 def test_multiple_processes(monkeypatch, procent, mock_mysql):

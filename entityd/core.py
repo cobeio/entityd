@@ -11,6 +11,7 @@ then runs the application by calling this hook.
 """
 
 import argparse
+import contextlib
 import threading
 import types
 
@@ -33,14 +34,14 @@ def entityd_main(pluginmanager, argv):
     log_handler = act.log.setup_logbook(config.args.log_level)
     with log_handler.applicationbound():
         logbook.compat.redirect_logging()
-        pluginmanager.hooks.entityd_configure(config=config)
-        session = Session(pluginmanager, config)
-        try:
+        with contextlib.ExitStack() as stack:
+            stack.callback(pluginmanager.hooks.entityd_unconfigure)
+            pluginmanager.hooks.entityd_configure(config=config)
+            session = Session(pluginmanager, config)
+            stack.callback(pluginmanager.hooks.entityd_sessionfinish,
+                           session=session)
             pluginmanager.hooks.entityd_sessionstart(session=session)
             pluginmanager.hooks.entityd_mainloop(session=session)
-        finally:
-            pluginmanager.hooks.entityd_sessionfinish(session=session)
-            pluginmanager.hooks.entityd_unconfigure(config=config)
     return 0
 
 

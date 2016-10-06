@@ -42,6 +42,37 @@ def test_entityd_main(pm, hookrec):
     calls = dict(hookrec.calls)
     assert calls['entityd_configure'] == {'config': config}
     assert isinstance(calls['entityd_sessionstart']['session'], core.Session)
+    assert (calls['entityd_sessionstart']['session'] ==
+            calls['entityd_sessionfinish']['session'])
+
+
+def test_entityd_exception_in_hooks(pm, hookrec):
+    config = pytest.Mock()
+    config.args.log_level = logbook.INFO
+
+    class FooPlugin:
+        entityd_main = core.entityd_main
+
+        @staticmethod
+        @entityd.pm.hookimpl
+        def entityd_cmdline_parse(pluginmanager, argv):  # pylint: disable=unused-argument
+            return config
+
+    pm.register(FooPlugin)
+    ret = pm.hooks.entityd_main(pluginmanager=pm, argv=[])
+    assert ret == 0
+    assert [c[0] for c in hookrec.calls] == ['entityd_main',
+                                             'entityd_cmdline_parse',
+                                             'entityd_configure',
+                                             'entityd_sessionstart',
+                                             'entityd_mainloop',
+                                             'entityd_sessionfinish',
+                                             'entityd_unconfigure']
+    calls = dict(hookrec.calls)
+    assert calls['entityd_configure'] == {'config': config}
+    assert isinstance(calls['entityd_sessionstart']['session'], core.Session)
+    assert (calls['entityd_sessionstart']['session'] ==
+            calls['entityd_sessionfinish']['session'])
 
 
 def test_entityd_cmdline_parse(pm, hookrec):

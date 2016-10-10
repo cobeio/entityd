@@ -1,3 +1,4 @@
+import collections
 import functools
 import os
 import subprocess
@@ -20,6 +21,14 @@ import entityd.core
 import entityd.kvstore
 
 
+
+container_ents = collections.namedtuple(
+    'container_ents', ['entities',
+                       'container_ueid',
+                       'container_id',
+                       'container_top_pid'])
+
+
 @pytest.fixture
 def procent(request, pm, host_entity_plugin):  # pylint: disable=unused-argument
     """A entityd.processme.ProcessEntity instance.
@@ -34,15 +43,58 @@ def procent(request, pm, host_entity_plugin):  # pylint: disable=unused-argument
     return procent
 
 
+@pytest.yield_fixture(scope='module')
+def container():
+    """Run a container."""
+    docker_client = docker.Client(base_url='unix://var/run/docker.sock')
+    try:
+        container = docker_client.create_container(
+            image='eu.gcr.io/cobesaas/debian:8.5',
+            command='/bin/bash -c "while true; do sleep 1; done"',
+            name='sleeper',
+        )
+    except requests.ConnectionError:
+        pytest.skip('Test not possible due to docker daemon not running.')
+    docker_client.start(container=container.get('Id'))
+    container_top_pid = int(docker_client.top(container)['Processes'][0][1])
+    yield container_top_pid, container['Id']
+    docker_client.stop(container['Id'])
+    docker_client.remove_container(container['Id'])
+
+
 @pytest.fixture
-def procent_no_docker(monkeypatch, request, pm, host_entity_plugin):  # pylint: disable=unused-argument
-    # A entityd.processme.ProcessEntity instance with no docker client.
-    monkeypatch.setattr(docker, 'Client', pytest.Mock(
-        side_effect=docker.errors.DockerException))
-    procent = entityd.processme.ProcessEntity()
-    pm.register(procent, 'entityd.processme.ProcessEntity')
-    request.addfinalizer(procent.entityd_sessionfinish)
-    return procent
+def container_entities(procent, session, container):
+    """Provide all process entities and container id/pid if container running.
+    """
+    container_top_pid, container_id = container
+    update = entityd.EntityUpdate('Container')
+    update.attrs.set('id', 'docker://' + container_id, traits={'entity:id'})
+    container_ueid = update.ueid
+    procent.entityd_sessionstart(session)
+    entities = procent.entityd_find_entity('Process', None)
+    return container_ents(entities=entities,
+                          container_ueid=container_ueid,
+                          container_id=container_id,
+                          container_top_pid=container_top_pid)
+
+
+@pytest.fixture(params=[{'pid': os.getpid()}, None])
+def entity_host(procent, session, request, kvstore):  # pylint: disable=unused-argument
+    """Provide entity for the current process."""
+    procent.entityd_sessionstart(session)
+    entities = procent.entityd_find_entity('Process', request.param)
+    for entity in entities:
+        if entity.attrs.get('pid').value == os.getpid():
+            return entity
+
+
+@pytest.fixture
+def syskit_user_error(monkeypatch):
+    """Mock syskit to generate an error if user attribute is requested. """
+    @property
+    def syskit_error(self):  # pylint: disable=unused-argument
+        raise syskit.AttrNotAvailableError
+    monkeypatch.setattr(syskit.Process, 'user', syskit_error)
 
 
 def test_configure(procent, config):
@@ -61,87 +113,68 @@ def test_find_entity(procent, session, kvstore):  # pylint: disable=unused-argum
     assert count
 
 
-def test_entity_attrs_with_containers(container, procent, session, kvstore): # pylint: disable=unused-argument
+def test_entities_have_core_attributes(procent, session, kvstore): # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', None)
-    count_cont = count_nocont = 0
-    def attr_included(entity, attr):
-        try:
-            entity.attrs.get(attr)
-        except KeyError:
-            return False
-        return True
-    for entity in entities:
-        assert entity.metype == 'Process'
-        if not entity.exists:
-            continue
-        for attr in 'binary pid starttime ppid host cputime utime stime vsz ' \
-                    'rss uid suid euid username command gid sgid egid ' \
-                    'sessionid container-id'.split():
-            try:
-                assert entity.attrs.get(attr)
-            except KeyError:
-                if attr == 'container-id':
-                    assert attr_included(entity, 'host')
-                elif attr == 'host':
-                    assert attr_included(entity, 'container-id')
-                else:
-                    assert False
-            else:
-                if attr == 'host':
-                    assert not attr_included(entity, 'container-id')
-                    count_nocont += 1
-                elif attr == 'container-id':
-                    assert not attr_included(entity, 'host')
-                    count_cont += 1
-            if attr in ['cputime']:
-                assert entity.attrs.get(attr).traits == {
-                    'metric:counter', 'time:duration', 'unit:seconds'}
-            if attr in ['vsz', 'rss']:
-                assert entity.attrs.get(attr).traits == {
-                    'metric:gauge', 'unit:bytes'}
-    assert count_cont
-    assert count_nocont
-
-
-def test_entity_attrs_no_containers(procent_no_docker, session, kvstore): # pylint: disable=unused-argument
-    procent_no_docker.entityd_sessionstart(session)
-    entities = procent_no_docker.entityd_find_entity('Process', None)
     count = 0
     for entity in entities:
         assert entity.metype == 'Process'
         if not entity.exists:
             continue
         for attr in 'binary pid starttime ppid host cputime utime stime vsz ' \
-                    'rss uid suid euid username command gid sgid egid ' \
-                    'sessionid container-id'.split():
-            try:
-                assert entity.attrs.get(attr)
-                assert attr != 'container-id'
-            except KeyError:
-                assert attr == 'container-id'
-            if attr in ['cputime']:
-                assert entity.attrs.get(attr).traits == {
-                    'metric:counter', 'time:duration', 'unit:seconds'}
-            if attr in ['vsz', 'rss']:
-                assert entity.attrs.get(attr).traits == {
-                    'metric:gauge', 'unit:bytes'}
+                    'rss uid euid suid username gid sgid egid sessionid ' \
+                    'command'.split():
+            assert entity.attrs.get(attr)
         count += 1
     assert count
 
 
-def test_find_entity_with_pid(procent, session, kvstore):  # pylint: disable=unused-argument
+def test_container_entity_has_containerid_attribute(container,
+                                                    procent, session, kvstore):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
-    pid = os.getpid()
-    entities = procent.entityd_find_entity('Process', {'pid': pid})
-    proc = next(entities)
-    assert proc.metype == 'Process'
-    assert proc.attrs.get('pid').value == pid
-    assert proc.attrs.get('starttime').value
-    assert proc.attrs.get('ppid').value == os.getppid()
-
+    container_top_pid, containerid = container
+    entities = procent.entityd_find_entity(
+        'Process', {'pid': container_top_pid})
+    entity = next(entities)
+    assert entity.attrs.get('containerid').value == containerid
     with pytest.raises(StopIteration):
         next(entities)
+
+
+def test_non_container_entity_has_no_containerid_attr(entity_host):
+    try:
+        entity_host.attrs.get('containerid')
+    except KeyError:
+        assert True
+
+
+def test_pid_has_traits(entity_host):
+    for attr in 'binary pid starttime ppid host cputime utime stime vsz ' \
+                'rss uid euid suid username gid sgid egid sessionid ' \
+                'command'.split():
+        if attr == 'pid':
+            assert entity_host.attrs.get(attr).traits == {'entity:id'}
+        elif attr == 'starttime':
+            assert entity_host.attrs.get(attr).traits == {
+                'entity:id', 'time:posix', 'unit:seconds'}
+        elif attr == 'host':
+            assert entity_host.attrs.get(attr).traits == {
+                'entity:id', 'entity:ueid'}
+        elif attr in ['cputime', 'utime', 'stime']:
+            assert entity_host.attrs.get(attr).traits == {
+                'metric:counter', 'time:duration', 'unit:seconds'}
+        elif attr in ['vsz', 'rss']:
+            assert entity_host.attrs.get(attr).traits == {
+                'metric:gauge', 'unit:bytes'}
+        else:
+            assert entity_host.attrs.get(attr).traits == set()
+
+
+def test_find_entity_with_pid(entity_host):
+    assert entity_host.metype == 'Process'
+    assert entity_host.attrs.get('pid').value == os.getpid()
+    assert entity_host.attrs.get('starttime').value
+    assert entity_host.attrs.get('ppid').value == os.getppid()
 
 
 def test_find_entity_with_unknown_attrs(procent, session, kvstore):  # pylint: disable=unused-argument
@@ -216,84 +249,24 @@ def test_root_process_has_host_parent(procent, session, kvstore, monkeypatch):  
     assert hostueid == hostupdate.ueid
 
 
-@pytest.yield_fixture(scope='module')
-def container():
-    docker_client = docker.Client(base_url='unix://var/run/docker.sock')
-    try:
-        container = docker_client.create_container(
-            image='eu.gcr.io/cobesaas/debian:8.5',
-            command='/bin/bash -c "while true; do sleep 1; done"',
-        )
-    except requests.ConnectionError:
-        pytest.skip('Test not possible due to docker daemon not running.')
-    docker_client.start(container=container.get('Id'))
-    container_top_pid = int(docker_client.top(container)['Processes'][0][1])
-    yield container_top_pid, container['Id']
-    docker_client.stop(container['Id'])
-    docker_client.remove_container(container['Id'])
-
-
-@pytest.fixture
-def container_entities(procent, session, container):
-    container_top_pid, container_id = container
-    update = entityd.EntityUpdate('Container')
-    update.attrs.set('id', 'docker://' + container_id, traits={'entity:id'})
-    container_ueid = update.ueid
-    procent.entityd_sessionstart(session)
-    entities = procent.entityd_find_entity('Process', None)
-    return entities, container_ueid, container_id, container_top_pid
-
-
 def test_find_single_container_parent(container_entities):
-    entities, container_ueid, _, contr_top_pid = container_entities
     count = 0
-    for entity in entities:
+    for entity in container_entities.entities:
         pid = entity.attrs.get('pid').value
         parents = [ueid_obj for ueid_obj in list(entity.parents)]
-        if container_ueid in parents:
-            assert pid == contr_top_pid
+        if container_entities.container_ueid in parents:
+            assert pid == container_entities.container_top_pid
             count += 1
     assert count == 1
 
 
-def test_set_entity_attribute_either_host_or_container_id(container_entities):
-    entities, container_ueid, container_id, _ = container_entities
-    for entity in entities:
-        if entity.attrs.get('pid').value == 1:
-            assert entity.attrs.get('host').value
-            assert entity.attrs.get('host').traits == {
-                'entity:id', 'entity:ueid'}
-            try:
-                entity.attrs.get('container-id').value
-            except KeyError:
-                assert True
-            else:
-                assert False
-        parents = [ueid_obj for ueid_obj in list(entity.parents)]
-        if container_ueid in parents:
-            assert entity.attrs.get('container-id').value == container_id
-            assert entity.attrs.get('container-id').traits == {'entity:id'}
-            try:
-                entity.attrs.get('host').value
-            except KeyError:
-                assert True
-            else:
-                assert False
-
-
-def test_no_possible_username_possible(monkeypatch, container_entities):
-    entities, _, _, _ = container_entities
-    @property
-    def syskit_error(self):  # pylint: disable=unused-argument
-        raise syskit.AttrNotAvailableError
-    monkeypatch.setattr(syskit.Process, 'user', syskit_error)
-    for entity in entities:
-        try:
-            entity.attrs.get('username')
-        except KeyError:
-            assert True
-        else:
-            assert False
+def test_no_possible_username_possible(syskit_user_error, entity_host):  # pylint: disable=unused-argument
+    try:
+        entity_host.attrs.get('username')
+    except KeyError:
+        assert True
+    else:
+        assert False
 
 
 def test_handle_no_docker_daemon_working_on_host(monkeypatch, procent):
@@ -396,7 +369,7 @@ def test_specific_parent_deleted(procent, session, kvstore, monkeypatch):  # pyl
     procent.entityd_sessionstart(session)
     proc = syskit.Process(os.getpid())
 
-    def patch_syskit():  # pylint: disable=unused-argument
+    def patch_syskit():
         monkeypatch.setattr(syskit, 'Process',
                             pytest.Mock(side_effect=syskit.NoSuchProcessError))
         return proc

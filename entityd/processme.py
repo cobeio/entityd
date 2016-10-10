@@ -434,12 +434,10 @@ class ProcessEntity:
                          traits={'entity:id', 'time:posix', 'unit:seconds'})
         update.attrs.set('ppid', proc.ppid)
         if proc.pid in all_proc_containers:
-            update.attrs.set('container-id',
-                             all_proc_containers[proc.pid],
-                             traits={'entity:id'})
-        else:
-            update.attrs.set('host', str(self.host_ueid),
-                             traits={'entity:id', 'entity:ueid'})
+            update.attrs.set('containerid',
+                             all_proc_containers[proc.pid])
+        update.attrs.set('host', str(self.host_ueid),
+                         traits={'entity:id', 'entity:ueid'})
         update.attrs.set('cputime', float(proc.cputime),
                          traits={'metric:counter',
                                  'time:duration', 'unit:seconds'})

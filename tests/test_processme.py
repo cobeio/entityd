@@ -97,6 +97,13 @@ def syskit_user_error(monkeypatch):
     monkeypatch.setattr(syskit.Process, 'user', syskit_error)
 
 
+@pytest.fixture
+def no_docker_client(monkeypatch):
+    """Mock out docker Client to test no docker client being available."""
+    monkeypatch.setattr(docker, 'Client',
+                        pytest.Mock(side_effect=docker.errors.DockerException))
+
+
 def test_configure(procent, config):
     procent.entityd_configure(config)
     assert config.entities['Process'].obj is procent
@@ -139,6 +146,22 @@ def test_container_entity_has_containerid_attribute(container,
     assert entity.attrs.get('containerid').value == containerid
     with pytest.raises(StopIteration):
         next(entities)
+
+
+def test_get_all_process_containers_handles_missing_process(container,
+                                                            procent, session):
+    procent.entityd_sessionstart(session)
+    container_top_pid, containerid = container
+    pids = ['non existent pid', container_top_pid, 'another non existent pid']
+    assert procent.get_all_process_containers(
+        pids, procent._docker_client.containers()
+    ) == {container_top_pid: containerid}
+
+
+def test_get_container_data_when_no_docker_client(
+        container, no_docker_client, procent):   # pylint: disable=unused-argument
+    assert procent._docker_client is None
+    assert procent.get_container_data({'pid': 1}) == ({}, {})
 
 
 def test_non_container_entity_has_no_containerid_attr(entity_host):
@@ -267,12 +290,6 @@ def test_no_possible_username_possible(syskit_user_error, entity_host):  # pylin
         assert True
     else:
         assert False
-
-
-def test_handle_no_docker_daemon_working_on_host(monkeypatch, procent):
-    monkeypatch.setattr(entityd.processme.docker.Client, 'containers',
-                        pytest.Mock(side_effect=requests.ConnectionError))
-    assert procent.get_primary_process_containers() == {}
 
 
 @pytest.fixture

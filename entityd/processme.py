@@ -6,7 +6,6 @@ import threading
 import act
 import docker
 import logbook
-import requests
 
 import syskit
 import zmq
@@ -241,8 +240,8 @@ class ProcessEntity:
         Special case for 'pid' since this should be efficient.
         """
         if 'pid' in attrs and len(attrs) == 1:
-            prim_proc_containers = self.get_primary_process_containers()
-            all_proc_containers = self.get_all_process_containers()
+            prim_proc_containers, all_proc_containers = \
+                self.get_container_data([attrs['pid']])
             try:
                 proc = syskit.Process(attrs['pid'])
             except syskit.NoSuchProcessError:
@@ -271,12 +270,11 @@ class ProcessEntity:
         active = self.update_process_table(self.active_processes)
         create_me = functools.partial(self.create_process_me, active)
         processed_ueids = set()
-        prim_proc_containers = self.get_primary_process_containers()
-        all_proc_containers = self.get_all_process_containers()
+        prim_proc_containers, all_proc_containers = self.get_container_data(
+            active.keys())
         cpu_percentages = self.get_all_cpu_percentages()
         for proc in active.values():
-            update = create_me(proc,
-                               prim_proc_containers, all_proc_containers)
+            update = create_me(proc, prim_proc_containers, all_proc_containers)
             try:
                 update.attrs.set('cpu', cpu_percentages[proc.pid],
                                  traits={'metric:gauge', 'unit:percent'})
@@ -286,7 +284,25 @@ class ProcessEntity:
             yield update
         self.active_processes = active
 
-    def get_all_process_containers(self):
+    def get_container_data(self, pids):
+        """Return container primary processes and containers of all processes.
+
+        :param list pids: List of pids for all entity processes.
+
+        :returns: Tuple of (<dict of primary processes: container IDs>,
+            <dict of processes: container IDs>).
+        """
+        if not self._docker_client:
+            return {}, {}
+        docker_containers = self._docker_client.containers()
+        prim_proc_containers = self.get_primary_process_containers(
+            docker_containers)
+        all_proc_containers = self.get_all_process_containers(
+            pids, docker_containers)
+        return (prim_proc_containers, all_proc_containers)
+
+    @staticmethod
+    def get_all_process_containers(pids, docker_containers):
         """Obtain the container IDs for all processes running in containers.
 
         Returns: A dict of the process PIDs to docker container IDs of format:
@@ -294,15 +310,39 @@ class ProcessEntity:
             {<process pid>: <container ID>, ...}.
 
         """
-        if not self._docker_client:
-            return {}
+        containerids = {
+            container['Id'] for container in docker_containers}
         containers = {}
-        for container in self._docker_client.containers():
+        for pid in pids:
+            try:
+                with open('/proc/{}/cgroup'.format(pid), 'r') as fp:
+                    container_id = fp.readline().strip('\n').split('/')[-1]
+                    if container_id in containerids:
+                        containers[pid] = container_id
+            except FileNotFoundError:
+                continue
+        return containers
+
+    def get_primary_process_containers(self, docker_containers):
+        """Identify host's docker containers and their primary process pids.
+
+        The exception handling handles the docker client making no connection
+        if the docker daemon isn't available on the host.
+
+        :returns: A dict of container primary process PIDs to
+            docker container UEIDs of format:
+
+                {<primary process pid>: <container UEID>, ...}.
+
+            If the docker daemon isn't available, an empty dict is returned.
+        """
+        containers = {}
+        for container in docker_containers:
             container_id = container['Id']
-            processes = self._docker_client.top(container_id)
-            pid_index = processes['Titles'].index('PID')
-            for process in processes['Processes']:
-                containers[int(process[pid_index])] = container_id
+            pid = self._docker_client.inspect_container(
+                container_id)['State']['Pid']
+            ueid = self.get_container_ueid(container_id)
+            containers[pid] = ueid
         return containers
 
     @staticmethod
@@ -317,32 +357,6 @@ class ProcessEntity:
         update.attrs.set(
             'id', 'docker://' + container_id, traits={'entity:id'})
         return update.ueid
-
-    def get_primary_process_containers(self):
-        """Identify host's docker containers and their primary process pids.
-
-        The exception handling handles the docker client making no connection
-        if the docker daemon isn't available on the host.
-
-        :returns: A dict of container primary process PIDs to
-        docker container UEIDs of format:
-
-            {<primary process pid>: <container UEID>, ...}.
-
-        """
-        if not self._docker_client:
-            return {}
-        containers = {}
-        try:
-            for container in self._docker_client.containers():
-                container_id = container['Id']
-                pid = self._docker_client.inspect_container(
-                    container_id)['State']['Pid']
-                ueid = self.get_container_ueid(container_id)
-                containers[pid] = ueid
-        except requests.ConnectionError:
-            pass
-        return containers
 
     @staticmethod
     def update_process_table(procs):

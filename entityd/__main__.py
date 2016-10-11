@@ -28,7 +28,7 @@ BUILTIN_PLUGIN_NAMES = ['entityd.' + n for n in
                          'mysqlme:MySQLEntity',
                          'postgresme:PostgreSQLEntity',
                          'fileme:FileEntity',
-                         #'kubernetes',
+                         'kubernetes',
                          'declentity:DeclarativeEntity']]
 
 

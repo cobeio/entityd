@@ -417,20 +417,13 @@ class ProcessEntity:
                           prim_proc_containers, all_proc_containers):
         """Create a new Process ME structure for the process.
 
-        If the process is the primary process of a container that is running
-        on the host, then the container's ueid is added as a parent.
-
-        If the process is running in a container, then its UEID is formed
-        from: its PID, container ID and start time.
-
-        If the process is NOT running in a container, then its UEID is formed
-        from: its PID, host UEID and start time.
-
-        In the present state of entityd development, multiple instances of
-        entityd should not be run on a host if they run in different
-        non-container/container environments, to avoid multiple entities
-        representing the same process. This is due to PID and host
-        attributes being derived from each entityd's environment.
+        Note that an entityd running in a container that shares the hosts's
+        pid namespace will create entities of the same UEIDs as by an entityd
+        running natively on the host. However, an entityd running in
+        a container on the host that doesn't share the host's pid namespace
+        (an approach not currently supported by Cobe) would create
+        entities for the processes running in that container that would not
+        be of the same UEIDs.
 
         :param proctable: Dict of pid -> syskit.Process instances for
            all processes on the host.

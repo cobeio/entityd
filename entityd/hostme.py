@@ -124,7 +124,7 @@ class HostEntity:
         self.cpuusage_sock.connect(self.cpuusage_thread.listen_endpoint)
 
     @entityd.pm.hookimpl
-    def entityd_sessionfinish(self):
+    def entityd_sessionfinish(self, session):  # pylint: disable=unused-argument
         """Finish the session.
 
         Stops the thread and closes the socket.

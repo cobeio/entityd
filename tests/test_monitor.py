@@ -37,7 +37,7 @@ def test_sessionfinish_entities_saved(mock_session):
     monitor = entityd.monitor.Monitor()
     monitor.entityd_sessionstart(mock_session)
     monitor.last_batch['foo'] = {cobe.UEID('a' * 32)}
-    monitor.entityd_sessionfinish()
+    monitor.entityd_sessionfinish(mock_session)
     mock_session.svc.kvstore.deletemany.assert_called_once_with('ueids:')
     mock_session.svc.kvstore.addmany.assert_called_once_with({
         'ueids:foo:' + base64.b64encode(b'a' * 32).decode(): 'a' * 32
@@ -61,7 +61,7 @@ def test_sessionfinish_types_saved(mock_session):
     monitor.session = mock_session
     print(mock_session)
     monitor.last_batch['foo'].add(cobe.UEID('a' * 32))
-    monitor.entityd_sessionfinish()
+    monitor.entityd_sessionfinish(mock_session)
     mock_session.svc.kvstore.addmany.assert_called_once_with({
         'ueids:foo:' + base64.b64encode(b'a' * 32).decode(): 'a' * 32
     })

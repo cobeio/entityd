@@ -16,7 +16,7 @@ import entityd.mesend
 
 
 def get_receiver(endpoint, request, keydir):
-    # Create a receiver socket, intiailize it with default options and
+    # Create a receiver socket, initialise it with default options and
     # authentication if a key directory has been provided. Install finalizers
     # to clean everything up at the end then wait for the socket to be fully
     # bound before returning it.
@@ -110,7 +110,7 @@ def test_sessionfinish():
     sender.entityd_sessionstart(pytest.Mock())
     sender._socket = pytest.Mock()
     context = sender.context
-    sender.entityd_sessionfinish()
+    sender.entityd_sessionfinish(session=None)
     sender.socket.close.assert_called_once_with(linger=500)
     assert context.closed
 

@@ -90,16 +90,6 @@ def fileme(pm, session, host_entity_plugin):  # pylint: disable=unused-argument
 
 
 @pytest.fixture
-def procent(request, pm, session, host_entity_plugin):  # pylint: disable=unused-argument
-    procent = entityd.processme.ProcessEntity()
-    pm.register(procent,
-                name='entityd.processme')
-    procent.entityd_sessionstart(session)
-    request.addfinalizer(procent.entityd_sessionfinish)
-    return procent
-
-
-@pytest.fixture
 def entitygen(pm, session, host_entity_plugin):  # pylint: disable=unused-argument
     """A entityd.apacheme.ApacheEntity instance.
 
@@ -125,12 +115,12 @@ def patched_entitygen(request, monkeypatch, pm, session, host_entity_plugin):  #
     """
     gen = entityd.apacheme.ApacheEntity()
     pm.register(gen, 'entityd.apacheme.ApacheEntity')
-    gen.entityd_sessionstart(session)
-
     procgen = entityd.processme.ProcessEntity()
     pm.register(procgen, 'entityd.processme.ProcessEntity')
-    procgen.entityd_sessionstart(session)
-    request.addfinalizer(procgen.entityd_sessionfinish)
+    pm.hooks.entityd_sessionstart(session=session)
+    def end():
+        pm.hooks.entityd_sessionfinish(session=session)
+    request.addfinalizer(end)
     mock_apache_process = entityd.EntityUpdate('Process')
     mock_apache_process.attrs.set('pid', 123, traits={'entity:id'})
     mock_apache_process.attrs.set('ppid', 1, traits={'entity:id'})
@@ -217,7 +207,9 @@ def test_find_entity(request, entitygen):
     entitygen.session.pluginmanager.register(procgen,
                                              'entityd.processme.ProcessEntity')
     procgen.entityd_sessionstart(entitygen.session)
-    request.addfinalizer(procgen.entityd_sessionfinish)
+    def end():
+        procgen.entityd_sessionfinish(session=None)
+    request.addfinalizer(end)
     entities = entitygen.entityd_find_entity('Apache', None)
     count = 0
     for entity in entities:
@@ -322,7 +314,7 @@ def test_apache_not_found(patched_entitygen, monkeypatch):
 
 
 def test_relations(monkeypatch, tmpdir, pm, session, kvstore,  # pylint: disable=unused-argument
-                   fileme, patched_entitygen):
+                   fileme, patched_entitygen, request):
     gen = patched_entitygen
 
     procent = patched_entitygen.session.pluginmanager.getplugin(
@@ -331,6 +323,9 @@ def test_relations(monkeypatch, tmpdir, pm, session, kvstore,  # pylint: disable
     hostgen = entityd.hostme.HostEntity()
     pm.register(hostgen, name='entityd.hostme')
     hostgen.entityd_sessionstart(session)
+    def end():
+        hostgen.entityd_sessionfinish(session)
+    request.addfinalizer(end)
     hosts = hostgen.entityd_find_entity('Host', None)
 
     # The process entity is patched to return mocked processes
@@ -376,13 +371,15 @@ def test_relations(monkeypatch, tmpdir, pm, session, kvstore,  # pylint: disable
 
 def test_config_file_returned_separately(pm, session, kvstore,  # pylint: disable=unused-argument
                                          patched_entitygen, fileme, tmpdir,
-                                         monkeypatch):
+                                         monkeypatch, request):
     gen = patched_entitygen
 
     hostgen = entityd.hostme.HostEntity()
     pm.register(hostgen, name='entityd.hostme')
     hostgen.entityd_sessionstart(session)
-
+    def end():
+        hostgen.entityd_sessionfinish(session)
+    request.addfinalizer(end)
     conf_file = tmpdir.join('apache2.conf')
     with conf_file.open('w') as f:
         f.write('test')
@@ -402,12 +399,15 @@ def test_config_file_returned_separately(pm, session, kvstore,  # pylint: disabl
 
 
 def test_vhost_returned_separately(pm, session, kvstore,  # pylint: disable=unused-argument
-                                   patched_entitygen):
+                                   patched_entitygen, request):
     gen = patched_entitygen
 
     hostgen = entityd.hostme.HostEntity()
     pm.register(hostgen, name='entityd.hostme')
     hostgen.entityd_sessionstart(session)
+    def end():
+        hostgen.entityd_sessionfinish(session)
+    request.addfinalizer(end)
     apache = next(gen.entityd_find_entity('Apache',
                                           attrs=None,
                                           include_ondemand=False))

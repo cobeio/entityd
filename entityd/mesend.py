@@ -74,7 +74,7 @@ class MonitoredEntitySender:
         self.session = session
 
     @entityd.pm.hookimpl
-    def entityd_sessionfinish(self):
+    def entityd_sessionfinish(self, session):  # pylint: disable=unused-argument
         """Called when the monitoring session ends.
 
         Allows 500ms for any buffered messages to be sent.

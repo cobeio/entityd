@@ -21,8 +21,6 @@ def procent(request, pm, session, host_entity_plugin, monkeypatch):  # pylint: d
         procent, name='entityd.processme')
     monkeypatch.setattr(
         procent, 'filtered_processes', pytest.Mock(return_value=[proc]))
-    procent.entityd_sessionstart(session)
-    request.addfinalizer(procent.entityd_sessionfinish)
     return procent
 
 
@@ -37,12 +35,21 @@ def mock_config_path(request, monkeypatch):
 
 
 @pytest.fixture
-def mock_mysql(mock_config_path, pm, config, session, procent):  # pylint: disable=unused-argument
+def mock_mysql(request, mock_config_path, pm, config, session, procent):  # pylint: disable=unused-argument
     mysql = entityd.mysqlme.MySQLEntity()
     pm.register(
         mysql, name='entityd.mysqlme.MySQLEntity')
-    mysql.entityd_sessionstart(session)
     mysql.entityd_configure(config)
+    hostgen = entityd.hostme.HostEntity()
+    pm.register(hostgen, name='entityd.hostme')
+    hostgen.entityd_configure(config)
+    filegen = entityd.fileme.FileEntity()
+    pm.register(filegen, 'entityd.fileme.FileEntity')
+    filegen.entityd_configure(config)
+    pm.hooks.entityd_sessionstart(session=session)
+    def end():
+        pm.hooks.entityd_sessionfinish(session=session)
+    request.addfinalizer(end)
     return mysql
 
 
@@ -116,10 +123,6 @@ def test_attrs_must_be_none(mock_mysql):
 
 
 def test_host_stored_and_returned(pm, session, kvstore, mock_mysql):  # pylint: disable=unused-argument
-    hostgen = entityd.hostme.HostEntity()
-    pm.register(hostgen, name='entityd.hostme')
-    hostgen.entityd_sessionstart(session)
-
     entities = mock_mysql.entityd_find_entity(
         name='MySQL', attrs=None, include_ondemand=False)
     next(entities)
@@ -134,10 +137,6 @@ def test_host_stored_and_returned(pm, session, kvstore, mock_mysql):  # pylint: 
 
 
 def test_config_file(pm, session, mock_mysql):
-    filegen = entityd.fileme.FileEntity()
-    pm.register(filegen, 'entityd.fileme.FileEntity')
-    filegen.entityd_sessionstart(session)
-
     entities = mock_mysql.entityd_find_entity(name='MySQL', attrs=None,
                                               include_ondemand=True)
     file, mysql = sorted(entities, key=lambda e: e.metype)

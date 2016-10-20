@@ -163,7 +163,7 @@ class ProcessEntity:
         self.cpu_usage_sock.connect(self.cpu_usage_thread.listen_endpoint)
 
     @entityd.pm.hookimpl
-    def entityd_sessionfinish(self):
+    def entityd_sessionfinish(self, session):  # pylint: disable=unused-argument
         """Safely terminate the plugin."""
         if self.cpu_usage_thread:
             self.cpu_usage_thread.stop()
@@ -240,16 +240,13 @@ class ProcessEntity:
         Special case for 'pid' since this should be efficient.
         """
         if 'pid' in attrs and len(attrs) == 1:
-            prim_proc_containers, all_proc_containers = \
-                self.get_container_data([attrs['pid']])
+            proc_containers = self.get_process_containers([attrs['pid']])
             try:
                 proc = syskit.Process(attrs['pid'])
             except syskit.NoSuchProcessError:
                 return
             entity = self.create_process_me(self.active_processes,
-                                            proc,
-                                            prim_proc_containers,
-                                            all_proc_containers)
+                                            proc, proc_containers)
             cpupc = self.get_cpu_percentage(proc)
             if cpupc:
                 entity.attrs.set('cpu', cpupc,
@@ -270,11 +267,10 @@ class ProcessEntity:
         active = self.update_process_table(self.active_processes)
         create_me = functools.partial(self.create_process_me, active)
         processed_ueids = set()
-        prim_proc_containers, all_proc_containers = self.get_container_data(
-            active.keys())
+        proc_containers = self.get_process_containers(active.keys())
         cpu_percentages = self.get_all_cpu_percentages()
         for proc in active.values():
-            update = create_me(proc, prim_proc_containers, all_proc_containers)
+            update = create_me(proc, proc_containers)
             try:
                 update.attrs.set('cpu', cpu_percentages[proc.pid],
                                  traits={'metric:gauge', 'unit:percent'})
@@ -284,65 +280,26 @@ class ProcessEntity:
             yield update
         self.active_processes = active
 
-    def get_container_data(self, pids):
-        """Return container primary processes and containers of all processes.
-
-        :param list pids: List of pids for all entity processes.
-
-        :returns: Tuple of (<dict of primary processes: container IDs>,
-            <dict of processes: container IDs>).
-        """
-        if not self._docker_client:
-            return {}, {}
-        docker_containers = self._docker_client.containers()
-        prim_proc_containers = self.get_primary_process_containers(
-            docker_containers)
-        all_proc_containers = self.get_all_process_containers(
-            pids, docker_containers)
-        return (prim_proc_containers, all_proc_containers)
-
-    @staticmethod
-    def get_all_process_containers(pids, docker_containers):
+    def get_process_containers(self, pids):
         """Obtain the container IDs for all processes running in containers.
 
         Returns: A dict of the process PIDs to docker container IDs of format:
 
             {<process pid>: <container ID>, ...}.
-
         """
+        if not self._docker_client:
+            return {}
         containerids = {
-            container['Id'] for container in docker_containers}
+            container['Id'] for container in self._docker_client.containers()}
         containers = {}
         for pid in pids:
             try:
                 with open('/proc/{}/cgroup'.format(pid), 'r') as fp:
-                    container_id = fp.readline().strip('\n').split('/')[-1]
+                    container_id = fp.readline().strip().split('/')[-1]
                     if container_id in containerids:
                         containers[pid] = container_id
             except FileNotFoundError:
                 continue
-        return containers
-
-    def get_primary_process_containers(self, docker_containers):
-        """Identify host's docker containers and their primary process pids.
-
-        The exception handling handles the docker client making no connection
-        if the docker daemon isn't available on the host.
-
-        :returns: A dict of container primary process PIDs to
-            docker container UEIDs of format:
-
-                {<primary process pid>: <container UEID>, ...}.
-
-            If the docker daemon isn't available, an empty dict is returned.
-        """
-        containers = {}
-        for container in docker_containers:
-            container_id = container['Id']
-            pid = self._docker_client.inspect_container(
-                container_id)['State']['Pid']
-            ueid = self.get_container_ueid(container_id)
-            containers[pid] = ueid
         return containers
 
     @staticmethod
@@ -413,8 +370,7 @@ class ProcessEntity:
         else:
             return {}
 
-    def create_process_me(self, proctable, proc,
-                          prim_proc_containers, all_proc_containers):
+    def create_process_me(self, proctable, proc, proc_containers):
         """Create a new Process ME structure for the process.
 
         Note that an entityd running in a container that shares the hosts's
@@ -425,12 +381,13 @@ class ProcessEntity:
         entities for the processes running in that container that would not
         be of the same UEIDs.
 
+        Where a process is in a container, but doesn't have a ppid, then
+        the UEID of the container of the process is added as a parent.
+
         :param proctable: Dict of pid -> syskit.Process instances for
            all processes on the host.
         :param proc: syskit.Process instance.
-        :param prim_proc_containers: Dict of container primary process PIDs to
-           docker container UEIDs.
-        :param all_proc_containers: Dict of all the PIDs of processes
+        :param proc_containers: Dict of all the PIDs of processes
            running in containers to docker container IDs.
         """
         update = entityd.EntityUpdate('Process')
@@ -440,9 +397,8 @@ class ProcessEntity:
         update.attrs.set('starttime', proc.start_time.timestamp(),
                          traits={'entity:id', 'time:posix', 'unit:seconds'})
         update.attrs.set('ppid', proc.ppid)
-        if proc.pid in all_proc_containers:
-            update.attrs.set('containerid',
-                             all_proc_containers[proc.pid])
+        if proc.pid in proc_containers:
+            update.attrs.set('containerid', proc_containers[proc.pid])
         update.attrs.set('host', str(self.host_ueid),
                          traits={'entity:id', 'entity:ueid'})
         update.attrs.set('cputime', float(proc.cputime),
@@ -479,6 +435,7 @@ class ProcessEntity:
             pass
         for parent in self.get_parents(proc, proctable):
             update.parents.add(parent)
-        if proc.pid in prim_proc_containers:
-            update.parents.add(prim_proc_containers[proc.pid])
+        if proc.pid in proc_containers and proc.ppid not in proc_containers:
+            update.parents.add(
+                self.get_container_ueid(proc_containers[proc.pid]))
         return update

@@ -12,6 +12,12 @@ import entityd.hookspec
 import entityd.hostme
 
 
+@pytest.fixture(autouse=True)
+def unmock_cpuusage(mock_cpuusage):
+    """Remove mocking of cpu usage calc'n in ``processme`` and ``hostme``."""
+    mock_cpuusage()
+
+
 @pytest.yield_fixture
 def host_gen(monkeypatch):
     monkeypatch.setattr(entityd.hostme, "HostCpuUsage",

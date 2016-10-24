@@ -90,16 +90,6 @@ def fileme(pm, session, host_entity_plugin):  # pylint: disable=unused-argument
 
 
 @pytest.fixture
-def procent(request, pm, session, host_entity_plugin):  # pylint: disable=unused-argument
-    procent = entityd.processme.ProcessEntity()
-    pm.register(procent,
-                name='entityd.processme')
-    procent.entityd_sessionstart(session)
-    request.addfinalizer(procent.entityd_sessionfinish)
-    return procent
-
-
-@pytest.fixture
 def entitygen(pm, session, host_entity_plugin):  # pylint: disable=unused-argument
     """A entityd.apacheme.ApacheEntity instance.
 

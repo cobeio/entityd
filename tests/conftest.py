@@ -1,6 +1,8 @@
 """Local py.test plugin."""
 
 import tempfile
+import threading
+import time
 import types
 import unittest.mock
 
@@ -10,10 +12,11 @@ import zmq.auth
 
 import entityd.core
 import entityd.hookspec
+import entityd.hostme
 import entityd.kvstore
 import entityd.monitor
 import entityd.pm
-import entityd.hostme
+import entityd.processme
 
 
 def pytest_namespace():
@@ -138,3 +141,40 @@ def certificates(request):
     py.path.local(entityd_public).copy(modeld_keys)
 
     return conf_dir
+
+
+@pytest.yield_fixture(autouse=True, scope='module')
+def _check_only_one_thread_present_on_tests_completion():
+    """Ensure at the end of each test module that there is only one thread."""
+    yield
+    start = time.time()
+    while time.time() - start < 2:
+        if len(threading._active) == 1:
+            break
+    assert len(threading._active) == 1
+
+
+@pytest.fixture(autouse=True, scope='function')
+def mock_cpuusage(request):
+    """Mock out cpuusage calculation in processme and hostme.
+
+    This fixture is applied to all tests by default, thus simplifying tests
+    and avoiding any unnecessary issues of threads remaining alive at the
+    end of tests. A function is returned so that the fixture can be used in the
+    signature of tests where, by calling the function, the mocking can
+    be reverted, e.g. for testing of cpuusage.
+    """
+    usage = pytest.Mock()
+    usage.listen_endpoint = 'inproc://cpuusage'
+    cpuusage = entityd.processme.CpuUsage
+    entityd.processme.CpuUsage = pytest.Mock(return_value=usage)
+    hostcpuusage = entityd.hostme.HostCpuUsage
+    entityd.hostme.HostCpuUsage = pytest.Mock(return_value=usage)
+    add_cputime_attrs = entityd.hostme.HostEntity._add_cputime_attrs
+    entityd.hostme.HostEntity._add_cputime_attrs = lambda self, _: None
+    def revert():
+        entityd.processme.CpuUsage = cpuusage
+        entityd.hostme.HostCpuUsage = hostcpuusage
+        entityd.hostme.HostEntity._add_cputime_attrs = add_cputime_attrs
+    request.addfinalizer(revert)
+    return revert

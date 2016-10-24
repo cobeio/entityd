@@ -20,6 +20,12 @@ import entityd.core
 import entityd.kvstore
 
 
+@pytest.fixture(autouse=True)
+def unmock_cpuusage(mock_cpuusage):
+    """Remove mocking of cpu usage calc'n in ``processme`` and ``hostme``."""
+    mock_cpuusage()
+
+
 @pytest.fixture
 def procent(request, pm, host_entity_plugin):  # pylint: disable=unused-argument
     """A entityd.processme.ProcessEntity instance.

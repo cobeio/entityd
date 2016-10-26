@@ -13,9 +13,9 @@ import entityd.hostme
 
 
 @pytest.fixture(autouse=True)
-def unmock_cpuusage(mock_cpuusage):
-    """Remove mocking of cpu usage calc'n in ``processme`` and ``hostme``."""
-    mock_cpuusage()
+def revert_mocking_of_cpuusage(mock_cpuusage):
+    """Revert the mocking out of the CpuUsage calculation thread."""
+    mock_cpuusage.revert()
 
 
 @pytest.yield_fixture

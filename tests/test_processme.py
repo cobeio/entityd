@@ -21,9 +21,9 @@ import entityd.kvstore
 
 
 @pytest.fixture(autouse=True)
-def unmock_cpuusage(mock_cpuusage):
-    """Remove mocking of cpu usage calc'n in ``processme`` and ``hostme``."""
-    mock_cpuusage()
+def revert_mocking_of_cpuusage(mock_cpuusage):
+    """Revert the mocking out of the CpuUsage calculation thread."""
+    mock_cpuusage.revert()
 
 
 @pytest.fixture
@@ -524,6 +524,7 @@ class TestCpuUsage:
 
     def test_get_one(self, request, context, cpuusage):
         cpuusage.start()
+        request.addfinalizer(cpuusage.join)
         request.addfinalizer(cpuusage.stop)
         req = context.socket(zmq.PAIR)
         req.connect('inproc://cpuusage')
@@ -539,6 +540,7 @@ class TestCpuUsage:
 
     def test_get_all(self, request, context, cpuusage):
         cpuusage.start()
+        request.addfinalizer(cpuusage.join)
         request.addfinalizer(cpuusage.stop)
         req = context.socket(zmq.PAIR)
         req.connect('inproc://cpuusage')

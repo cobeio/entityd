@@ -143,15 +143,11 @@ def certificates(request):
     return conf_dir
 
 
-@pytest.yield_fixture(autouse=True, scope='module')
+@pytest.yield_fixture(autouse=True)
 def _check_only_one_thread_present_on_tests_completion():
     """Ensure at the end of each test module that there is only one thread."""
     yield
-    start = time.time()
-    while time.time() - start < 2:
-        if len(threading._active) == 1:
-            break
-    assert len(threading._active) == 1
+    assert len(threading.enumerate()) == 1
 
 
 @pytest.fixture(autouse=True, scope='function')
@@ -172,9 +168,11 @@ def mock_cpuusage(request):
     entityd.hostme.HostCpuUsage = pytest.Mock(return_value=usage)
     add_cputime_attrs = entityd.hostme.HostEntity._add_cputime_attrs
     entityd.hostme.HostEntity._add_cputime_attrs = lambda self, _: None
-    def revert():
-        entityd.processme.CpuUsage = cpuusage
-        entityd.hostme.HostCpuUsage = hostcpuusage
-        entityd.hostme.HostEntity._add_cputime_attrs = add_cputime_attrs
-    request.addfinalizer(revert)
-    return revert
+    class Reversion:
+        @staticmethod
+        def revert():
+            entityd.processme.CpuUsage = cpuusage
+            entityd.hostme.HostCpuUsage = hostcpuusage
+            entityd.hostme.HostEntity._add_cputime_attrs = add_cputime_attrs
+    request.addfinalizer(Reversion.revert)
+    return Reversion

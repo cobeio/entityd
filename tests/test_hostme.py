@@ -23,7 +23,7 @@ def host_gen(monkeypatch):
     # Disable actual sqlite database persistence
     host_gen.session.svc.kvstore.get.side_effect = KeyError
     yield host_gen
-    host_gen.entityd_sessionfinish(session)
+    host_gen.entityd_sessionfinish()
 
 
 @pytest.fixture
@@ -44,7 +44,7 @@ def test_session_stored_on_start():
     he = entityd.hostme.HostEntity()
     he.entityd_sessionstart(session)
     assert he.session is session
-    he.entityd_sessionfinish(session)
+    he.entityd_sessionfinish()
 
 
 def test_find_entity_with_attrs():

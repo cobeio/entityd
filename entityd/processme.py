@@ -163,7 +163,7 @@ class ProcessEntity:
         self.cpu_usage_sock.connect(self.cpu_usage_thread.listen_endpoint)
 
     @entityd.pm.hookimpl
-    def entityd_sessionfinish(self, session):  # pylint: disable=unused-argument
+    def entityd_sessionfinish(self):
         """Safely terminate the plugin."""
         if self.cpu_usage_thread:
             self.cpu_usage_thread.stop()

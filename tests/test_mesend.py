@@ -110,7 +110,7 @@ def test_sessionfinish():
     sender.entityd_sessionstart(pytest.Mock())
     sender._socket = pytest.Mock()
     context = sender.context
-    sender.entityd_sessionfinish(session=None)
+    sender.entityd_sessionfinish()
     sender.socket.close.assert_called_once_with(linger=500)
     assert context.closed
 

@@ -45,7 +45,7 @@ class Monitor:
             )
 
     @entityd.pm.hookimpl(before='entityd.kvstore')
-    def entityd_sessionfinish(self, session):  # pylint: disable=unused-argument
+    def entityd_sessionfinish(self):
         """Store out entities to kvstore."""
         self.session.svc.kvstore.deletemany('ueids:')
         for metype, entities in self.last_batch.items():

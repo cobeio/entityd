@@ -23,8 +23,8 @@ def test_configure(fileent, config):
     assert config.entities['File'].obj is fileent
 
 
-def test_find_entity(pm, tmpdir, session, fileent):
-    pm.hooks.entityd_sessionstart(session=session)
+def test_find_entity(tmpdir, session, fileent):
+    fileent.entityd_sessionstart(session)
     file = tmpdir.join('testfile.txt')
     with file.open('w') as f:
         f.write('test line\n')
@@ -34,7 +34,6 @@ def test_find_entity(pm, tmpdir, session, fileent):
     assert entity.attrs.get('path').value == str(file)
     assert isinstance(entity.attrs.get('size').value, int)
     assert entity.attrs.get('size').traits == {'metric:gauge', 'unit:bytes'}
-    pm.hooks.entityd_sessionfinish(session=session)
 
 
 def test_calling_with_no_attrs(fileent):

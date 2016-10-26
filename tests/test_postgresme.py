@@ -21,6 +21,8 @@ def procent(request, pm, session, host_entity_plugin, monkeypatch):  # pylint: d
     monkeypatch.setattr(procent,
                         'filtered_processes',
                         pytest.Mock(return_value=[proc]))
+    procent.entityd_sessionstart(session)
+    request.addfinalizer(procent.entityd_sessionfinish)
     return procent
 
 
@@ -35,21 +37,12 @@ def mock_config_path(request, monkeypatch):
 
 
 @pytest.fixture
-def mock_postgres(request, mock_config_path, pm, config, session, procent):  # pylint: disable=unused-argument
+def mock_postgres(mock_config_path, pm, config, session, procent):  # pylint: disable=unused-argument
     postgres = entityd.postgresme.PostgreSQLEntity()
     pm.register(
         postgres, name='entityd.postgresme.PostgreSQLEntity')
+    postgres.entityd_sessionstart(session)
     postgres.entityd_configure(config)
-    hostgen = entityd.hostme.HostEntity()
-    pm.register(hostgen, name='entityd.hostme')
-    hostgen.entityd_configure(config)
-    filegen = entityd.fileme.FileEntity()
-    pm.register(filegen, name='entityd.fileme.FileEntity')
-    filegen.entityd_configure(config)
-    pm.hooks.entityd_sessionstart(session=session)
-    def end():
-        pm.hooks.entityd_sessionfinish(session=session)
-    request.addfinalizer(end)
     return postgres
 
 
@@ -61,13 +54,12 @@ def test_get_entities(mock_postgres):
     assert entity.attrs.get('process_id').value == 123
 
 
-def test_get_entities_ondemand(mock_postgres):
+def test_get_entities_ondemand_no_files(mock_postgres):
     entities = mock_postgres.entityd_find_entity(
         name='PostgreSQL', attrs=None, include_ondemand=True)
     entities = list(entities)
-    assert len(entities) == 2
-    assert entities[0].metype == 'File'
-    assert entities[1].metype == 'PostgreSQL'
+    assert len(entities) == 1
+    assert entities[0].metype == 'PostgreSQL'
 
 
 def test_postgresql_process_but_no_files_with_log(monkeypatch,
@@ -132,8 +124,11 @@ def test_attrs_must_be_none(mock_postgres):
             name='PostgreSQL', attrs={'not': None}, include_ondemand=False)
 
 
-def test_host_stored_and_returned(pm, session,
-                                  kvstore, mock_postgres):  # pylint: disable=unused-argument
+def test_host_stored_and_returned(pm, session, kvstore, mock_postgres):  # pylint: disable=unused-argument
+    hostgen = entityd.hostme.HostEntity()
+    pm.register(hostgen, name='entityd.hostme')
+    hostgen.entityd_sessionstart(session)
+
     entities = mock_postgres.entityd_find_entity(
         name='PostgreSQL', attrs=None, include_ondemand=False)
     next(entities)
@@ -148,6 +143,10 @@ def test_host_stored_and_returned(pm, session,
 
 
 def test_config_file(pm, session, mock_postgres):
+    filegen = entityd.fileme.FileEntity()
+    pm.register(filegen, 'entityd.fileme.FileEntity')
+    filegen.entityd_sessionstart(session)
+
     entities = mock_postgres.entityd_find_entity(
         name='PostgreSQL', attrs=None, include_ondemand=True)
     file, postgres = sorted(entities, key=lambda e: e.metype)

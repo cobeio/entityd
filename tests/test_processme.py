@@ -39,10 +39,7 @@ def procent(request, pm, host_entity_plugin, session):  # pylint: disable=unused
     """
     procent = entityd.processme.ProcessEntity()
     pm.register(procent, 'entityd.processme.ProcessEntity')
-    pm.hooks.entityd_sessionstart(session=session)
-    def end():
-        pm.hooks.entityd_sessionfinish(session=session)
-    request.addfinalizer(end)
+    request.addfinalizer(procent.entityd_sessionfinish)
     return procent
 
 
@@ -86,12 +83,13 @@ def container(debian_image):
 
 
 @pytest.fixture
-def container_entities(procent, container):
+def container_entities(procent, session, container):
     """Give all process entities and container id/pid if container running."""
     container_top_pid, container_id = container
     update = entityd.EntityUpdate('Container')
     update.attrs.set('id', 'docker://' + container_id, traits={'entity:id'})
     container_ueid = update.ueid
+    procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', None)
     return container_ents(entities=entities,
                           container_ueid=container_ueid,
@@ -100,13 +98,15 @@ def container_entities(procent, container):
 
 
 @pytest.fixture(params=[{'pid': os.getpid()}, None])
-def process_entity(pm, procent, request, kvstore):  # pylint: disable=unused-argument
+def process_entity(pm, procent, request, session, kvstore):  # pylint:
+    # disable=unused-argument
     """Provide entity for the current process.
 
     This fixture operates to test both ``processme`` paths of finding
     entities - via finding all process entities and also via finding an
     entity with particular attributes.
     """
+    procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', request.param)
     for entity in entities:
         if entity.attrs.get('pid').value == os.getpid():
@@ -154,6 +154,7 @@ def test_configure(procent, config):
 
 
 def test_find_entity(procent, session, kvstore):  # pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', None)
     count = 0
     for entity in entities:
@@ -164,6 +165,7 @@ def test_find_entity(procent, session, kvstore):  # pylint: disable=unused-argum
 
 
 def test_entities_have_core_attributes(procent, session, kvstore): # pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', None)
     count = 0
     for entity in entities:
@@ -180,6 +182,7 @@ def test_entities_have_core_attributes(procent, session, kvstore): # pylint: dis
 
 def test_container_entity_has_containerid_attribute(container,
                                                     procent, session, kvstore):  # pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
     container_top_pid, containerid = container
     entities = procent.entityd_find_entity(
         'Process', {'pid': container_top_pid})
@@ -189,7 +192,9 @@ def test_container_entity_has_containerid_attribute(container,
         next(entities)
 
 
-def test_get_process_containers_handles_missing_process(container, procent):
+def test_get_process_containers_handles_missing_process(container,
+                                                        session, procent):
+    procent.entityd_sessionstart(session)
     container_top_pid, containerid = container
     pids = ['non existent pid', container_top_pid, 'another non existent pid']
     assert procent.get_process_containers(
@@ -240,12 +245,14 @@ def test_find_current_process_entity(process_entity):
 
 
 def test_find_entity_with_unknown_attrs(procent, session, kvstore):  # pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', {'unknown': 1})
     with pytest.raises(StopIteration):
         next(entities)
 
 
 def test_find_entity_with_binary(procent, session, kvstore):  # pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', {'binary': 'py.test'})
     proc = next(entities)
     assert proc.metype == 'Process'
@@ -253,6 +260,7 @@ def test_find_entity_with_binary(procent, session, kvstore):  # pylint: disable=
 
 
 def test_get_ueid_new(kvstore, session, procent):  # pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
     proc = syskit.Process(os.getpid())
     ueid = procent.get_ueid(proc)
     assert ueid
@@ -260,6 +268,7 @@ def test_get_ueid_new(kvstore, session, procent):  # pylint: disable=unused-argu
 
 
 def test_get_ueid_reuse(kvstore, session, procent):  # pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
     proc0 = syskit.Process(os.getpid())
     ueid0 = procent.get_ueid(proc0)
     proc1 = syskit.Process(os.getpid())
@@ -267,20 +276,25 @@ def test_get_ueid_reuse(kvstore, session, procent):  # pylint: disable=unused-ar
     assert ueid0 == ueid1
 
 
-def test_get_ueid(procent, session, host_entity_plugin):  # pylint: disable=unused-argument
+def test_get_ueid(session, host_entity_plugin):  # pylint: disable=unused-argument
+    procent = entityd.processme.ProcessEntity()
+    procent.entityd_sessionstart(session)
     proc = syskit.Process(os.getpid())
     ueid = procent.get_ueid(proc)
     ueid2 = next(procent.filtered_processes({'pid': os.getpid()})).ueid
     assert ueid == ueid2
+    procent.entityd_sessionfinish()
 
 
 def test_get_parents_nohost_noparent(session, kvstore, procent):  # pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
     proc = syskit.Process(os.getpid())
     rels = procent.get_parents(proc, {proc.pid: proc})
     assert not rels
 
 
 def test_get_parents_parent(procent, session, kvstore, host_entity_plugin):  # pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
     host = list(host_entity_plugin.entityd_find_entity('Host', None))[0]
     proc = syskit.Process(os.getpid())
     pproc = syskit.Process(os.getppid())
@@ -291,6 +305,7 @@ def test_get_parents_parent(procent, session, kvstore, host_entity_plugin):  # p
 
 
 def test_root_process_has_host_parent(procent, session, kvstore, monkeypatch):  #pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
     hostupdate = entityd.EntityUpdate('Host')
     monkeypatch.setattr(session.pluginmanager.hooks,
                         'entityd_find_entity',
@@ -330,6 +345,7 @@ def proctable():
 
 def test_processes(procent, proctable, monkeypatch, session, kvstore):  # pylint: disable=unused-argument
     # Wire up a fake process table
+    procent.entityd_sessionstart(session)
     monkeypatch.setattr(procent, 'update_process_table',
                         pytest.Mock(return_value=proctable))
 
@@ -348,6 +364,7 @@ def test_processes(procent, proctable, monkeypatch, session, kvstore):  # pylint
 
 def test_processes_deleted(procent, proctable, monkeypatch, session, kvstore):  # pylint: disable=unused-argument
     # Wire up a fake process table
+    procent.entityd_sessionstart(session)
     monkeypatch.setattr(procent, 'update_process_table',
                         pytest.Mock(return_value=proctable))
 
@@ -397,6 +414,7 @@ def test_process_table_vanished_refresh(monkeypatch):
 
 
 def test_specific_process_deleted(procent, session, kvstore, monkeypatch):  # pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
     pid = os.getpid()
 
     monkeypatch.setattr(syskit, 'Process',
@@ -409,6 +427,7 @@ def test_specific_process_deleted(procent, session, kvstore, monkeypatch):  # py
 
 
 def test_specific_parent_deleted(procent, session, kvstore, monkeypatch):  # pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
     proc = syskit.Process(os.getpid())
 
     def patch_syskit():
@@ -448,6 +467,7 @@ def zombie_process(request):
 
 def test_zombie_process(procent, session, kvstore, monkeypatch,  # pylint: disable=unused-argument
                         zombie_process):
+    procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process',
                                            {'pid': zombie_process.pid})
     entity = next(entities)
@@ -475,6 +495,7 @@ def test_cpu_usage_sock_not_present_all(procent, session, kvstore):  # pylint: d
 
 def test_cpu_usage_attr_is_present(cpuusage_interval,  # pylint: disable=unused-argument
                                    procent, session, kvstore): # pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
     assert procent.cpu_usage_thread.is_alive()
     while True:
         entities = procent.entityd_find_entity('Process', {'pid': os.getpid()})
@@ -491,6 +512,7 @@ def test_cpu_usage_attr_is_present(cpuusage_interval,  # pylint: disable=unused-
 
 
 def test_cpu_usage_not_running_one(mock_cpuusage, procent, session, kvstore): # pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', {'pid': os.getpid()})
     entity = next(entities)
     with pytest.raises(KeyError):
@@ -498,6 +520,7 @@ def test_cpu_usage_not_running_one(mock_cpuusage, procent, session, kvstore): # 
 
 
 def test_cpu_usage_not_running_all(mock_cpuusage, procent, session, kvstore):  # pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', None)
     for entity in entities:
         with pytest.raises(KeyError):
@@ -505,6 +528,7 @@ def test_cpu_usage_not_running_all(mock_cpuusage, procent, session, kvstore):  #
 
 
 def test_entity_has_label(procent, session, kvstore):  # pylint: disable=unused-argument
+    procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', None)
     count = 0
     for entity in entities:
@@ -516,12 +540,14 @@ def test_entity_has_label(procent, session, kvstore):  # pylint: disable=unused-
     assert count
 
 
-def test_host_ueid(procent, host_entity_plugin):
+def test_host_ueid(procent, session, host_entity_plugin):
+    procent.entityd_sessionstart(session)
     host = list(host_entity_plugin.entityd_find_entity('Host', None))[0]
     assert procent.host_ueid == host.ueid
 
 
-def test_host_ueid_cached(procent, host_entity_plugin):
+def test_host_ueid_cached(procent, session, host_entity_plugin):
+    procent.entityd_sessionstart(session)
     host = list(host_entity_plugin.entityd_find_entity('Host', None))[0]
     first_ueid = procent.host_ueid
     assert first_ueid == host.ueid
@@ -529,6 +555,7 @@ def test_host_ueid_cached(procent, host_entity_plugin):
 
 
 def test_host_ueid_no_host_plugin(monkeypatch, procent, session):
+    procent.entityd_sessionstart(session)
     monkeypatch.setattr(
         session.pluginmanager.hooks,
         'entityd_find_entity',
@@ -539,6 +566,7 @@ def test_host_ueid_no_host_plugin(monkeypatch, procent, session):
 
 
 def test_host_ueid_no_host_entity(monkeypatch, procent, session):
+    procent.entityd_sessionstart(session)
     monkeypatch.setattr(
         session.pluginmanager.hooks,
         'entityd_find_entity',

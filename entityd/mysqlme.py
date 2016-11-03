@@ -19,8 +19,8 @@ import logbook
 import entityd.pm
 
 
-
 log = logbook.Logger(__name__)
+
 
 class MySQLEntity:
     """Monitor for MySQL instances."""

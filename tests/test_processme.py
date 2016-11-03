@@ -21,6 +21,13 @@ import entityd.core
 import entityd.kvstore
 
 
+container_ents = collections.namedtuple(
+    'container_ents', ['entities',
+                       'container_ueid',
+                       'container_id',
+                       'container_top_pid'])
+
+
 @pytest.fixture(autouse=True)
 def revert_mocking_of_cpuusage(mock_cpuusage):
     """Revert the mocking out of the CpuUsage calculation thread."""

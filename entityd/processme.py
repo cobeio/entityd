@@ -13,17 +13,20 @@ import zmq
 import entityd.pm
 
 
-class CpuUsage(threading.Thread):
+class CpuUsage(threading.Thread):      # pylint: disable=too-many-instance-attributes
     """A background thread to fetch CPU times and calculate percentages.
 
     Accessible via ZMQ Pair/Pair sockets; receiving a pid or ``None``,
     and returning the percentage cpu time calculated most recently
     for the given pid, or all known processes.
 
+    Variable ``_stop_thread`` is used to enable stopping the thread even if
+    :meth:``stop`` is called before the thread has instantiated the
+    EventStream.
+
     :param Context context: The ZMQ context to use
     :param str endpoint: The ZMQ endpoint to listen for requests on
     :param int interval: The period in seconds to wait between refreshes
-
 
     :ivar last_run_process: A map of {pid->syskit.Process} from the
        last update.
@@ -37,6 +40,7 @@ class CpuUsage(threading.Thread):
         self._stream = None
         self._timer_interval = interval
         self._log = logbook.Logger('CpuUsage')
+        self._stop_thread = False
         super().__init__()
 
     @staticmethod
@@ -104,17 +108,18 @@ class CpuUsage(threading.Thread):
         self._stream.register(sock, self._stream.POLLIN)
         self._stream.register(timer, self._stream.TIMER)
         try:
-            for event, _ in self._stream:
-                if event is timer:
-                    self.update()
-                    timer.schedule(self._timer_interval * 1000)
-                elif event is sock:
-                    pid = sock.recv_pyobj()
-                    if pid is None:
-                        response = self.last_run_percentages
-                    else:
-                        response = self.last_run_percentages.get(pid, None)
-                    sock.send_pyobj(response)
+            if not self._stop_thread:
+                for event, _ in self._stream:
+                    if event is timer:
+                        self.update()
+                        timer.schedule(self._timer_interval * 1000)
+                    elif event is sock:
+                        pid = sock.recv_pyobj()
+                        if pid is None:
+                            response = self.last_run_percentages
+                        else:
+                            response = self.last_run_percentages.get(pid, None)
+                        sock.send_pyobj(response)
         finally:
             sock.close(linger=0)
             self._stream.close()
@@ -124,6 +129,7 @@ class CpuUsage(threading.Thread):
 
         We have to consume the stream so that close() gets called.
         """
+        self._stop_thread = True
         if self._stream:
             self._stream.send_term()
 

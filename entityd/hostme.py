@@ -13,12 +13,16 @@ import zmq
 import entityd.pm
 
 
-class HostCpuUsage(threading.Thread):
+class HostCpuUsage(threading.Thread):       # pylint: disable=too-many-instance-attributes
     """A background thread fetching cpu times and calculating percentages.
 
     Accessible via ZMQ Pair/Pair socket; receives a
     request and responds with  a list of tuples containing the required
     attribute values: (name, value, traits)
+
+    Variable ``_stop_thread`` is used to enable stopping the thread even if
+    :meth:``stop`` is called before the thread has instantiated the
+    EventStream.
 
     :param Context context: The ZMQ context to use
     :param str endpoint: The ZMQ endpoint to listen for requests on
@@ -36,6 +40,7 @@ class HostCpuUsage(threading.Thread):
         self._stream = None
         self._timer_interval = interval
         self._log = logbook.Logger('HostCpuUsage')
+        self._stop_thread = False
         super().__init__()
 
     def _update_times(self):
@@ -86,19 +91,21 @@ class HostCpuUsage(threading.Thread):
         self._stream.register(sock, self._stream.POLLIN)
         self._stream.register(timer, self._stream.TIMER)
         try:
-            for event, _ in self._stream:
-                if event is timer:
-                    self._update_times()
-                    timer.schedule(self._timer_interval * 1000)
-                elif event is sock:
-                    _ = sock.recv_pyobj()
-                    sock.send_pyobj(self.last_attributes)
+            if not self._stop_thread:
+                for event, _ in self._stream:
+                    if event is timer:
+                        self._update_times()
+                        timer.schedule(self._timer_interval * 1000)
+                    elif event is sock:
+                        _ = sock.recv_pyobj()
+                        sock.send_pyobj(self.last_attributes)
         finally:
             sock.close(linger=0)
             self._stream.close()
 
     def stop(self):
         """Stop the thread safely."""
+        self._stop_thread = True
         if self._stream:
             self._stream.send_term()
 
@@ -134,6 +141,7 @@ class HostEntity:
             self.cpuusage_thread.join(timeout=2)
         if self.cpuusage_sock:
             self.cpuusage_sock.close(linger=0)
+        self.zmq_context.destroy(linger=0)
 
     @staticmethod
     @entityd.pm.hookimpl

@@ -144,12 +144,12 @@ def certificates(request):
 
 @pytest.yield_fixture(autouse=True)
 def _check_only_one_thread_present_on_tests_completion():
-    """Ensure at the end of each test module that there is only one thread."""
+    """Ensure at the end of each test that there is only one thread."""
     yield
     assert len(threading.enumerate()) == 1
 
 
-@pytest.fixture(autouse=True, scope='function')
+@pytest.fixture(autouse=True)
 def mock_cpuusage(request):
     """Mock out cpuusage calculation in processme and hostme.
 

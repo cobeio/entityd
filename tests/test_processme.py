@@ -2,6 +2,7 @@ import collections
 import functools
 import os
 import subprocess
+import threading
 import time
 
 import act
@@ -32,6 +33,20 @@ container_ents = collections.namedtuple(
 def revert_mocking_of_cpuusage(mock_cpuusage):
     """Revert the mocking out of the CpuUsage calculation thread."""
     mock_cpuusage.revert()
+
+
+@pytest.fixture
+def module_mock_cpuusage(monkeypatch):
+    """Mock out CpuUsage calculation thread.
+
+    Whilst reverting mocking out of CpuUsage for this module in above
+    autouse fixture `revert_mocking_of_cpuusage`, a couple of tests do
+    actually need it mocking out, which this performs.
+    """
+    cpuusage = pytest.Mock()
+    cpuusage.listen_endpoint = 'inproc://cpuusage'
+    monkeypatch.setattr(entityd.processme, 'CpuUsage',
+                        pytest.Mock(return_value=cpuusage))
 
 
 @pytest.fixture
@@ -103,8 +118,7 @@ def container_entities(procent, session, container):
 
 
 @pytest.fixture(params=[{'pid': os.getpid()}, None])
-def process_entity(pm, procent, request, session, kvstore):  # pylint:
-    # disable=unused-argument
+def process_entity(procent, request, session, kvstore):  # pylint: disable=unused-argument
     """Provide entity for the current process.
 
     This fixture operates to test both ``processme`` paths of finding
@@ -139,14 +153,6 @@ def cpuusage_interval(monkeypatch):
     monkeypatch.setattr(entityd.processme, "CpuUsage",
                         functools.partial(entityd.processme.CpuUsage,
                                           interval=0.1))
-
-
-@pytest.fixture
-def mock_cpuusage(monkeypatch):
-    cpuusage = pytest.Mock()
-    cpuusage.listen_endpoint = 'inproc://cpuusage'
-    monkeypatch.setattr(entityd.processme, 'CpuUsage',
-                        pytest.Mock(return_value=cpuusage))
 
 
 def test_no_docker_client(no_docker_client, procent):   # pylint: disable=unused-argument
@@ -498,8 +504,8 @@ def test_cpu_usage_sock_not_present_all(procent, session, kvstore):  # pylint: d
             _ = entity.attrs.get('cpu')
 
 
-def test_cpu_usage_attr_is_present(cpuusage_interval,  # pylint: disable=unused-argument
-                                   procent, session, kvstore): # pylint: disable=unused-argument
+def test_cpu_usage_attr_is_present(
+        cpuusage_interval, procent, session, kvstore): # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
     assert procent.cpu_usage_thread.is_alive()
     while True:
@@ -516,7 +522,8 @@ def test_cpu_usage_attr_is_present(cpuusage_interval,  # pylint: disable=unused-
             break
 
 
-def test_cpu_usage_not_running_one(mock_cpuusage, procent, session, kvstore): # pylint: disable=unused-argument
+def test_cpu_usage_not_running_one(
+        module_mock_cpuusage, procent, session, kvstore):   # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', {'pid': os.getpid()})
     entity = next(entities)
@@ -524,7 +531,8 @@ def test_cpu_usage_not_running_one(mock_cpuusage, procent, session, kvstore): # 
         _ = entity.attrs.get('cpu')
 
 
-def test_cpu_usage_not_running_all(mock_cpuusage, procent, session, kvstore):  # pylint: disable=unused-argument
+def test_cpu_usage_not_running_all(
+        module_mock_cpuusage, procent, session, kvstore):   # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', None)
     for entity in entities:
@@ -582,6 +590,7 @@ def test_host_ueid_no_host_entity(monkeypatch, procent, session):
 
 
 class TestCpuUsage:
+
     @pytest.fixture
     def context(self):
         return act.zkit.new_context()
@@ -589,6 +598,13 @@ class TestCpuUsage:
     @pytest.fixture
     def cpuusage(self, context):
         return entityd.processme.CpuUsage(context, interval=0.1)
+
+    def test_call_stop_cpuusage_thread(self, cpuusage):
+        """Tests :meth:`stop` stops thread irrespective of when called."""
+        cpuusage.stop()
+        cpuusage.start()
+        cpuusage.join()
+        assert len(threading.enumerate()) == 1
 
     def test_timer(self, monkeypatch, cpuusage):
         """Test the timer is firing, and triggers an update."""

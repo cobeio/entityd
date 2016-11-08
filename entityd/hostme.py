@@ -1,12 +1,14 @@
 """Plugin providing the Host Monitored Entity."""
 
+import os
 import platform
 import socket
 import threading
-import uuid
 
 import act
+import kube
 import logbook
+import requests
 import syskit
 import zmq
 
@@ -109,6 +111,7 @@ class HostEntity:
     def __init__(self):
         self.host_uuid = None
         self.session = None
+        self.hostname = None
         self.cpuusage_sock = None
         self.cpuusage_thread = None
         self.zmq_context = None
@@ -117,6 +120,7 @@ class HostEntity:
     def entityd_sessionstart(self, session):
         """Called when the monitoring session starts."""
         self.session = session
+        self.hostname = self.set_hostname()
         self.zmq_context = act.zkit.new_context()
         self.cpuusage_thread = HostCpuUsage(self.zmq_context)
         self.cpuusage_thread.start()
@@ -149,28 +153,40 @@ class HostEntity:
                 raise LookupError('Attribute based filtering not supported')
             return self.hosts()
 
-    def get_uuid(self):
-        """Get a uuid for host."""
-        if self.host_uuid:
-            return self.host_uuid
-        key = 'entityd.hostme'
-        try:
-            value = self.session.svc.kvstore.get(key)
-        except KeyError:
-            value = uuid.uuid4().hex
-            self.session.svc.kvstore.add(key, value)
-        self.host_uuid = value
-        return value
+    def set_hostname(self):
+        """Set the hostname.
+
+        Hostname is set as follows:
+        1. If entityd is running in a docker container (identified by
+           presence of file `/.dockernev`) and if we have access to a kube
+           cluster, then we know that this is the kubernetes entityd,
+           therefore deriving the hostname from the pod's kubernetes spec.
+        2. If we're in a container, but don't have access to a kube cluster,
+           then the hostname is not changed, its value remaining None.
+        3. If we're not in a container, then the hostname is conventionally
+           obtained.
+        """
+        if os.path.isfile('/.dockerenv'):
+            with kube.Cluster() as cluster:
+                podname = socket.gethostname()
+                for pod in cluster.pods:
+                    try:
+                        if pod.raw.metadata.name == podname:
+                            self.hostname = pod.raw.spec.nodeName
+                    except requests.ConnectionError:
+                        return None
+        else:
+            self.hostname = socket.gethostname()
 
     def hosts(self):
         """Generator of Host MEs."""
-        fqdn = socket.getfqdn()
-        uptime = int(syskit.uptime())
         update = entityd.EntityUpdate('Host')
-        update.label = fqdn
-        update.attrs.set('id', self.get_uuid(), {'entity:id'})
-        update.attrs.set('fqdn', fqdn)
-        update.attrs.set('uptime', uptime,
+        update.label = self.hostname
+        with open('/proc/sys/kernel/random/boot_id', 'r') as fp:
+            bootid = fp.read().strip()
+        update.attrs.set('bootid', bootid, {'entity:id'})
+        update.attrs.set('fqdn', socket.getfqdn())
+        update.attrs.set('uptime', int(syskit.uptime()),
                          {'time:duration', 'unit:seconds', 'metric:counter'})
         update.attrs.set('boottime', syskit.boottime().timestamp(),
                          {'time:posix', 'unit:seconds'})

@@ -1,9 +1,12 @@
 import functools
+import platform
 import socket
 import time
+import types
 
 import collections
 import pytest
+import requests
 
 import act
 import syskit
@@ -58,20 +61,45 @@ def test_find_entity_with_attrs():
         entityd.hostme.HostEntity().entityd_find_entity('Host', {})
 
 
-def test_get_uuid(host_gen):
-    uuid = host_gen.get_uuid()
-
-    host_gen.session.pluginmanager.hooks.entityd_kvstore_get \
-        .assert_called_once()
-    host_gen.session.pluginmanager.hooks.entityd_kvstore_put \
-        .assert_called_once()
-
-    assert uuid == host_gen.get_uuid()
-    assert host_gen.host_uuid is not None
-
-
 def test_metype(host):
     assert host.metype == 'Host'
+
+
+def test_bootid(host):
+    with open('/proc/sys/kernel/random/boot_id', 'r') as fp:
+        assert host.attrs.get('bootid').value == fp.read().strip()
+        assert host.attrs.get('bootid').traits == {'entity:id'}
+
+
+def test_bootid_determined_only_once(host_gen):
+    host_gen._bootid = 'testbootid'
+    assert host_gen.bootid == 'testbootid'
+
+
+def test_fqdn(host):
+    assert host.attrs.get('fqdn').value == socket.getfqdn()
+    assert host.attrs.get('fqdn').traits == set()
+
+
+def test_uptime(host):
+    assert abs(host.attrs.get('uptime').value - int(syskit.uptime())) <= 1
+    assert host.attrs.get('uptime').traits == {
+        'time:duration', 'unit:seconds', 'metric:counter'}
+
+
+def test_boottime(host):
+    assert host.attrs.get('boottime').value == syskit.boottime().timestamp()
+    assert host.attrs.get('boottime').traits == {'time:posix', 'unit:seconds'}
+
+
+def test_os(host):
+    assert host.attrs.get('os').value == platform.system()
+    assert host.attrs.get('os').traits == set()
+
+
+def test_osversion(host):
+    assert host.attrs.get('osversion').value == platform.release()
+    assert host.attrs.get('osversion').traits == set()
 
 
 def test_free(host):
@@ -79,6 +107,7 @@ def test_free(host):
     free = memorystats.free + memorystats.buffers + memorystats.cached
     free *= 1024
     assert abs(host.attrs.get('free').value - free) < 1024 ** 2
+    assert host.attrs.get('free').traits == {'unit:bytes', 'metric:gauge'}
 
 
 def test_used(host):
@@ -87,6 +116,7 @@ def test_used(host):
     used = memorystats.total - free
     used *= 1024
     assert abs(host.attrs.get('used').value - used) < 1024 ** 2
+    assert host.attrs.get('used').traits == {'unit:bytes', 'metric:gauge'}
 
 
 def test_total(host):
@@ -127,9 +157,54 @@ def test_loadavg(host_gen):
         assert 0 < av.value < 16
 
 
-def test_entity_has_label(host_gen):
+def test_entity_label_when_not_in_container(host_gen):
     entity = next(host_gen.entityd_find_entity(name='Host', attrs=None))
-    assert entity.label == socket.getfqdn()
+    assert entity.label == socket.gethostname()
+
+
+def test_hostname_property_determined_once(host_gen, monkeypatch):
+    monkeypatch.setattr(entityd.hostme.socket, 'gethostname', pytest.Mock(
+        return_value='testname1'))
+    entity = next(host_gen.entityd_find_entity(name='Host', attrs=None))
+    assert entity.label == 'testname1'
+    monkeypatch.setattr(entityd.hostme.socket, 'gethostname', pytest.Mock(
+        return_value='testname2'))
+    entity = next(host_gen.entityd_find_entity(name='Host', attrs=None))
+    assert entity.label == 'testname1'
+
+
+def test_entity_label__when_in_container_with_kube(monkeypatch, host_gen):
+    entityd.hostme.os.path.isfile = pytest.Mock(return_value=True)
+    class ClusterMock:
+        def __enter__(self):
+            metadata = types.SimpleNamespace(name=socket.gethostname())
+            spec = lambda: {'nodeName': 'testnodename'}
+            pods = [types.SimpleNamespace(metadata=metadata, spec=spec)]
+            cluster = types.SimpleNamespace(pods=pods)
+            return cluster
+        def __exit__(self, exc, val, tb):
+            pass
+    monkeypatch.setattr(entityd.hostme.kube, 'Cluster', ClusterMock)
+    entity = next(host_gen.entityd_find_entity(name='Host', attrs=None))
+    assert entity.label == 'testnodename'
+
+
+def test_entity_label_when_in_container_no_kube(monkeypatch, host_gen):
+    monkeypatch.setattr(entityd.hostme.os.path, 'isfile', pytest.Mock(
+        return_value=True))
+    class ClusterMock:
+        def __enter__(self):
+            metadata = types.SimpleNamespace(name=socket.gethostname())
+            def spec():
+                raise requests.ConnectionError
+            pods = [types.SimpleNamespace(metadata=metadata, spec=spec)]
+            cluster = types.SimpleNamespace(pods=pods)
+            return cluster
+        def __exit__(self, exc, val, tb):
+            pass
+    monkeypatch.setattr(entityd.hostme.kube, 'Cluster', ClusterMock)
+    entity = next(host_gen.entityd_find_entity(name='Host', attrs=None))
+    assert entity.label is None
 
 
 CpuTimes = collections.namedtuple('CpuTimes',

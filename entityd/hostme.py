@@ -105,13 +105,14 @@ class HostCpuUsage(threading.Thread):
             self._stream.send_term()
 
 
-class HostEntity:
+class HostEntity:                    # pylint: disable=too-many-instance-attributes
     """Plugin to generate Host MEs."""
 
     def __init__(self):
         self.host_uuid = None
         self.session = None
-        self.hostname = None
+        self._bootid = None
+        self._hostname = None
         self.cpuusage_sock = None
         self.cpuusage_thread = None
         self.zmq_context = None
@@ -120,7 +121,6 @@ class HostEntity:
     def entityd_sessionstart(self, session):
         """Called when the monitoring session starts."""
         self.session = session
-        self.hostname = self.set_hostname()
         self.zmq_context = act.zkit.new_context()
         self.cpuusage_thread = HostCpuUsage(self.zmq_context)
         self.cpuusage_thread.start()
@@ -153,38 +153,56 @@ class HostEntity:
                 raise LookupError('Attribute based filtering not supported')
             return self.hosts()
 
-    def set_hostname(self):
-        """Set the hostname.
+    @property
+    def bootid(self):
+        """Get and store the boot ID of the executing kernel.
 
-        Hostname is set as follows:
+        :returns: Kernel's boot ID UUID string.
+        """
+        if self._bootid:
+            return self._bootid
+        with open('/proc/sys/kernel/random/boot_id', 'r') as fp:
+            self._bootid = fp.read().strip()
+            return self._bootid
+
+    @property
+    def hostname(self):
+        """Get and store the hostname.
+
+        Hostname is obtained as follows:
         1. If entityd is running in a docker container (identified by
            presence of file `/.dockernev`) and if we have access to a kube
-           cluster, then we know that this is the kubernetes entityd,
-           therefore deriving the hostname from the pod's kubernetes spec.
+           cluster, then we know that this is a kubernetes entityd,
+           therefore deriving the node's hostname from the pod's kubernetes
+           spec.
         2. If we're in a container, but don't have access to a kube cluster,
            then the hostname is not changed, its value remaining None.
         3. If we're not in a container, then the hostname is conventionally
            obtained.
+
+        :returns: Hostname string.
         """
+        if self._hostname:
+            return self._hostname
         if os.path.isfile('/.dockerenv'):
             with kube.Cluster() as cluster:
                 podname = socket.gethostname()
-                for pod in cluster.pods:
-                    try:
-                        if pod.raw.metadata.name == podname:
-                            self.hostname = pod.raw.spec.nodeName
-                    except requests.ConnectionError:
-                        return None
+                try:
+                    for pod in cluster.pods:
+                        if pod.metadata.name == podname:
+                            self._hostname = pod.spec()['nodeName']
+                            return self._hostname
+                except requests.ConnectionError:
+                    return None
         else:
-            self.hostname = socket.gethostname()
+            self._hostname = socket.gethostname()
+            return self._hostname
 
     def hosts(self):
         """Generator of Host MEs."""
         update = entityd.EntityUpdate('Host')
         update.label = self.hostname
-        with open('/proc/sys/kernel/random/boot_id', 'r') as fp:
-            bootid = fp.read().strip()
-        update.attrs.set('bootid', bootid, {'entity:id'})
+        update.attrs.set('bootid', self.bootid, {'entity:id'})
         update.attrs.set('fqdn', socket.getfqdn())
         update.attrs.set('uptime', int(syskit.uptime()),
                          {'time:duration', 'unit:seconds', 'metric:counter'})

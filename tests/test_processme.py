@@ -2,7 +2,6 @@ import collections
 import functools
 import os
 import subprocess
-import threading
 import time
 
 import act
@@ -598,13 +597,6 @@ class TestCpuUsage:
     @pytest.fixture
     def cpuusage(self, context):
         return entityd.processme.CpuUsage(context, interval=0.1)
-
-    def test_call_stop_cpuusage_thread(self, cpuusage):
-        """Tests :meth:`stop` stops thread irrespective of when called."""
-        cpuusage.stop()
-        cpuusage.start()
-        cpuusage.join()
-        assert len(threading.enumerate()) == 1
 
     def test_timer(self, monkeypatch, cpuusage):
         """Test the timer is firing, and triggers an update."""

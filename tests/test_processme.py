@@ -338,12 +338,8 @@ def test_find_single_container_parent(container_entities):
 
 
 def test_no_possible_username_possible(syskit_user_error, process_entity):  # pylint: disable=unused-argument
-    try:
+    with pytest.raises(KeyError):
         process_entity.attrs.get('username')
-    except KeyError:
-        assert True
-    else:
-        assert False
 
 
 @pytest.fixture

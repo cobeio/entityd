@@ -14,7 +14,12 @@ import os
 import shlex
 import re
 
+import logbook
+
 import entityd.pm
+
+
+log = logbook.Logger(__name__)
 
 
 class PostgreSQLEntity:
@@ -23,6 +28,7 @@ class PostgreSQLEntity:
     def __init__(self):
         self.session = None
         self._host_ueid = None
+        self._log_flag = False
 
     @staticmethod
     @entityd.pm.hookimpl
@@ -69,8 +75,16 @@ class PostgreSQLEntity:
             update = entityd.EntityUpdate('PostgreSQL')
             update.attrs.set('host', str(self.host_ueid),
                              traits={'entity:id', 'entity:ueid'})
-            update.attrs.set(
-                'config_path', postgres.config_path(), traits={'entity:id'})
+            try:
+                update.attrs.set(
+                    'config_path',
+                    postgres.config_path(), traits={'entity:id'}
+                )
+            except PostgreSQLNotFoundError:
+                if not self._log_flag:
+                    log.warning('Could not find config path for PostgreSQL.')
+                    self._log_flag = True
+                return
             update.attrs.set('process_id', proc.attrs.get('pid').value)
             if include_ondemand:
                 files = list(itertools.chain.from_iterable(

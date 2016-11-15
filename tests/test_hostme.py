@@ -215,7 +215,6 @@ CpuTimes = collections.namedtuple('CpuTimes',
 
 class TestHostCpuUsage:
 
-
     @pytest.fixture
     def context(self):
         return act.zkit.new_context()

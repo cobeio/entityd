@@ -16,7 +16,7 @@ import entityd.mesend
 
 
 def get_receiver(endpoint, request, keydir):
-    # Create a receiver socket, intiailize it with default options and
+    # Create a receiver socket, initialise it with default options and
     # authentication if a key directory has been provided. Install finalizers
     # to clean everything up at the end then wait for the socket to be fully
     # bound before returning it.

@@ -3,7 +3,11 @@
 import setuptools
 
 
-__version__ = '0.12.0'
+__version__ = '0.13.0'
+
+
+with open("README.rst") as fp:
+    LONG_DESCRIPTION = fp.read()
 
 
 setuptools.setup(
@@ -14,6 +18,7 @@ setuptools.setup(
     license='LGPLv3',
     url='https://bitbucket.org/cobeio/act',
     description=' Entity monitoring agent for cobe.io',
+    long_description=LONG_DESCRIPTION,
     packages=setuptools.find_packages(),
     entry_points={
         'console_scripts': [

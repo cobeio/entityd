@@ -138,6 +138,7 @@ class HostEntity:                    # pylint: disable=too-many-instance-attribu
             self.cpuusage_thread.join(timeout=2)
         if self.cpuusage_sock:
             self.cpuusage_sock.close(linger=0)
+        self.zmq_context.destroy(linger=0)
 
     @staticmethod
     @entityd.pm.hookimpl

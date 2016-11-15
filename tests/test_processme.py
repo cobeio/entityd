@@ -1,3 +1,4 @@
+import collections
 import functools
 import os
 import subprocess
@@ -20,6 +21,13 @@ import entityd.core
 import entityd.kvstore
 
 
+container_ents = collections.namedtuple(
+    'container_ents', ['entities',
+                       'container_ueid',
+                       'container_id',
+                       'container_top_pid'])
+
+
 @pytest.fixture(autouse=True)
 def revert_mocking_of_cpuusage(mock_cpuusage):
     """Revert the mocking out of the CpuUsage calculation thread."""
@@ -27,7 +35,21 @@ def revert_mocking_of_cpuusage(mock_cpuusage):
 
 
 @pytest.fixture
-def procent(request, pm, host_entity_plugin):  # pylint: disable=unused-argument
+def module_mock_cpuusage(monkeypatch):
+    """Mock out CpuUsage calculation thread.
+
+    Whilst reverting mocking out of CpuUsage for this module in above
+    autouse fixture `revert_mocking_of_cpuusage`, a couple of tests do
+    actually need it mocking out, which this performs.
+    """
+    cpuusage = pytest.Mock()
+    cpuusage.listen_endpoint = 'inproc://cpuusage'
+    monkeypatch.setattr(entityd.processme, 'CpuUsage',
+                        pytest.Mock(return_value=cpuusage))
+
+
+@pytest.fixture
+def procent(request, pm, host_entity_plugin, session):  # pylint: disable=unused-argument
     """A entityd.processme.ProcessEntity instance.
 
     The plugin will be registered with the PluginManager but no hooks
@@ -38,6 +60,102 @@ def procent(request, pm, host_entity_plugin):  # pylint: disable=unused-argument
     pm.register(procent, 'entityd.processme.ProcessEntity')
     request.addfinalizer(procent.entityd_sessionfinish)
     return procent
+
+
+@pytest.fixture(scope='module')
+def debian_image():
+    """The debian docker image.
+
+    The image name, consisting of both the repository and tag joined
+    by ``:``, is returned as a string.
+    """
+    REPO = 'eu.gcr.io/cobesaas/debian'
+    TAG = '8.5'
+    IMAGE = REPO + ':' + TAG
+    out = subprocess.check_output(['docker', 'images', REPO])
+    out = out.decode('utf-8')
+    image = collections.namedtuple('image', ['repo', 'tag', 'id'])
+    images = [image(*l.split()[:3]) for l in out.splitlines()[1:]]
+    deb_image = {i for i in images if i.tag == TAG}
+    if not deb_image:
+        subprocess.check_call(['gcloud', 'docker', 'pull', IMAGE])
+    return IMAGE
+
+
+@pytest.yield_fixture(scope='module')
+def container(debian_image):
+    """Run a container."""
+    docker_client = docker.Client(base_url='unix://var/run/docker.sock')
+    try:
+        container = docker_client.create_container(
+            image=debian_image,
+            command='/bin/bash -c "while true; do sleep 1; done"',
+            name='sleeper',
+        )
+    except requests.ConnectionError:
+        pytest.skip('Test not possible due to docker daemon not running.')
+    docker_client.start(container=container.get('Id'))
+    container_top_pid = int(docker_client.top(container)['Processes'][0][1])
+    yield container_top_pid, container['Id']
+    docker_client.stop(container['Id'])
+    docker_client.remove_container(container['Id'])
+
+
+@pytest.fixture
+def container_entities(procent, session, container):
+    """Give all process entities and container id/pid if container running."""
+    container_top_pid, container_id = container
+    update = entityd.EntityUpdate('Container')
+    update.attrs.set('id', 'docker://' + container_id, traits={'entity:id'})
+    container_ueid = update.ueid
+    procent.entityd_sessionstart(session)
+    entities = procent.entityd_find_entity('Process', None)
+    return container_ents(entities=entities,
+                          container_ueid=container_ueid,
+                          container_id=container_id,
+                          container_top_pid=container_top_pid)
+
+
+@pytest.fixture(params=[{'pid': os.getpid()}, None])
+def process_entity(procent, request, session, kvstore):  # pylint: disable=unused-argument
+    """Provide entity for the current process.
+
+    This fixture operates to test both ``processme`` paths of finding
+    entities - via finding all process entities and also via finding an
+    entity with particular attributes.
+    """
+    procent.entityd_sessionstart(session)
+    entities = procent.entityd_find_entity('Process', request.param)
+    for entity in entities:
+        if entity.attrs.get('pid').value == os.getpid():
+            return entity
+
+
+@pytest.fixture
+def syskit_user_error(monkeypatch):
+    """Mock syskit to generate an error if user attribute is requested."""
+    @property
+    def syskit_error(self):  # pylint: disable=unused-argument
+        raise syskit.AttrNotAvailableError
+    monkeypatch.setattr(syskit.Process, 'user', syskit_error)
+
+
+@pytest.fixture
+def no_docker_client(monkeypatch):
+    """Mock out docker Client to test no docker client being available."""
+    monkeypatch.setattr(docker, 'Client',
+                        pytest.Mock(side_effect=docker.errors.DockerException))
+
+
+@pytest.fixture
+def cpuusage_interval(monkeypatch):
+    monkeypatch.setattr(entityd.processme, "CpuUsage",
+                        functools.partial(entityd.processme.CpuUsage,
+                                          interval=0.1))
+
+
+def test_no_docker_client(no_docker_client, procent):   # pylint: disable=unused-argument
+    assert procent._docker_client is None
 
 
 def test_configure(procent, config):
@@ -56,7 +174,7 @@ def test_find_entity(procent, session, kvstore):  # pylint: disable=unused-argum
     assert count
 
 
-def test_entity_attrs(procent, session, kvstore):  # pylint: disable=unused-argument
+def test_entities_have_core_attributes(procent, session, kvstore): # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', None)
     count = 0
@@ -65,32 +183,75 @@ def test_entity_attrs(procent, session, kvstore):  # pylint: disable=unused-argu
         if not entity.exists:
             continue
         for attr in 'binary pid starttime ppid host cputime utime stime vsz ' \
-                    'rss uid suid euid username command gid sgid egid ' \
-                    'sessionid'.split():
+                    'rss uid euid suid username gid sgid egid sessionid ' \
+                    'command'.split():
             assert entity.attrs.get(attr)
-            if attr in ['cputime']:
-                assert entity.attrs.get(attr).traits == {
-                    'metric:counter', 'time:duration', 'unit:seconds'}
-            if attr in ['vsz', 'rss']:
-                assert entity.attrs.get(attr).traits == {
-                    'metric:gauge', 'unit:bytes'}
-
         count += 1
     assert count
 
 
-def test_find_entity_with_pid(procent, session, kvstore):  # pylint: disable=unused-argument
+def test_container_entity_has_containerid_attribute(container,
+                                                    procent, session, kvstore):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
-    pid = os.getpid()
-    entities = procent.entityd_find_entity('Process', {'pid': pid})
-    proc = next(entities)
-    assert proc.metype == 'Process'
-    assert proc.attrs.get('pid').value == pid
-    assert proc.attrs.get('starttime').value
-    assert proc.attrs.get('ppid').value == os.getppid()
-
+    container_top_pid, containerid = container
+    entities = procent.entityd_find_entity(
+        'Process', {'pid': container_top_pid})
+    entity = next(entities)
+    assert entity.attrs.get('containerid').value == containerid
     with pytest.raises(StopIteration):
         next(entities)
+
+
+def test_get_process_containers_handles_missing_process(container,
+                                                        session, procent):
+    procent.entityd_sessionstart(session)
+    container_top_pid, containerid = container
+    pids = ['non existent pid', container_top_pid, 'another non existent pid']
+    assert procent.get_process_containers(
+        pids) == {container_top_pid: containerid}
+
+
+def test_get_container_data_when_no_docker_client(
+        container, no_docker_client, procent):   # pylint: disable=unused-argument
+    assert procent.get_process_containers({'pid': 1}) == {}
+
+
+def test_non_container_entity_has_no_containerid_attr(process_entity):
+    with pytest.raises(KeyError):
+        process_entity.attrs.get('containerid')
+
+
+@pytest.mark.parametrize(
+    ('attr', 'traits'),
+    [('pid', {'entity:id'}),
+     ('starttime', {'entity:id', 'time:posix', 'unit:seconds'}),
+     ('host', {'entity:id', 'entity:ueid'}),
+     ('cputime', {'metric:counter', 'time:duration', 'unit:seconds'}),
+     ('utime', {'metric:counter', 'time:duration', 'unit:seconds'}),
+     ('stime', {'metric:counter', 'time:duration', 'unit:seconds'}),
+     ('vsz', {'metric:gauge', 'unit:bytes'}),
+     ('rss', {'metric:gauge', 'unit:bytes'}),
+     ('binary', set()),
+     ('ppid', set()),
+     ('uid', set()),
+     ('euid', set()),
+     ('suid', set()),
+     ('username', set()),
+     ('gid', set()),
+     ('sgid', set()),
+     ('egid', set()),
+     ('sessionid', set()),
+     ('command', set()),
+    ])
+def test_pid_traits(process_entity, attr, traits):
+    assert process_entity.attrs.get(attr).traits == traits
+
+
+def test_find_current_process_entity(process_entity):
+    assert process_entity.metype == 'Process'
+    assert process_entity.attrs.get('pid').value == os.getpid()
+    assert process_entity.attrs.get('starttime').value
+    assert process_entity.attrs.get('ppid').value == os.getppid()
 
 
 def test_find_entity_with_unknown_attrs(procent, session, kvstore):  # pylint: disable=unused-argument
@@ -165,46 +326,20 @@ def test_root_process_has_host_parent(procent, session, kvstore, monkeypatch):  
     assert hostueid == hostupdate.ueid
 
 
-@pytest.yield_fixture(scope='module')
-def container():
-    docker_client = docker.Client(base_url='unix://var/run/docker.sock')
-    try:
-        container = docker_client.create_container(
-            image='eu.gcr.io/cobesaas/debian:8.5',
-            command='/bin/bash -c "while true; do sleep 1; done"',
-            name='sleeper'
-        )
-    except requests.ConnectionError:
-        pytest.skip('Test not possible due to docker daemon not running.')
-    docker_client.start(container=container.get('Id'))
-    container_top_pid = int(docker_client.top('sleeper')['Processes'][0][1])
-    yield container_top_pid, container['Id']
-    docker_client.stop(container['Id'])
-    docker_client.remove_container(container['Id'])
-
-
-def test_find_single_container_parent(procent, session, container):
-    container_top_pid, container_id = container
-    update = entityd.EntityUpdate('Container')
-    update.attrs.set('id', container_id, traits={'entity:id'})
-    container_ueid = update.ueid
-    procent.entityd_sessionstart(session)
-    entities = procent.entityd_find_entity('Process', None)
+def test_find_single_container_parent(container_entities):
     count = 0
-    for entity in entities:
+    for entity in container_entities.entities:
         pid = entity.attrs.get('pid').value
         parents = [ueid_obj for ueid_obj in list(entity.parents)]
-        if container_ueid in parents:
-            assert pid == container_top_pid
+        if container_entities.container_ueid in parents:
+            assert pid == container_entities.container_top_pid
             count += 1
     assert count == 1
 
 
-def test_handle_no_docker_daemon_working_on_host(procent):
-    entityd.processme.docker.Client.containers = pytest.Mock(
-        side_effect=requests.ConnectionError
-    )
-    assert procent.identify_docker_containers() == {}
+def test_no_possible_username_possible(syskit_user_error, process_entity):  # pylint: disable=unused-argument
+    with pytest.raises(KeyError):
+        process_entity.attrs.get('username')
 
 
 @pytest.fixture
@@ -301,13 +436,13 @@ def test_specific_parent_deleted(procent, session, kvstore, monkeypatch):  # pyl
     procent.entityd_sessionstart(session)
     proc = syskit.Process(os.getpid())
 
-    def patch_syskit(arg):  # pylint: disable=unused-argument
+    def patch_syskit():
         monkeypatch.setattr(syskit, 'Process',
                             pytest.Mock(side_effect=syskit.NoSuchProcessError))
         return proc
 
     monkeypatch.setattr(syskit, 'Process', pytest.Mock(
-        side_effect=patch_syskit))
+        return_value=patch_syskit()))
     monkeypatch.setattr(syskit.Process, 'enumerate',
                         pytest.Mock(return_value=[os.getpid()]))
 
@@ -364,10 +499,8 @@ def test_cpu_usage_sock_not_present_all(procent, session, kvstore):  # pylint: d
             _ = entity.attrs.get('cpu')
 
 
-def test_cpu_usage_attr_is_present(monkeypatch, procent, session, kvstore):  # pylint: disable=unused-argument
-    monkeypatch.setattr(entityd.processme, "CpuUsage",
-                        functools.partial(entityd.processme.CpuUsage,
-                                          interval=0.1))
+def test_cpu_usage_attr_is_present(
+        cpuusage_interval, procent, session, kvstore): # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
     assert procent.cpu_usage_thread.is_alive()
     while True:
@@ -384,11 +517,8 @@ def test_cpu_usage_attr_is_present(monkeypatch, procent, session, kvstore):  # p
             break
 
 
-def test_cpu_usage_not_running_one(procent, session, kvstore, monkeypatch):  # pylint: disable=unused-argument
-    cpuusage = pytest.Mock()
-    cpuusage.listen_endpoint = 'inproc://cpuusage'
-    monkeypatch.setattr(entityd.processme, 'CpuUsage',
-                        pytest.Mock(return_value=cpuusage))
+def test_cpu_usage_not_running_one(
+        module_mock_cpuusage, procent, session, kvstore):   # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', {'pid': os.getpid()})
     entity = next(entities)
@@ -396,12 +526,8 @@ def test_cpu_usage_not_running_one(procent, session, kvstore, monkeypatch):  # p
         _ = entity.attrs.get('cpu')
 
 
-def test_cpu_usage_not_running_all(procent, session, kvstore, monkeypatch):  # pylint: disable=unused-argument
-    cpuusage = pytest.Mock()
-    cpuusage.listen_endpoint = 'inproc://cpuusage'
-    monkeypatch.setattr(entityd.processme, 'CpuUsage',
-                        pytest.Mock(return_value=cpuusage))
-
+def test_cpu_usage_not_running_all(
+        module_mock_cpuusage, procent, session, kvstore):   # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', None)
     for entity in entities:
@@ -459,6 +585,7 @@ def test_host_ueid_no_host_entity(monkeypatch, procent, session):
 
 
 class TestCpuUsage:
+
     @pytest.fixture
     def context(self):
         return act.zkit.new_context()

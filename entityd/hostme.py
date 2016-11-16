@@ -6,9 +6,7 @@ import socket
 import threading
 
 import act
-import kube
 import logbook
-import requests
 import syskit
 import zmq
 
@@ -112,7 +110,7 @@ class HostEntity:                    # pylint: disable=too-many-instance-attribu
         self.host_uuid = None
         self.session = None
         self._bootid = None
-        self._hostname = None
+        self._incontainer = None
         self.cpuusage_sock = None
         self.cpuusage_thread = None
         self.zmq_context = None
@@ -167,44 +165,25 @@ class HostEntity:                    # pylint: disable=too-many-instance-attribu
             return self._bootid
 
     @property
-    def hostname(self):
-        """Get and store the hostname.
+    def incontainer(self):
+        """Get and store boolean of whether entityd is running in a container.
 
-        Hostname is obtained as follows:
-        1. If entityd is running in a docker container (identified by
-           presence of file `/.dockernev`) and if we have access to a kube
-           cluster, then we know that this is a kubernetes entityd,
-           therefore deriving the node's hostname from the pod's kubernetes
-           spec.
-        2. If we're in a container, but don't have access to a kube cluster,
-           then the hostname is not changed, its value remaining None.
-        3. If we're not in a container, then the hostname is conventionally
-           obtained.
+        That entityd is running in a container is identified by the
+        presence of file `/.dockerenv`.
 
-        :returns: Hostname string.
+        :returns: Boolean of whether entityd is running in a container.
         """
-        if self._hostname:
-            return self._hostname
-        if os.path.isfile('/.dockerenv'):
-            with kube.Cluster() as cluster:
-                podname = socket.gethostname()
-                try:
-                    for pod in cluster.pods:
-                        if pod.metadata.name == podname:
-                            self._hostname = pod.spec()['nodeName']
-                            return self._hostname
-                except requests.ConnectionError:
-                    return None
-        else:
-            self._hostname = socket.gethostname()
-            return self._hostname
+        if self._incontainer is None:
+            self._incontainer = os.path.isfile('/.dockerenv')
+        return self._incontainer
 
     def hosts(self):
         """Generator of Host MEs."""
         update = entityd.EntityUpdate('Host')
-        update.label = self.hostname
+        if not self.incontainer:
+            update.label = socket.gethostname()
+            update.attrs.set('fqdn', socket.getfqdn())
         update.attrs.set('bootid', self.bootid, {'entity:id'})
-        update.attrs.set('fqdn', socket.getfqdn())
         update.attrs.set('uptime', int(syskit.uptime()),
                          {'time:duration', 'unit:seconds', 'metric:counter'})
         update.attrs.set('boottime', syskit.boottime().timestamp(),

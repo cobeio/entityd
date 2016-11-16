@@ -511,7 +511,10 @@ def container_metrics(container, update):
         except kube.APIError as exc:
             pass
         else:
-            points = cadvisor_to_points(response['/' + container_id])
+            try:
+                points = cadvisor_to_points(response['/' + container_id])
+            except KeyError:
+                points = []
             try:
                 point = select_nearest_point(now, points, 20.0 * 60)
             except ValueError as exc:

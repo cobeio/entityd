@@ -30,6 +30,7 @@ BUILTIN_PLUGIN_NAMES = ['entityd.' + n for n in
                          'fileme:FileEntity',
                          'kubernetes',
                          'declentity:DeclarativeEntity']]
+BUILTIN_PLUGIN_NAMES.append('kubernetes.node:NodeEntity')
 
 
 log = logbook.Logger('entityd.bootstrap')

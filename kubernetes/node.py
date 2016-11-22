@@ -7,10 +7,18 @@ in the model therefore comprises the properties and attributes from both
 plugins.
 """
 
+import collections
 import kube
 import requests
 
+import logbook
+
 import entityd.pm
+
+
+log = logbook.Logger(__name__)
+_LOGGED_K8S_UNREACHABLE = False
+Poddata = collections.namedtuple('Poddata', ['name', 'namespace'])
 
 
 class NodeEntity:
@@ -18,7 +26,6 @@ class NodeEntity:
 
     def __init__(self):
         self.session = None
-        self._bootid = None
 
     @staticmethod
     @entityd.pm.hookimpl
@@ -39,53 +46,67 @@ class NodeEntity:
                 raise LookupError('Attribute based filtering not supported')
             return self.nodes()
 
-    @property
-    def bootid(self):
-        """Get and store the boot ID of the executing kernel.
+    @staticmethod
+    def get_pod_ueid(podname, namespace):
+        """Provide a pod's ueid.
 
-        :returns: Kernel's boot ID UUID string.
+        :param str podname: Pod's name.
+        :param str namespace: Pod's namespace.
+
+        :returns: A :class:`cobe.UEID` for the pod.
         """
-        if self._bootid:
-            return self._bootid
-        with open('/proc/sys/kernel/random/boot_id', 'r') as fp:
-            self._bootid = fp.read().strip()
-            return self._bootid
+        update = entityd.EntityUpdate('Pod')
+        update.attrs.set('meta:name', podname, traits={'entity:id'})
+        update.attrs.set('meta:namespace', namespace, traits={'entity:id'})
+        return update.ueid
 
-    def getpodnodes(self, cluster):
-        """Create a dictionary object of form:
+    def getnodespods(self, cluster):
+        """Determine the pods that exist in each namespace.
 
-            {nodename: set(node's pods), ...}.
+        Note that pods not yet assigned to a node are skipped by handling the
+        KeyError that occurs under such circumstances.
+
+        :returns: A dict of form {nodename: set(node's pods), ...}.
         """
-        podnodes = {}
+        nodepods = {}
         for pod in cluster.pods:
-            podname = pod.raw.metadata.name
-            nodename = pod.raw.spec.nodeName
-            if nodename not in podnodes:
-                podnodes[nodename] = set(podname)
+            podname = pod.raw['metadata']['name']
+            podnamespace = pod.raw['metadata']['namespace']
+            try:
+                nodename = pod.raw['spec']['nodeName']
+            except KeyError:
+                continue
+            podentry = Poddata(name=podname, namespace=podnamespace)
+            if nodename not in nodepods:
+                nodepods[nodename] = {podentry}
             else:
-                podnodes[nodename].add(podname)
-        return podnodes
+                nodepods[nodename].add(podentry)
+        return nodepods
 
     def nodes(self):
         """Provide all the Kubernetes node entities."""
+        global _LOGGED_K8S_UNREACHABLE  # pylint: disable=global-statement
         with kube.Cluster() as cluster:
-            podnodes = self.getpodnodes(cluster)
             try:
+                nodepods = self.getnodespods(cluster)
                 for node in cluster.nodes:
-                    nodename = node.meta.name
-                    print("Nodename:", nodename)
-                    bootid = node.raw.status['nodeInfo']['bootID']
-                    yield self.create_entity(
-                        nodename, bootid, podnodes[nodename])
+                    yield self.create_entity(node, nodepods)
             except requests.ConnectionError:
-                return None
+                if not _LOGGED_K8S_UNREACHABLE:
+                    log.info('Kubernetes API server unreachable')
+                    _LOGGED_K8S_UNREACHABLE = True
+            else:
+                _LOGGED_K8S_UNREACHABLE = False
 
-    def create_entity(self, nodename, bootid, pods):
+    def create_entity(self, node, nodepods):
         """Generator of Kubernetes Node Entities."""
+        nodename = node.meta.name
         update = entityd.EntityUpdate('Kubernetes:Node')
         update.label = nodename
-        update.attrs.set('bootid', bootid, {'entity:id'})
+        update.attrs.set(
+            'bootid', node.raw['status']['nodeInfo']['bootID'], {'entity:id'})
         update.attrs.set('kubernetes:kind', 'Node')
-        print(update.attrs._attrs)
-        print()
+        for Poddata in nodepods.get(nodename, []):
+            update.children.add(self.get_pod_ueid(Poddata.name,
+                                                  Poddata.namespace))
         return update

@@ -849,9 +849,6 @@ class TestContainerMetrics:
         assert not metrics[2].called
 
     def test_no_points(self, cluster, metrics, loghandler):
-        point_data = {
-            'timestamp': datetime.datetime(
-                2000, 8, 1).strftime('%Y-%m-%dT%H:%M:%S.%fZ')}
         pod = pytest.Mock(cluster=cluster)
         container = kube.Container(pod, {'containerID': 'docker://foo'})
         update = entityd.entityupdate.EntityUpdate('Entity')
@@ -859,7 +856,8 @@ class TestContainerMetrics:
             kube.NodeItem(cluster, {'metadata': {'name': 'node'}})]
         cluster.proxy.get.return_value = {}
         entityd.kubernetes.container_metrics(container, update)
-        assert loghandler.has_warning('No points given for container with ID foo')
+        assert loghandler.has_warning(
+            'No points given for container with ID foo')
         assert not metrics[0].called
         assert not metrics[1].called
         assert not metrics[2].called

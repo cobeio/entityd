@@ -7,7 +7,7 @@ import pytest
 import requests
 
 import entityd.entityupdate
-import entityd.kubernetes
+from entityd.kubernetes import kubernetes
 
 
 @pytest.fixture
@@ -26,13 +26,13 @@ def cluster(monkeypatch):
 @pytest.fixture
 def meta_update(monkeypatch):
     monkeypatch.setattr(
-        entityd.kubernetes, 'apply_meta_update', pytest.Mock())
-    return entityd.kubernetes.apply_meta_update
+        kubernetes, 'apply_meta_update', pytest.Mock())
+    return kubernetes.apply_meta_update
 
 
 def test_entityd_configure(pm, config):
-    plugin = pm.register(entityd.kubernetes)
-    entityd.kubernetes.entityd_configure(config)
+    plugin = pm.register(kubernetes)
+    kubernetes.entityd_configure(config)
     assert set(config.entities.keys()) == set((
         'Container',
         'Kubernetes:Pod',
@@ -46,30 +46,30 @@ class TestFindEntity:
 
     @pytest.fixture
     def generate_updates(self, monkeypatch):
-        monkeypatch.setattr(entityd.kubernetes,
+        monkeypatch.setattr(kubernetes,
                             'generate_updates', pytest.Mock())
-        return entityd.kubernetes.generate_updates
+        return kubernetes.generate_updates
 
     @pytest.mark.parametrize(
         ('type_', 'generator_function'),
-        entityd.kubernetes.ENTITIES_PROVIDED.items(),
+        kubernetes.ENTITIES_PROVIDED.items(),
     )
     def test(self, generate_updates, type_, generator_function):
-        generator = entityd.kubernetes.entityd_find_entity(type_)
+        generator = kubernetes.entityd_find_entity(type_)
         assert generator is generate_updates.return_value
         assert generate_updates.call_args[0] == (
-            getattr(entityd.kubernetes, generator_function),)
+            getattr(kubernetes, generator_function),)
 
     def test_not_provided(self):
-        assert entityd.kubernetes.entityd_find_entity('Foo') is None
+        assert kubernetes.entityd_find_entity('Foo') is None
 
     @pytest.mark.parametrize(
         'type_',
-        entityd.kubernetes.ENTITIES_PROVIDED.keys(),
+        kubernetes.ENTITIES_PROVIDED.keys(),
     )
     def test_attrs(self, type_):
         with pytest.raises(LookupError):
-            entityd.kubernetes.entityd_find_entity(
+            kubernetes.entityd_find_entity(
                 type_, {'meta:name': 'foo-entity-bar'})
 
 
@@ -93,15 +93,15 @@ def unreachable_cluster(monkeypatch):
 
 
 @pytest.mark.parametrize(
-    'update_generator', entityd.kubernetes.ENTITIES_PROVIDED.values())
+    'update_generator', kubernetes.ENTITIES_PROVIDED.values())
 def test_cluster_unreachable(unreachable_cluster, update_generator):  # pylint: disable=unused-argument
-    generator = entityd.kubernetes.generate_updates(
-        getattr(entityd.kubernetes, update_generator))
+    generator = kubernetes.generate_updates(
+        getattr(kubernetes, update_generator))
     assert list(generator) == []
 
 
 @pytest.mark.parametrize(
-    'update_generator', entityd.kubernetes.ENTITIES_PROVIDED.values())
+    'update_generator', kubernetes.ENTITIES_PROVIDED.values())
 def test_uncaught_status_error(update_generator):
 
     def generator(_):
@@ -115,7 +115,7 @@ def test_uncaught_status_error(update_generator):
         update.label = 'third'
 
     generator.__name__ = update_generator
-    generator = entityd.kubernetes.generate_updates(generator)
+    generator = kubernetes.generate_updates(generator)
     updates = list(generator)
     assert len(updates) == 1
     assert updates[0].label == 'first'
@@ -135,7 +135,7 @@ class TestApplyMetaUpdate:
             },
         }))
         update = entityd.entityupdate.EntityUpdate('Foo')
-        entityd.kubernetes.apply_meta_update(meta, update)
+        kubernetes.apply_meta_update(meta, update)
         assert update.attrs.get('meta:name').value == 'star'
         assert update.attrs.get('meta:name').traits == {'entity:id'}
         assert update.attrs.get('meta:namespace').value == 'andromeda'
@@ -162,7 +162,7 @@ class TestApplyMetaUpdate:
             },
         }))
         update = entityd.entityupdate.EntityUpdate('Foo')
-        entityd.kubernetes.apply_meta_update(meta, update)
+        kubernetes.apply_meta_update(meta, update)
         assert {attribute.name for attribute in update.attrs} == {
             'meta:name',
             'meta:version',
@@ -196,7 +196,7 @@ class TestNamespaces:
         ]
         cluster.namespaces.__iter__.return_value = iter(namespace_resources)
         namespaces = list(
-            entityd.kubernetes.entityd_find_entity('Kubernetes:Namespace'))
+            kubernetes.entityd_find_entity('Kubernetes:Namespace'))
         assert len(namespaces) == 2
         assert namespaces[0].metype == 'Kubernetes:Namespace'
         assert namespaces[0].label == 'namespace-1'
@@ -227,7 +227,7 @@ class TestPods:
             updates.append(update)
 
         monkeypatch.setattr(
-            entityd.kubernetes, 'generate_namespaces', generate_namespaces)
+            kubernetes, 'generate_namespaces', generate_namespaces)
         return updates
 
     def test(self, cluster, meta_update, namespaces):
@@ -256,7 +256,7 @@ class TestPods:
             }),
         ]
         cluster.pods.__iter__.return_value = iter(pod_resources)
-        pods = list(entityd.kubernetes.entityd_find_entity('Kubernetes:Pod'))
+        pods = list(kubernetes.entityd_find_entity('Kubernetes:Pod'))
         assert len(pods) == 2
         assert pods[0].metype == 'Kubernetes:Pod'
         assert pods[0].label == 'pod-1'
@@ -297,7 +297,7 @@ class TestPods:
             }),
         ]
         cluster.pods.__iter__.return_value = iter(pod_resources)
-        pods = list(entityd.kubernetes.entityd_find_entity('Kubernetes:Pod'))
+        pods = list(kubernetes.entityd_find_entity('Kubernetes:Pod'))
         assert len(pods) == 1
         assert pods[0].metype == 'Kubernetes:Pod'
         assert pods[0].label == 'pod-1'
@@ -323,7 +323,7 @@ class TestPods:
             }),
         ]
         cluster.pods.__iter__.return_value = iter(pod_resources)
-        pods = list(entityd.kubernetes.entityd_find_entity('Kubernetes:Pod'))
+        pods = list(kubernetes.entityd_find_entity('Kubernetes:Pod'))
         assert len(pods) == 1
         assert pods[0].metype == 'Kubernetes:Pod'
         assert pods[0].label == 'pod-1'
@@ -348,7 +348,7 @@ class TestPods:
             }),
         ]
         cluster.pods.__iter__.return_value = iter(pod_resources)
-        pods = list(entityd.kubernetes.entityd_find_entity('Kubernetes:Pod'))
+        pods = list(kubernetes.entityd_find_entity('Kubernetes:Pod'))
         assert len(pods) == 1
         assert pods[0].metype == 'Kubernetes:Pod'
         assert pods[0].label == 'pod-1'
@@ -403,8 +403,7 @@ class TestContainers:
         pod = kube.PodItem(cluster, raw_pod_resource)
         cluster.pods.__iter__.return_value = iter([pod])
         cluster.pods.fetch.return_value = pod
-        containers = list(
-            entityd.kubernetes.entityd_find_entity('Container'))
+        containers = list(kubernetes.entityd_find_entity('Container'))
         assert len(containers) == 1
         assert containers[0].metype == 'Container'
         assert containers[0].label == 'container-1'
@@ -435,8 +434,7 @@ class TestContainers:
         pod = kube.PodItem(cluster, raw_pod_resource)
         cluster.pods.__iter__.return_value = iter([pod])
         cluster.pods.fetch.return_value = pod
-        container = list(
-            entityd.kubernetes.entityd_find_entity('Container'))[0]
+        container = list(kubernetes.entityd_find_entity('Container'))[0]
         assert container.attrs.get(
             'state:started-at').value == '2015-12-04T19:15:23Z'
         assert container.attrs.get(
@@ -458,8 +456,7 @@ class TestContainers:
         pod = kube.PodItem(cluster, raw_pod_resource)
         cluster.pods.__iter__.return_value = iter([pod])
         cluster.pods.fetch.return_value = pod
-        container = list(
-            entityd.kubernetes.entityd_find_entity('Container'))[0]
+        container = list(kubernetes.entityd_find_entity('Container'))[0]
         assert container.attrs.get('state:reason').value == 'FooBar'
         assert container.attrs.get('state:reason').traits == set()
         assert container.attrs.deleted() == {
@@ -484,8 +481,7 @@ class TestContainers:
         pod = kube.PodItem(cluster, raw_pod_resource)
         cluster.pods.__iter__.return_value = iter([pod])
         cluster.pods.fetch.return_value = pod
-        container = list(
-            entityd.kubernetes.entityd_find_entity('Container'))[0]
+        container = list(kubernetes.entityd_find_entity('Container'))[0]
         assert container.attrs.get(
             'state:started-at').value == '2015-12-04T19:15:23Z'
         assert container.attrs.get(
@@ -508,8 +504,7 @@ class TestContainers:
         pod = kube.PodItem(cluster, raw_pod_resource)
         cluster.pods.__iter__.return_value = iter([pod])
         cluster.namespaces.fetch.side_effect = LookupError
-        containers = list(
-            entityd.kubernetes.entityd_find_entity('Container'))
+        containers = list(kubernetes.entityd_find_entity('Container'))
         assert not containers
 
     def test_missing_pod(self, cluster, raw_pod_resource):
@@ -517,19 +512,18 @@ class TestContainers:
         cluster.pods.__iter__.return_value = iter([pod])
         mock_namespace = cluster.namespaces.fetch.return_value
         mock_namespace.pods.fetch.side_effect = LookupError
-        containers = list(
-            entityd.kubernetes.entityd_find_entity('Container'))
+        containers = list(kubernetes.entityd_find_entity('Container'))
         assert not containers
 
 
 class TestMetric:
 
     def test_repr(self):
-        metric = entityd.kubernetes.Metric('foo', ('A', 'B'), {'spam', 'eggs'})
+        metric = kubernetes.Metric('foo', ('A', 'B'), {'spam', 'eggs'})
         assert repr(metric) == '<Metric foo @ A.B traits: eggs, spam>'
 
     def test(self):
-        metric = entityd.kubernetes.Metric('foo', ('A', 'B'), {'trait'})
+        metric = kubernetes.Metric('foo', ('A', 'B'), {'trait'})
         update = entityd.entityupdate.EntityUpdate('Entity')
         object_ = {'A': {'B': 'value'}}
         metric.apply(object_, update)
@@ -539,7 +533,7 @@ class TestMetric:
         assert attribute.traits == {'trait'}
 
     def test_unresolvable(self):
-        metric = entityd.kubernetes.Metric('foo', ('A', 'B'), {'trait'})
+        metric = kubernetes.Metric('foo', ('A', 'B'), {'trait'})
         update = entityd.entityupdate.EntityUpdate('Entity')
         object_ = {'A': {'C': 'value'}}
         metric.apply(object_, update)
@@ -548,7 +542,7 @@ class TestMetric:
             update.attrs.get('foo')
 
     def test_with_prefix(self):
-        metric = entityd.kubernetes.Metric('bar', ('B', 'C'), {'trait'})
+        metric = kubernetes.Metric('bar', ('B', 'C'), {'trait'})
         update = entityd.entityupdate.EntityUpdate('Entity')
         object_ = {'A': {'B': {'C': 'value'}}}
         metric.with_prefix('foo', ('A',)).apply(object_, update)
@@ -558,7 +552,7 @@ class TestMetric:
         assert attribute.traits == {'trait'}
 
     def test_nanosecond(self):
-        metric = entityd.kubernetes.NanosecondMetric('foo', ('A',), set())
+        metric = kubernetes.NanosecondMetric('foo', ('A',), set())
         update = entityd.entityupdate.EntityUpdate('Entity')
         object_ = {'A': 123000000000}
         metric.apply(object_, update)
@@ -568,7 +562,7 @@ class TestMetric:
         assert attribute.traits == set()
 
     def test_millisecond(self):
-        metric = entityd.kubernetes.MillisecondMetric('foo', ('A',), set())
+        metric = kubernetes.MillisecondMetric('foo', ('A',), set())
         update = entityd.entityupdate.EntityUpdate('Entity')
         object_ = {'A': 123000000}
         metric.apply(object_, update)
@@ -582,36 +576,36 @@ class TestNearestPoint:
 
     def test(self):
         target = datetime.datetime(2000, 8, 1)
-        points = [entityd.kubernetes.Point(t, {}) for t in (
+        points = [kubernetes.Point(t, {}) for t in (
             target + datetime.timedelta(seconds=-1),
             target + datetime.timedelta(seconds=0),
             target + datetime.timedelta(seconds=1),
         )]
-        point = entityd.kubernetes.select_nearest_point(target, points, 5.0)
+        point = kubernetes.select_nearest_point(target, points, 5.0)
         assert point is points[1]
 
     def test_no_points(self):
         target = datetime.datetime(2000, 8, 1)
         with pytest.raises(ValueError):
-            entityd.kubernetes.select_nearest_point(target, [], 5.0)
+            kubernetes.select_nearest_point(target, [], 5.0)
 
     @pytest.mark.parametrize('delta', [-20.1 * 60, 20.1 * 60])
     def test_exceed_threshold(self, delta):
         target = datetime.datetime(2000, 8, 1)
-        points = [entityd.kubernetes.Point(
+        points = [kubernetes.Point(
             target + datetime.timedelta(seconds=delta), {})]
         with pytest.raises(ValueError):
-            entityd.kubernetes.select_nearest_point(target, points,
+            kubernetes.select_nearest_point(target, points,
                                                     threshold=20 * 60)
 
     @pytest.mark.parametrize('threshold', [1, 5, 10, 20])
     def test_threshold_used_ok(self, threshold):
         target = datetime.datetime(2000, 8, 1)
         points = [
-            entityd.kubernetes.Point(
+            kubernetes.Point(
                 target + datetime.timedelta(seconds=threshold), {})
         ]
-        point = entityd.kubernetes.select_nearest_point(target, points,
+        point = kubernetes.select_nearest_point(target, points,
                                                         threshold=threshold)
         assert point == points[0]
 
@@ -619,11 +613,11 @@ class TestNearestPoint:
     def test_threshold_used_exceed(self, threshold):
         target = datetime.datetime(2000, 8, 1)
         points = [
-            entityd.kubernetes.Point(
+            kubernetes.Point(
                 target + datetime.timedelta(seconds=threshold + 1), {})
         ]
         with pytest.raises(ValueError):
-            entityd.kubernetes.select_nearest_point(target, points,
+            kubernetes.select_nearest_point(target, points,
                                                     threshold=threshold)
 
 
@@ -637,7 +631,7 @@ class TestCAdvisorToPoints:
     ])
     def test(self, fraction, timestamp, offset):
         raw_points = [{'timestamp': timestamp + '.' + fraction + offset}]
-        points = entityd.kubernetes.cadvisor_to_points(raw_points)
+        points = kubernetes.cadvisor_to_points(raw_points)
         assert len(points) == 1
         assert points[0].timestamp == datetime.datetime(2000, 8, 1, 12)
         assert points[0].data is raw_points[0]
@@ -648,7 +642,7 @@ class TestCAdvisorToPoints:
             {'timestamp': '2000-08-01T12:00:00.0#00:00'},
             {'timestamp': '2000-08-01T14:00:00.0Z'},
         ]
-        points = entityd.kubernetes.cadvisor_to_points(raw_points)
+        points = kubernetes.cadvisor_to_points(raw_points)
         assert len(points) == 2
         assert points[0].timestamp == datetime.datetime(2000, 8, 1, 10)
         assert points[0].data is raw_points[0]
@@ -658,20 +652,20 @@ class TestCAdvisorToPoints:
 class TestSimpleMetrics:
 
     def test(self, monkeypatch):
-        point = entityd.kubernetes.Point(pytest.Mock(), {
+        point = kubernetes.Point(pytest.Mock(), {
             'foo': 50,
             'bar': 100,
         })
         monkeypatch.setattr(
-            entityd.kubernetes,
+            kubernetes,
             'METRICS_CONTAINER',
             [
-                entityd.kubernetes.Metric('foo', ('foo',), set()),
-                entityd.kubernetes.Metric('bar', ('bar',), set()),
+                kubernetes.Metric('foo', ('foo',), set()),
+                kubernetes.Metric('bar', ('bar',), set()),
             ],
         )
         update = entityd.entityupdate.EntityUpdate('Entity')
-        entityd.kubernetes.simple_metrics(point, update)
+        kubernetes.simple_metrics(point, update)
         attribute_foo = update.attrs.get('foo')
         attribute_bar = update.attrs.get('bar')
         assert attribute_foo.value == 50
@@ -683,7 +677,7 @@ class TestSimpleMetrics:
 class TestFileSystemMetrics:
 
     def test(self, monkeypatch):
-        point = entityd.kubernetes.Point(pytest.Mock(), {
+        point = kubernetes.Point(pytest.Mock(), {
             'filesystem': [
                 {
                     'device': '/dev/disk/by-uuid/foo',
@@ -696,12 +690,12 @@ class TestFileSystemMetrics:
             ],
         })
         monkeypatch.setattr(
-            entityd.kubernetes,
+            kubernetes,
             'METRICS_FILESYSTEM',
-            [entityd.kubernetes.Metric('attribute', ('spam',), set())],
+            [kubernetes.Metric('attribute', ('spam',), set())],
         )
         update = entityd.entityupdate.EntityUpdate('Entity')
-        entityd.kubernetes.filesystem_metrics(point, update)
+        kubernetes.filesystem_metrics(point, update)
         attribute_foo = update.attrs.get('filesystem:foo:attribute')
         attribute_bar = update.attrs.get('filesystem:bar:attribute')
         assert attribute_foo.value == 50
@@ -710,16 +704,16 @@ class TestFileSystemMetrics:
         assert attribute_bar.traits == set()
 
     def test_no_filesystem_field(self):
-        point = entityd.kubernetes.Point(pytest.Mock(), {})
+        point = kubernetes.Point(pytest.Mock(), {})
         update = entityd.entityupdate.EntityUpdate('Entity')
-        entityd.kubernetes.filesystem_metrics(point, update)
+        kubernetes.filesystem_metrics(point, update)
         assert len(list(update.attrs)) == 0
 
 
 class TestDiskIOMetrics:
 
     def test(self, monkeypatch):
-        point = entityd.kubernetes.Point(pytest.Mock(), {
+        point = kubernetes.Point(pytest.Mock(), {
             'diskio': {
                 'foo': [
                     {
@@ -740,13 +734,13 @@ class TestDiskIOMetrics:
             },
         })
         monkeypatch.setattr(
-            entityd.kubernetes,
+            kubernetes,
             'METRICS_DISKIO',
-            {'foo': [entityd.kubernetes.Metric(
+            {'foo': [kubernetes.Metric(
                 'attribute', ('stats', 'value',), set())]},
         )
         update = entityd.entityupdate.EntityUpdate('Entity')
-        entityd.kubernetes.diskio_metrics(point, update)
+        kubernetes.diskio_metrics(point, update)
         attribute_8_0 = update.attrs.get('io:8:0:attribute')
         attribute_16_0 = update.attrs.get('io:16:0:attribute')
         assert attribute_8_0.value == 50
@@ -758,12 +752,12 @@ class TestDiskIOMetrics:
         # Order matters as we want to ensure that it continues even
         # after failing to find the first 'foo' field.
         metrics = collections.OrderedDict([
-            ('foo', [entityd.kubernetes.Metric(
+            ('foo', [kubernetes.Metric(
                 'foo', ('stats', 'value'), set())]),
-            ('bar', [entityd.kubernetes.Metric(
+            ('bar', [kubernetes.Metric(
                 'bar', ('stats', 'value'), set())]),
         ])
-        point = entityd.kubernetes.Point(pytest.Mock(), {
+        point = kubernetes.Point(pytest.Mock(), {
             'diskio': {
                 'bar': [
                     {
@@ -776,9 +770,9 @@ class TestDiskIOMetrics:
                 ],
             },
         })
-        monkeypatch.setattr(entityd.kubernetes, 'METRICS_DISKIO', metrics)
+        monkeypatch.setattr(kubernetes, 'METRICS_DISKIO', metrics)
         update = entityd.entityupdate.EntityUpdate('Entity')
-        entityd.kubernetes.diskio_metrics(point, update)
+        kubernetes.diskio_metrics(point, update)
         with pytest.raises(KeyError):
             update.attrs.get('io:8:0:foo')
         attribute = update.attrs.get('io:8:0:bar')
@@ -790,15 +784,15 @@ class TestContainerMetrics:
 
     @pytest.fixture()
     def metrics(self, monkeypatch):
-        monkeypatch.setattr(entityd.kubernetes,
+        monkeypatch.setattr(kubernetes,
                             'simple_metrics', pytest.Mock())
-        monkeypatch.setattr(entityd.kubernetes,
+        monkeypatch.setattr(kubernetes,
                             'filesystem_metrics', pytest.Mock())
-        monkeypatch.setattr(entityd.kubernetes,
+        monkeypatch.setattr(kubernetes,
                             'diskio_metrics', pytest.Mock())
-        return (entityd.kubernetes.simple_metrics,
-                entityd.kubernetes.filesystem_metrics,
-                entityd.kubernetes.diskio_metrics)
+        return (kubernetes.simple_metrics,
+                kubernetes.filesystem_metrics,
+                kubernetes.diskio_metrics)
 
     def test(self, cluster, metrics):
         point_data = {
@@ -810,7 +804,7 @@ class TestContainerMetrics:
         cluster.nodes = [
             kube.NodeItem(cluster, {'metadata': {'name': 'node'}})]
         cluster.proxy.get.return_value = {'/foo': [point_data]}
-        entityd.kubernetes.container_metrics(container, update)
+        kubernetes.container_metrics(container, update)
         assert metrics[0].called
         assert metrics[1].called
         assert metrics[2].called
@@ -828,7 +822,7 @@ class TestContainerMetrics:
         cluster.nodes = [
             kube.NodeItem(cluster, {'metadata': {'name': 'node'}})]
         cluster.proxy.get.side_effect = kube.APIError(pytest.Mock())
-        entityd.kubernetes.container_metrics(container, update)
+        kubernetes.container_metrics(container, update)
         assert not metrics[0].called
         assert not metrics[1].called
         assert not metrics[2].called
@@ -843,7 +837,7 @@ class TestContainerMetrics:
         cluster.nodes = [
             kube.NodeItem(cluster, {'metadata': {'name': 'node'}})]
         cluster.proxy.get.return_value = {'/foo': [point_data]}
-        entityd.kubernetes.container_metrics(container, update)
+        kubernetes.container_metrics(container, update)
         assert not metrics[0].called
         assert not metrics[1].called
         assert not metrics[2].called
@@ -855,7 +849,7 @@ class TestContainerMetrics:
         cluster.nodes = [
             kube.NodeItem(cluster, {'metadata': {'name': 'node'}})]
         cluster.proxy.get.return_value = {}
-        entityd.kubernetes.container_metrics(container, update)
+        kubernetes.container_metrics(container, update)
         assert loghandler.has_warning(
             'No points given for container with ID foo')
         assert not metrics[0].called

@@ -17,7 +17,6 @@ import entityd.pm
 
 
 log = logbook.Logger(__name__)
-_LOGGED_K8S_UNREACHABLE = False
 Poddata = collections.namedtuple('Poddata', ['name', 'namespace'])
 
 
@@ -26,17 +25,26 @@ class NodeEntity:
 
     def __init__(self):
         self.session = None
+        self.cluster = None
+        self._logged_k8s_unreachable = False
 
     @staticmethod
     @entityd.pm.hookimpl
     def entityd_configure(config):
         """Register the Node Entity."""
-        config.addentity('Kubernetes:Node', 'kubernetes.node.NodeEntity')
+        config.addentity('Kubernetes:Node',
+                         'entityd.kubernetes.node.NodeEntity')
 
     @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
         """Store the session for later usage."""
         self.session = session
+        self.cluster = kube.Cluster()
+
+    @entityd.pm.hookimpl
+    def entityd_sessionfinish(self):
+        """Safely terminate the plugin."""
+        self.cluster.close()
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
@@ -47,8 +55,8 @@ class NodeEntity:
             return self.nodes()
 
     @staticmethod
-    def get_pod_ueid(podname, namespace):
-        """Provide a pod's ueid.
+    def create_pod_ueid(podname, namespace):
+        """Create the ueid for a pod.
 
         :param str podname: Pod's name.
         :param str namespace: Pod's namespace.
@@ -60,53 +68,54 @@ class NodeEntity:
         update.attrs.set('meta:namespace', namespace, traits={'entity:id'})
         return update.ueid
 
-    def getnodespods(self, cluster):
-        """Determine the pods that exist in each namespace.
+    def determine_pods_on_nodes(self):
+        """Determine the name and namespace of the pods on each node.
 
-        Note that pods not yet assigned to a node are skipped by handling the
-        KeyError that occurs under such circumstances.
+        Note that any pods not yet assigned to a node are skipped by handling
+        the KeyError that occurs under such circumstances.
 
-        :returns: A dict of form {nodename: set(node's pods), ...}.
+        :returns: A dict of form:
+            {nodename: set(named tuples for node's pods
+                           with fields 'name' and 'namespace'),
+            ...}.
         """
-        nodepods = {}
-        for pod in cluster.pods:
-            podname = pod.raw['metadata']['name']
-            podnamespace = pod.raw['metadata']['namespace']
+        pods_on_nodes = {}
+        for pod in self.cluster.pods:
+            pod_name = pod.meta.name
+            pod_namespace = pod.meta.namespace
             try:
-                nodename = pod.raw['spec']['nodeName']
+                node_name = pod.spec()['nodeName']
             except KeyError:
                 continue
-            podentry = Poddata(name=podname, namespace=podnamespace)
-            if nodename not in nodepods:
-                nodepods[nodename] = {podentry}
+            pod_entry = Poddata(name=pod_name, namespace=pod_namespace)
+            if node_name not in pods_on_nodes:
+                pods_on_nodes[node_name] = {pod_entry}
             else:
-                nodepods[nodename].add(podentry)
-        return nodepods
+                pods_on_nodes[node_name].add(pod_entry)
+        return pods_on_nodes
 
     def nodes(self):
         """Provide all the Kubernetes node entities."""
-        global _LOGGED_K8S_UNREACHABLE  # pylint: disable=global-statement
-        with kube.Cluster() as cluster:
-            try:
-                nodepods = self.getnodespods(cluster)
-                for node in cluster.nodes:
-                    yield self.create_entity(node, nodepods)
-            except requests.ConnectionError:
-                if not _LOGGED_K8S_UNREACHABLE:
-                    log.info('Kubernetes API server unreachable')
-                    _LOGGED_K8S_UNREACHABLE = True
-            else:
-                _LOGGED_K8S_UNREACHABLE = False
+        try:
+            pods_on_nodes = self.determine_pods_on_nodes()
+            for node in self.cluster.nodes:
+                yield self.create_entity(node, pods_on_nodes)
+        except requests.ConnectionError:
+            if not self._logged_k8s_unreachable:
+                log.info('Kubernetes API server unreachable')
+                self._logged_k8s_unreachable = True
+        else:
+            self._logged_k8s_unreachable = False
 
     def create_entity(self, node, nodepods):
         """Generator of Kubernetes Node Entities."""
-        nodename = node.meta.name
-        update = entityd.EntityUpdate('Kubernetes:Node')
-        update.label = nodename
+        node_name = node.meta.name
+        update = entityd.EntityUpdate('Host')
+        update.label = node_name
         update.attrs.set(
             'bootid', node.raw['status']['nodeInfo']['bootID'], {'entity:id'})
         update.attrs.set('kubernetes:kind', 'Node')
-        for Poddata in nodepods.get(nodename, []):
-            update.children.add(self.get_pod_ueid(Poddata.name,
-                                                  Poddata.namespace))
+        for pod_data in nodepods.get(node_name, []):
+            update.children.add(self.create_pod_ueid(pod_data.name,
+                                                     pod_data.namespace))
         return update

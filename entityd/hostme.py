@@ -1,9 +1,9 @@
 """Plugin providing the Host Monitored Entity."""
 
+import os
 import platform
 import socket
 import threading
-import uuid
 
 import act
 import logbook
@@ -103,12 +103,14 @@ class HostCpuUsage(threading.Thread):
             self._stream.send_term()
 
 
-class HostEntity:
+class HostEntity:                    # pylint: disable=too-many-instance-attributes
     """Plugin to generate Host MEs."""
 
     def __init__(self):
         self.host_uuid = None
         self.session = None
+        self._bootid = None
+        self._incontainer = None
         self.cpuusage_sock = None
         self.cpuusage_thread = None
         self.zmq_context = None
@@ -150,28 +152,41 @@ class HostEntity:
                 raise LookupError('Attribute based filtering not supported')
             return self.hosts()
 
-    def get_uuid(self):
-        """Get a uuid for host."""
-        if self.host_uuid:
-            return self.host_uuid
-        key = 'entityd.hostme'
-        try:
-            value = self.session.svc.kvstore.get(key)
-        except KeyError:
-            value = uuid.uuid4().hex
-            self.session.svc.kvstore.add(key, value)
-        self.host_uuid = value
-        return value
+    @property
+    def bootid(self):
+        """Get and store the boot ID of the executing kernel.
+
+        :returns: Kernel's boot ID UUID string.
+        """
+        if self._bootid:
+            return self._bootid
+        with open('/proc/sys/kernel/random/boot_id', 'r') as fp:
+            self._bootid = fp.read().strip()
+            return self._bootid
+
+    @property
+    def incontainer(self):
+        """Get and store boolean of whether entityd is running in a container.
+
+        That entityd is running in a container is identified by the
+        presence of file `/.dockerenv`.
+
+        :returns: Boolean of whether entityd is running in a container.
+        """
+        if self._incontainer is None:
+            self._incontainer = os.path.isfile('/.dockerenv')
+        return self._incontainer
 
     def hosts(self):
         """Generator of Host MEs."""
-        fqdn = socket.getfqdn()
-        uptime = int(syskit.uptime())
         update = entityd.EntityUpdate('Host')
-        update.label = fqdn
-        update.attrs.set('id', self.get_uuid(), {'entity:id'})
-        update.attrs.set('fqdn', fqdn)
-        update.attrs.set('uptime', uptime,
+        if not self.incontainer:
+            hostname = socket.gethostname()
+            update.label = hostname
+            update.attrs.set('hostname', hostname)
+            update.attrs.set('fqdn', socket.getfqdn())
+        update.attrs.set('bootid', self.bootid, {'entity:id'})
+        update.attrs.set('uptime', int(syskit.uptime()),
                          {'time:duration', 'unit:seconds', 'metric:counter'})
         update.attrs.set('boottime', syskit.boottime().timestamp(),
                          {'time:posix', 'unit:seconds'})

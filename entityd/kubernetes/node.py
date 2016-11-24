@@ -16,6 +16,7 @@ import logbook
 import entityd.pm
 
 
+RFC_3339_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 log = logbook.Logger(__name__)
 Poddata = collections.namedtuple('Poddata', ['name', 'namespace'])
 
@@ -63,7 +64,7 @@ class NodeEntity:
 
         :returns: A :class:`cobe.UEID` for the pod.
         """
-        update = entityd.EntityUpdate('Pod')
+        update = entityd.EntityUpdate('Kubernetes:Pod')
         update.attrs.set('meta:name', podname, traits={'entity:id'})
         update.attrs.set('meta:namespace', namespace, traits={'entity:id'})
         return update.ueid
@@ -109,12 +110,20 @@ class NodeEntity:
 
     def create_entity(self, node, nodepods):
         """Generator of Kubernetes Node Entities."""
-        node_name = node.meta.name
+        meta = node.meta
+        node_name = meta.name
         update = entityd.EntityUpdate('Host')
         update.label = node_name
+        update.attrs.set('kubernetes:kind', 'Node')
         update.attrs.set(
             'bootid', node.raw['status']['nodeInfo']['bootID'], {'entity:id'})
-        update.attrs.set('kubernetes:kind', 'Node')
+        update.attrs.set('meta:name', node_name)
+        update.attrs.set('meta:version', meta.version)
+        update.attrs.set('meta:created',
+                         meta.created.strftime(RFC_3339_FORMAT),
+                         traits={'chrono:rfc3339'})
+        update.attrs.set('meta:link', meta.link, traits={'uri'})
+        update.attrs.set('meta:uid', meta.uid)
         for pod_data in nodepods.get(node_name, []):
             update.children.add(self.create_pod_ueid(pod_data.name,
                                                      pod_data.namespace))

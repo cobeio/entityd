@@ -1,3 +1,4 @@
+import datetime
 import types
 
 import cobe
@@ -17,6 +18,10 @@ def cluster(request):
         kube.NodeItem(cluster, {
                 'metadata': {
                     'name': 'nodename1',
+                    'resourceVersion': '12903054',
+                    'creationTimestamp': '2016-10-03T12:49:32Z',
+                    'selfLink': '/api/v1/nodes/nodename1',
+                    'uid': '7b211c2e-9644-11e6-8a78-42010af00021',
                 },
                 'status': {
                     'nodeInfo': {
@@ -25,7 +30,11 @@ def cluster(request):
                 }}}),
         kube.NodeItem(cluster, {
                 'metadata': {
-                    'name': 'nodename2'
+                    'name': 'nodename2',
+                    'resourceVersion': '12503032',
+                    'creationTimestamp': '2016-10-02T15:32:21Z',
+                    'selfLink': '/api/v1/nodes/nodename2',
+                    'uid': '7895566a-9644-11e6-8a78-42010af00021',
                 },
                 'status': {
                     'nodeInfo': {
@@ -71,6 +80,10 @@ def cluster_missing_node(request):
         kube.NodeItem(cluster, {
                 'metadata': {
                     'name': 'nodename1',
+                    'resourceVersion': '12903054',
+                    'creationTimestamp': '2016-10-03T12:49:32Z',
+                    'selfLink': '/api/v1/nodes/nodename1',
+                    'uid': '7b211c2e-9644-11e6-8a78-42010af00021',
                 },
                 'status': {
                     'nodeInfo': {
@@ -151,9 +164,16 @@ def test_get_first_entity(entities, node):
         'bootid').value == 'd4e0c0ae-290c-4e79-ae78-88b5d6cf215b'
     assert entity.attrs.get('bootid').traits == {'entity:id'}
     assert entity.attrs.get('kubernetes:kind').value == 'Node'
+    assert entity.attrs.get('meta:name').value == 'nodename1'
+    assert entity.attrs.get('meta:version').value == '12903054'
+    assert entity.attrs.get('meta:created').value == '2016-10-03T12:49:32Z'
+    assert entity.attrs.get('meta:link').value == '/api/v1/nodes/nodename1'
+    assert entity.attrs.get('meta:link').traits == {'uri'}
+    assert entity.attrs.get(
+        'meta:uid').value == '7b211c2e-9644-11e6-8a78-42010af00021'
     assert len(list(entity.children)) == 2
-    assert cobe.UEID('0865915cc5328bea2434c86599693e0d') in entity.children
-    assert cobe.UEID('0dc792da162422b677f47cfa551e50be') in entity.children
+    assert cobe.UEID('340f1e6180ac0b158c07943bed281117') in entity.children
+    assert cobe.UEID('ab38429878f52e48186876c283e7d9d6') in entity.children
     assert node._logged_k8s_unreachable == False
 
 
@@ -167,14 +187,14 @@ def test_get_second_entity(entities):
     assert entity.attrs.get('bootid').traits == {'entity:id'}
     assert entity.attrs.get('kubernetes:kind').value == 'Node'
     assert len(list(entity.children)) == 1
-    assert cobe.UEID('7d37a350012e63f5713a66497f609a92') in entity.children
+    assert cobe.UEID('38ccc5c6b87e52e6debbbc5b344508c5') in entity.children
 
 
 def test_get_entities_with_pod_missing_nodename(entities_missing_nodename):
     entity = next(entities_missing_nodename)
     assert entity.label == 'nodename1'
     assert len(list(entity.children)) == 1
-    assert cobe.UEID('0865915cc5328bea2434c86599693e0d') in entity.children
+    assert cobe.UEID('340f1e6180ac0b158c07943bed281117') in entity.children
     with pytest.raises(StopIteration):
         next(entities_missing_nodename)
 

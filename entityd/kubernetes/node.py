@@ -80,7 +80,7 @@ class NodeEntity:
                            with fields 'name' and 'namespace'),
             ...}.
         """
-        pods_on_nodes = {}
+        pods_on_nodes = collections.defaultdict(set)
         for pod in self.cluster.pods:
             pod_name = pod.meta.name
             pod_namespace = pod.meta.namespace
@@ -89,10 +89,7 @@ class NodeEntity:
             except KeyError:
                 continue
             pod_entry = Poddata(name=pod_name, namespace=pod_namespace)
-            if node_name not in pods_on_nodes:
-                pods_on_nodes[node_name] = {pod_entry}
-            else:
-                pods_on_nodes[node_name].add(pod_entry)
+            pods_on_nodes[node_name].add(pod_entry)
         return pods_on_nodes
 
     def nodes(self):

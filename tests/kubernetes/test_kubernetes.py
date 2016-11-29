@@ -70,7 +70,7 @@ class TestFindEntity:
     def test_attrs(self, type_):
         with pytest.raises(LookupError):
             kubernetes.entityd_find_entity(
-                type_, {'meta:name': 'foo-entity-bar'})
+                type_, {'kubernetes:meta:name': 'foo-entity-bar'})
 
 
 @pytest.yield_fixture
@@ -136,20 +136,20 @@ class TestApplyMetaUpdate:
         }))
         update = entityd.entityupdate.EntityUpdate('Foo')
         kubernetes.apply_meta_update(meta, update)
-        assert update.attrs.get('meta:name').value == 'star'
-        assert update.attrs.get('meta:name').traits == {'entity:id'}
-        assert update.attrs.get('meta:namespace').value == 'andromeda'
-        assert update.attrs.get('meta:namespace').traits == {'entity:id'}
-        assert update.attrs.get('meta:version').value == '1234'
-        assert update.attrs.get('meta:version').traits == set()
-        assert update.attrs.get('meta:created').value == '2015-01-14T17:01:37Z'
-        assert update.attrs.get('meta:created').traits == {'chrono:rfc3339'}
-        assert update.attrs.get('meta:link').value == (
+        assert update.attrs.get('kubernetes:meta:name').value == 'star'
+        assert update.attrs.get('kubernetes:meta:name').traits == {'entity:id'}
+        assert update.attrs.get('kubernetes:meta:namespace').value == 'andromeda'
+        assert update.attrs.get('kubernetes:meta:namespace').traits == {'entity:id'}
+        assert update.attrs.get('kubernetes:meta:version').value == '1234'
+        assert update.attrs.get('kubernetes:meta:version').traits == set()
+        assert update.attrs.get('kubernetes:meta:created').value == '2015-01-14T17:01:37Z'
+        assert update.attrs.get('kubernetes:meta:created').traits == {'chrono:rfc3339'}
+        assert update.attrs.get('kubernetes:meta:link').value == (
             '/api/v1/namespaces/andromeda/pods/star')
-        assert update.attrs.get('meta:link').traits == {'uri'}
-        assert update.attrs.get('meta:uid').value == (
+        assert update.attrs.get('kubernetes:meta:link').traits == {'uri'}
+        assert update.attrs.get('kubernetes:meta:uid').value == (
             '7955593e-bae0-11e5-b0b9-42010af00091')
-        assert update.attrs.get('meta:uid').traits == set()
+        assert update.attrs.get('kubernetes:meta:uid').traits == set()
 
     def test_missing_namespace(self):
         meta = kube.ObjectMeta(pytest.Mock(raw={
@@ -164,11 +164,11 @@ class TestApplyMetaUpdate:
         update = entityd.entityupdate.EntityUpdate('Foo')
         kubernetes.apply_meta_update(meta, update)
         assert {attribute.name for attribute in update.attrs} == {
-            'meta:name',
-            'meta:version',
-            'meta:created',
-            'meta:link',
-            'meta:uid',
+            'kubernetes:meta:name',
+            'kubernetes:meta:version',
+            'kubernetes:meta:created',
+            'kubernetes:meta:link',
+            'kubernetes:meta:uid',
         }
 
 
@@ -223,7 +223,7 @@ class TestPods:
 
         def generate_namespaces(cluster):  # pylint: disable=unused-argument
             update = yield
-            update.attrs.set('meta:name', 'andromeda')
+            update.attrs.set('kubernetes:meta:name', 'andromeda')
             updates.append(update)
 
         monkeypatch.setattr(

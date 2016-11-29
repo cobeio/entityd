@@ -1,4 +1,3 @@
-import datetime
 import types
 
 import cobe
@@ -7,6 +6,23 @@ import pytest
 import requests
 
 import entityd.kubernetes.node
+import entityd.kubernetes.cluster
+import entityd.pm
+
+
+@pytest.yield_fixture
+def cluster_entity_plugin(pm, session, kvstore):  # pylint: disable=unused-argument
+    cluster_plugin = entityd.kubernetes.cluster.ClusterEntity()
+    cluster_plugin.session = session
+    @entityd.pm.hookimpl
+    def entityd_find_entity(name, attrs):
+        yield entityd.entityupdate.EntityUpdate('Kubernetes:Cluster',
+                                                ueid='a' * 32)
+    cluster_plugin.entityd_find_entity = entityd_find_entity
+    pm.register(cluster_plugin, 'entityd.kubernetes.cluster.ClusterEntity')
+    cluster_plugin.entityd_sessionstart(session)
+    yield cluster_plugin
+    cluster_plugin.entityd_sessionfinish()
 
 
 @pytest.fixture
@@ -110,12 +126,12 @@ def cluster_missing_node(request):
 
 
 @pytest.fixture
-def node(request, pm, config, session):
+def node(request, cluster_entity_plugin, pm, config, session):
     """Fixture providing instance of ``node.NodeEntity``."""
     node = entityd.kubernetes.node.NodeEntity()
     pm.register(node, name='entityd.kubernetes.node.NodeEntity')
     node.entityd_sessionstart(session)
-    node.cluster.close()
+    node._cluster.close()
     node.entityd_configure(config)
     return node
 
@@ -123,7 +139,7 @@ def node(request, pm, config, session):
 @pytest.fixture
 def entities(node, monkeypatch, cluster):
     """Fixture providing entities."""
-    node.cluster = cluster
+    node._cluster = cluster
     entities = node.entityd_find_entity(
         name='Kubernetes:Node', attrs=None, include_ondemand=False)
     return entities
@@ -132,20 +148,20 @@ def entities(node, monkeypatch, cluster):
 @pytest.fixture
 def entities_missing_nodename(node, monkeypatch, cluster_missing_node):
     """Fixture providing entities where pod doesn't have nodename assigned."""
-    node.cluster = cluster_missing_node
+    node._cluster = cluster_missing_node
     entities = node.entityd_find_entity(
         name='Kubernetes:Node', attrs=None, include_ondemand=False)
     return entities
 
 
 def test_NodeEntity_has_kube_cluster_instance(node):
-    assert isinstance(node.cluster, kube._cluster.Cluster)
+    assert isinstance(node._cluster, kube._cluster.Cluster)
 
 
 def test_sessionfinish(monkeypatch, node):
-    assert isinstance(node.cluster, kube._cluster.Cluster)
+    assert isinstance(node._cluster, kube._cluster.Cluster)
     mock = pytest.Mock()
-    node.cluster = mock
+    node._cluster = mock
     node.entityd_sessionfinish()
     mock.close.assert_called_once_with()
 
@@ -164,16 +180,17 @@ def test_get_first_entity(entities, node):
         'bootid').value == 'd4e0c0ae-290c-4e79-ae78-88b5d6cf215b'
     assert entity.attrs.get('bootid').traits == {'entity:id'}
     assert entity.attrs.get('kubernetes:kind').value == 'Node'
-    assert entity.attrs.get('meta:name').value == 'nodename1'
-    assert entity.attrs.get('meta:version').value == '12903054'
-    assert entity.attrs.get('meta:created').value == '2016-10-03T12:49:32Z'
-    assert entity.attrs.get('meta:link').value == '/api/v1/nodes/nodename1'
-    assert entity.attrs.get('meta:link').traits == {'uri'}
+    assert entity.attrs.get('kubernetes:meta:name').value == 'nodename1'
+    assert entity.attrs.get('kubernetes:meta:version').value == '12903054'
+    assert entity.attrs.get('kubernetes:meta:created').value == '2016-10-03T12:49:32Z'
+    assert entity.attrs.get('kubernetes:meta:link').value == '/api/v1/nodes/nodename1'
+    assert entity.attrs.get('kubernetes:meta:link').traits == {'uri'}
     assert entity.attrs.get(
-        'meta:uid').value == '7b211c2e-9644-11e6-8a78-42010af00021'
+        'kubernetes:meta:uid').value == '7b211c2e-9644-11e6-8a78-42010af00021'
     assert len(list(entity.children)) == 2
-    assert cobe.UEID('340f1e6180ac0b158c07943bed281117') in entity.children
-    assert cobe.UEID('ab38429878f52e48186876c283e7d9d6') in entity.children
+    assert cobe.UEID('a' * 32) in entity.parents
+    assert cobe.UEID('b1403d18c648da9999529e4142f729c6') in entity.children
+    assert cobe.UEID('f4f300a2ac28bdbd7754454a2a3eadfa') in entity.children
     assert node._logged_k8s_unreachable == False
 
 
@@ -187,14 +204,14 @@ def test_get_second_entity(entities):
     assert entity.attrs.get('bootid').traits == {'entity:id'}
     assert entity.attrs.get('kubernetes:kind').value == 'Node'
     assert len(list(entity.children)) == 1
-    assert cobe.UEID('38ccc5c6b87e52e6debbbc5b344508c5') in entity.children
+    assert cobe.UEID('d1e9317307415dd15ef783d21ad77968') in entity.children
 
 
 def test_get_entities_with_pod_missing_nodename(entities_missing_nodename):
     entity = next(entities_missing_nodename)
     assert entity.label == 'nodename1'
     assert len(list(entity.children)) == 1
-    assert cobe.UEID('340f1e6180ac0b158c07943bed281117') in entity.children
+    assert cobe.UEID('f4f300a2ac28bdbd7754454a2a3eadfa') in entity.children
     with pytest.raises(StopIteration):
         next(entities_missing_nodename)
 

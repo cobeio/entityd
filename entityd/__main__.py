@@ -28,9 +28,10 @@ BUILTIN_PLUGIN_NAMES = ['entityd.' + n for n in
                          'mysqlme:MySQLEntity',
                          'postgresme:PostgreSQLEntity',
                          'fileme:FileEntity',
-                         'declentity:DeclarativeEntity',
                          'kubernetes.kubernetes',
-                         'kubernetes.node:NodeEntity']]
+                         'kubernetes.node:NodeEntity',
+                         'kubernetes.cluster:ClusterEntity',
+                         'declentity:DeclarativeEntity']]
 
 
 log = logbook.Logger('entityd.bootstrap')

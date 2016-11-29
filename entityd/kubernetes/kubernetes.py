@@ -206,21 +206,21 @@ def apply_meta_update(meta, update):
     :param kube.ObjectMeta meta: the meta object to set attributes for.
     :param entityd.EntityUpdate update: the update to apply the attributes to.
     """
-    update.attrs.set('meta:name', meta.name, traits={'entity:id'})
+    update.attrs.set('kubernetes:meta:name', meta.name, traits={'entity:id'})
     if meta.namespace:
-        update.attrs.set('meta:namespace',
+        update.attrs.set('kubernetes:meta:namespace',
                          meta.namespace, traits={'entity:id'})
     else:
-        update.attrs.delete('meta:namespace')
-    update.attrs.set('meta:version', meta.version)
+        update.attrs.delete('kubernetes:meta:namespace')
+    update.attrs.set('kubernetes:meta:version', meta.version)
     update.attrs.set(
-        'meta:created',
+        'kubernetes:meta:created',
         meta.created.strftime(RFC_3339_FORMAT),
         traits={'chrono:rfc3339'},
     )
     # TODO: Maybe convert to absolute URI
-    update.attrs.set('meta:link', meta.link, traits={'uri'})
-    update.attrs.set('meta:uid', meta.uid)
+    update.attrs.set('kubernetes:meta:link', meta.link, traits={'uri'})
+    update.attrs.set('kubernetes:meta:uid', meta.uid)
     # TODO: Labels
 
 
@@ -252,7 +252,8 @@ def generate_pods(cluster):
     """
     namespaces = {}
     for namespace in generate_updates(generate_namespaces):
-        namespaces[namespace.attrs.get('meta:name').value] = namespace
+        namespaces[
+            namespace.attrs.get('kubernetes:meta:name').value] = namespace
     for pod in cluster.pods:
         update = yield
         pod_update(pod, update)
@@ -296,9 +297,9 @@ def generate_containers(cluster):
     for pod_update in generate_updates(generate_pods):  # pylint: disable=redefined-outer-name
         try:
             namespace = cluster.namespaces.fetch(
-                pod_update.attrs.get('meta:namespace').value)
+                pod_update.attrs.get('kubernetes:meta:namespace').value)
             pod = cluster.pods.fetch(
-                pod_update.attrs.get('meta:name').value,
+                pod_update.attrs.get('kubernetes:meta:name').value,
                 namespace=namespace.meta.name
             )
         except LookupError:

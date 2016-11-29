@@ -26,7 +26,8 @@ class NodeEntity:
 
     def __init__(self):
         self.session = None
-        self.cluster = None
+        self._cluster = None
+        self._cluster_ueid = None
         self._logged_k8s_unreachable = False
 
     @staticmethod
@@ -40,12 +41,12 @@ class NodeEntity:
     def entityd_sessionstart(self, session):
         """Store the session for later usage."""
         self.session = session
-        self.cluster = kube.Cluster()
+        self._cluster = kube.Cluster()
 
     @entityd.pm.hookimpl
     def entityd_sessionfinish(self):
         """Safely terminate the plugin."""
-        self.cluster.close()
+        self._cluster.close()
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
@@ -54,6 +55,24 @@ class NodeEntity:
             if attrs is not None:
                 raise LookupError('Attribute based filtering not supported')
             return self.nodes()
+
+    @property
+    def cluster_ueid(self):
+        """Property to get the Kubernetes Cluster UEID.
+
+        :raises LookupError: If a Cluster UEID cannot be found.
+
+        :returns: A :class:`cobe.UEID` for the Cluster.
+        """
+        if not self._cluster_ueid:
+            results = self.session.pluginmanager.hooks.entityd_find_entity(
+                name='Kubernetes:Cluster', attrs=None)
+            if results:
+                for cluster_entity in results[0]:
+                    self._cluster_ueid = cluster_entity.ueid
+        if not self._cluster_ueid:
+            raise LookupError('Could not find the Cluster UEID')
+        return self._cluster_ueid
 
     @staticmethod
     def create_pod_ueid(podname, namespace):
@@ -65,8 +84,9 @@ class NodeEntity:
         :returns: A :class:`cobe.UEID` for the pod.
         """
         update = entityd.EntityUpdate('Kubernetes:Pod')
-        update.attrs.set('meta:name', podname, traits={'entity:id'})
-        update.attrs.set('meta:namespace', namespace, traits={'entity:id'})
+        update.attrs.set('kubernetes:meta:name', podname, traits={'entity:id'})
+        update.attrs.set(
+            'kubernetes:meta:namespace', namespace, traits={'entity:id'})
         return update.ueid
 
     def determine_pods_on_nodes(self):
@@ -78,10 +98,10 @@ class NodeEntity:
         :returns: A dict of form:
             {nodename: set(named tuples for node's pods
                            with fields 'name' and 'namespace'),
-            ...}.
+            ...}
         """
         pods_on_nodes = collections.defaultdict(set)
-        for pod in self.cluster.pods:
+        for pod in self._cluster.pods:
             pod_name = pod.meta.name
             pod_namespace = pod.meta.namespace
             try:
@@ -96,7 +116,7 @@ class NodeEntity:
         """Provide all the Kubernetes node entities."""
         try:
             pods_on_nodes = self.determine_pods_on_nodes()
-            for node in self.cluster.nodes:
+            for node in self._cluster.nodes:
                 yield self.create_entity(node, pods_on_nodes)
         except requests.ConnectionError:
             if not self._logged_k8s_unreachable:
@@ -114,14 +134,15 @@ class NodeEntity:
         update.attrs.set('kubernetes:kind', 'Node')
         update.attrs.set(
             'bootid', node.raw['status']['nodeInfo']['bootID'], {'entity:id'})
-        update.attrs.set('meta:name', node_name)
-        update.attrs.set('meta:version', meta.version)
-        update.attrs.set('meta:created',
+        update.attrs.set('kubernetes:meta:name', node_name)
+        update.attrs.set('kubernetes:meta:version', meta.version)
+        update.attrs.set('kubernetes:meta:created',
                          meta.created.strftime(RFC_3339_FORMAT),
                          traits={'chrono:rfc3339'})
-        update.attrs.set('meta:link', meta.link, traits={'uri'})
-        update.attrs.set('meta:uid', meta.uid)
+        update.attrs.set('kubernetes:meta:link', meta.link, traits={'uri'})
+        update.attrs.set('kubernetes:meta:uid', meta.uid)
         for pod_data in nodepods.get(node_name, []):
             update.children.add(self.create_pod_ueid(pod_data.name,
                                                      pod_data.namespace))
+        update.parents.add(self.cluster_ueid)
         return update

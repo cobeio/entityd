@@ -42,6 +42,116 @@ def test_entityd_main(pm, hookrec):
     calls = dict(hookrec.calls)
     assert calls['entityd_configure'] == {'config': config}
     assert isinstance(calls['entityd_sessionstart']['session'], core.Session)
+    assert (calls['entityd_sessionstart']['session'] ==
+            calls['entityd_mainloop']['session'] ==
+            calls['entityd_sessionfinish']['session'])
+
+
+def test_entityd_exception_in_mainloop(pm, hookrec):
+    config = pytest.Mock()
+    config.args.log_level = logbook.INFO
+
+    class TestErr(Exception):
+        pass
+
+    class FooPlugin:
+        entityd_main = core.entityd_main
+
+        @staticmethod
+        @entityd.pm.hookimpl
+        def entityd_cmdline_parse(pluginmanager, argv):  # pylint: disable=unused-argument
+            return config
+
+        @staticmethod
+        @entityd.pm.hookimpl
+        def entityd_mainloop(session):  # pylint: disable=unused-argument
+            raise TestErr()
+
+    pm.register(FooPlugin)
+    with pytest.raises(TestErr):
+        pm.hooks.entityd_main(pluginmanager=pm, argv=[])
+
+    assert [c[0] for c in hookrec.calls] == ['entityd_main',
+                                             'entityd_cmdline_parse',
+                                             'entityd_configure',
+                                             'entityd_sessionstart',
+                                             'entityd_mainloop',
+                                             'entityd_sessionfinish',
+                                             'entityd_unconfigure']
+    calls = dict(hookrec.calls)
+    assert calls['entityd_configure'] == {'config': config}
+    assert isinstance(calls['entityd_sessionstart']['session'], core.Session)
+    assert (calls['entityd_sessionstart']['session'] ==
+            calls['entityd_mainloop']['session'] ==
+            calls['entityd_sessionfinish']['session'])
+
+
+def test_entityd_exception_in_configure(pm, hookrec):
+    config = pytest.Mock()
+    config.args.log_level = logbook.INFO
+
+    class TestErr(Exception):
+        pass
+
+    class FooPlugin:
+        entityd_main = core.entityd_main
+
+        @staticmethod
+        @entityd.pm.hookimpl
+        def entityd_cmdline_parse(pluginmanager, argv):  # pylint: disable=unused-argument
+            return config
+
+        @staticmethod
+        @entityd.pm.hookimpl
+        def entityd_configure(config):  # pylint: disable=unused-argument
+            raise TestErr()
+
+    pm.register(FooPlugin)
+    with pytest.raises(TestErr):
+        pm.hooks.entityd_main(pluginmanager=pm, argv=[])
+
+    assert [c[0] for c in hookrec.calls] == ['entityd_main',
+                                             'entityd_cmdline_parse',
+                                             'entityd_configure',
+                                             'entityd_unconfigure']
+    calls = dict(hookrec.calls)
+    assert calls['entityd_configure'] == {'config': config}
+
+
+def test_entityd_exception_in_sessionstart(pm, hookrec):
+    config = pytest.Mock()
+    config.args.log_level = logbook.INFO
+
+    class TestErr(Exception):
+        pass
+
+    class FooPlugin:
+        entityd_main = core.entityd_main
+
+        @staticmethod
+        @entityd.pm.hookimpl
+        def entityd_cmdline_parse(pluginmanager, argv):  # pylint: disable=unused-argument
+            return config
+
+        @staticmethod
+        @entityd.pm.hookimpl
+        def entityd_sessionstart(session):  # pylint: disable=unused-argument
+            raise TestErr()
+
+    pm.register(FooPlugin)
+    with pytest.raises(TestErr):
+        pm.hooks.entityd_main(pluginmanager=pm, argv=[])
+
+    assert [c[0] for c in hookrec.calls] == ['entityd_main',
+                                             'entityd_cmdline_parse',
+                                             'entityd_configure',
+                                             'entityd_sessionstart',
+                                             'entityd_sessionfinish',
+                                             'entityd_unconfigure']
+    calls = dict(hookrec.calls)
+    assert calls['entityd_configure'] == {'config': config}
+    assert (calls['entityd_sessionstart']['session'] ==
+            calls['entityd_sessionfinish']['session'])
 
 
 def test_entityd_cmdline_parse(pm, hookrec):

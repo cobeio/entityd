@@ -1,6 +1,7 @@
 import collections
 import datetime
 import socket
+import types
 
 import kube
 import pytest
@@ -40,6 +41,27 @@ def test_entityd_configure(pm, config):
     ))
     for entity_plugin in config.entities.values():
         assert entity_plugin is plugin
+
+
+def test_sessionstart():
+    entity = entityd.entityupdate.EntityUpdate('Foo', ueid='a' * 32)
+    def entityd_find_entity(name, attrs):
+        return [[entity]]
+    hooks = types.SimpleNamespace(entityd_find_entity=entityd_find_entity)
+    pluginmanager = types.SimpleNamespace(hooks=hooks)
+    session = types.SimpleNamespace(pluginmanager=pluginmanager)
+    kubernetes.entityd_sessionstart(session)
+    assert str(kubernetes._CLUSTER_UEID) == 'a' * 32
+
+
+def test_sessionstart_no_cluster_ueid():
+    def entityd_find_entity(name, attrs):
+        return []
+    hooks = types.SimpleNamespace(entityd_find_entity=entityd_find_entity)
+    pluginmanager = types.SimpleNamespace(hooks=hooks)
+    session = types.SimpleNamespace(pluginmanager=pluginmanager)
+    with pytest.raises(LookupError):
+        kubernetes.entityd_sessionstart(session)
 
 
 class TestFindEntity:
@@ -137,13 +159,18 @@ class TestApplyMetaUpdate:
         update = entityd.entityupdate.EntityUpdate('Foo')
         kubernetes.apply_meta_update(meta, update)
         assert update.attrs.get('kubernetes:meta:name').value == 'star'
-        assert update.attrs.get('kubernetes:meta:name').traits == {'entity:id'}
-        assert update.attrs.get('kubernetes:meta:namespace').value == 'andromeda'
-        assert update.attrs.get('kubernetes:meta:namespace').traits == {'entity:id'}
+        assert update.attrs.get(
+            'kubernetes:meta:name').traits == {'entity:id'}
+        assert update.attrs.get(
+            'kubernetes:meta:namespace').value == 'andromeda'
+        assert update.attrs.get(
+            'kubernetes:meta:namespace').traits == {'entity:id'}
         assert update.attrs.get('kubernetes:meta:version').value == '1234'
         assert update.attrs.get('kubernetes:meta:version').traits == set()
-        assert update.attrs.get('kubernetes:meta:created').value == '2015-01-14T17:01:37Z'
-        assert update.attrs.get('kubernetes:meta:created').traits == {'chrono:rfc3339'}
+        assert update.attrs.get(
+            'kubernetes:meta:created').value == '2015-01-14T17:01:37Z'
+        assert update.attrs.get(
+            'kubernetes:meta:created').traits == {'chrono:rfc3339'}
         assert update.attrs.get('kubernetes:meta:link').value == (
             '/api/v1/namespaces/andromeda/pods/star')
         assert update.attrs.get('kubernetes:meta:link').traits == {'uri'}
@@ -169,6 +196,7 @@ class TestApplyMetaUpdate:
             'kubernetes:meta:created',
             'kubernetes:meta:link',
             'kubernetes:meta:uid',
+            'cluster'
         }
 
 
@@ -280,6 +308,29 @@ class TestPods:
             pod_resources[0].meta, pods[0])
         assert meta_update.call_args_list[1][0] == (
             pod_resources[1].meta, pods[1])
+
+    def test_no_ip_attribute(self, cluster):
+        pod = kube.PodItem(
+            cluster, {
+                'metadata': {
+                    'name': 'pod-1',
+                    'namespace': 'andromeda',
+                    'resourceVersion': '1234',
+                    'creationTimestamp': '2015-01-14T17:01:37Z',
+                    'selfLink': '/api/v1/namespaces/andromeda/pods/star',
+                    'uid': '7955593e-bae0-11e5-b0b9-42010af00091',
+                },
+                'status': {
+                    'phase': 'Running',
+                    'startTime': '2016-01-14T17:01:37Z',
+                    'message': 'Once upon a time ...',
+                },
+            })
+        update = entityd.entityupdate.EntityUpdate('Foo', ueid='a' * 32)
+        update.attrs.set('ip', 'test')
+        assert 'ip' in update.attrs._attrs
+        update = kubernetes.pod_update(pod, update)
+        assert 'ip' not in update.attrs._attrs
 
     def test_with_message(self, cluster, meta_update):
         pod_resources = [
@@ -499,6 +550,22 @@ class TestContainers:
         assert container.attrs.get('state:message').value == '...'
         assert container.attrs.get('state:message').traits == set()
         assert container.attrs.deleted() == set()
+
+    def test_no_ip_attribute(self, cluster, raw_pod_resource):
+        raw_pod_resource['status']['containerStatuses'][0]['state'] = {
+            'terminated': {
+                'startedAt': '2015-12-04T19:15:23Z',
+                'finishedAt': '2016-12-04T19:15:23Z',
+                'reason': 'ItsDeadJim',
+                'exitCode': 0,
+            }
+        }
+        pod = kube.PodItem(cluster, raw_pod_resource)
+        cluster.pods.__iter__.return_value = iter([pod])
+        cluster.pods.fetch.return_value = pod
+        container = list(kubernetes.entityd_find_entity('Container'))[0]
+        assert 'state:signal' not in container.attrs._attrs
+        assert 'state:message' not in container.attrs._attrs
 
     def test_missing_namespace(self, cluster, raw_pod_resource):
         pod = kube.PodItem(cluster, raw_pod_resource)

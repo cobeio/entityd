@@ -74,8 +74,7 @@ class NodeEntity:
             raise LookupError('Could not find the Cluster UEID')
         return self._cluster_ueid
 
-    @staticmethod
-    def create_pod_ueid(podname, namespace):
+    def create_pod_ueid(self, podname, namespace):
         """Create the ueid for a pod.
 
         :param str podname: Pod's name.
@@ -87,6 +86,8 @@ class NodeEntity:
         update.attrs.set('kubernetes:meta:name', podname, traits={'entity:id'})
         update.attrs.set(
             'kubernetes:meta:namespace', namespace, traits={'entity:id'})
+        update.attrs.set(
+            'cluster', str(self.cluster_ueid), traits={'entity:id'})
         return update.ueid
 
     def determine_pods_on_nodes(self):

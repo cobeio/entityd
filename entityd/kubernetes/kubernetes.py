@@ -19,6 +19,7 @@ import entityd.pm
 log = logbook.Logger(__name__)
 RFC_3339_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 _LOGGED_K8S_UNREACHABLE = False
+_CLUSTER_UEID = None
 ENTITIES_PROVIDED = {
     'Container': 'generate_containers',
     'Kubernetes:Namespace': 'generate_namespaces',
@@ -83,7 +84,7 @@ class Metric:
 
         This will attempt to find the metric value from a given object by
         walking the path to the metric. If a value is found it will be
-        tranformed according to :meth:`transform` and then set as an
+        transformed according to :meth:`transform` and then set as an
         attribute on the given update.
 
         If the metric value couldn't be found then the attribute is deleted
@@ -140,6 +141,29 @@ def entityd_find_entity(name, attrs=None, include_ondemand=False):  # pylint: di
         if attrs is not None:
             raise LookupError('Attribute based filtering not supported')
         return generate_updates(globals()[ENTITIES_PROVIDED[name]])
+
+
+@entityd.pm.hookimpl
+def entityd_sessionstart(session):
+    """Determine the Cluster UEID."""
+    global _CLUSTER_UEID  # pylint: disable=global-statement
+    _CLUSTER_UEID = get_cluster_ueid(session)
+
+
+def get_cluster_ueid(session):
+    """Get the Kubernetes Cluster UEID.
+
+    :raises LookupError: If a Cluster UEID cannot be found.
+
+    :returns: A :class:`cobe.UEID` for the Cluster.
+    """
+    results = session.pluginmanager.hooks.entityd_find_entity(
+        name='Kubernetes:Cluster', attrs=None)
+    if results:
+        for cluster_entity in results[0]:
+            return cluster_entity.ueid
+    else:
+        raise LookupError('Could not find the Cluster UEID')
 
 
 def generate_updates(generator_function):
@@ -212,6 +236,8 @@ def apply_meta_update(meta, update):
                          meta.namespace, traits={'entity:id'})
     else:
         update.attrs.delete('kubernetes:meta:namespace')
+    update.attrs.set('cluster', str(_CLUSTER_UEID),
+                     traits={'entity:id', 'entity:ueid'})
     update.attrs.set('kubernetes:meta:version', meta.version)
     update.attrs.set(
         'kubernetes:meta:created',
@@ -231,7 +257,7 @@ def generate_namespaces(cluster):
 
 
 def namespace_update(namespace, update):
-    """Populate update with attributes for a container.
+    """Populate update with attributes for a namespace.
 
     This will apply metadata attributes as well as a ``phase`` attribute
     indicating the phase of the namespace.
@@ -243,6 +269,7 @@ def namespace_update(namespace, update):
     apply_meta_update(namespace.meta, update)
     update.attrs.set(
         'phase', namespace.phase.value, traits={'kubernetes:namespace-phase'})
+    update.parents.add(_CLUSTER_UEID)
 
 
 def generate_pods(cluster):
@@ -277,8 +304,11 @@ def pod_update(pod, update):
     update.attrs.set('start_time',
                      pod.start_time.strftime(RFC_3339_FORMAT),
                      traits={'chrono:rfc3339'})
-    update.attrs.set('ip', str(pod.ip),
-                     traits={'ipaddr:v{}'.format(pod.ip.version)})
+    try:
+        update.attrs.set('ip', str(pod.ip),
+                         traits={'ipaddr:v{}'.format(pod.ip.version)})
+    except kube.StatusError:
+        update.attrs.delete('ip')
     for attribute in ('message', 'reason'):
         try:
             value = getattr(pod, attribute)
@@ -342,8 +372,14 @@ def container_update(container, update):
         update.attrs.delete('state:reason')
     if container.state.terminated:
         update.attrs.set('state:exit-code', container.state.exit_code)
-        update.attrs.set('state:signal', container.state.signal)
-        update.attrs.set('state:message', container.state.message)
+        try:
+            update.attrs.set('state:signal', container.state.signal)
+        except kube.StatusError:
+            update.attrs.delete('state:signal')
+        try:
+            update.attrs.set('state:message', container.state.message)
+        except kube.StatusError:
+            update.attrs.delete('state:message')
         update.attrs.set(
             'state:finished-at',
             container.state.finished_at.strftime(RFC_3339_FORMAT),

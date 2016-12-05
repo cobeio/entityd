@@ -171,6 +171,30 @@ def test_find_entity_with_attrs_not_none(node):
         node.entityd_find_entity(
             'Kubernetes:Node', {'attr': 'foo-entity-bar'})
 
+def test_no_cluster_ueid_found(cluster_entity_plugin):
+    nodeentity =  entityd.kubernetes.node.NodeEntity()
+    assert nodeentity.cluster_ueid == None
+
+
+def test_no_cluster_ueid_found(cluster_entity_plugin):
+    nodeentity = entityd.kubernetes.node.NodeEntity()
+    def entityd_find_entity(name, attrs):
+        return [[]]
+    hooks = types.SimpleNamespace(entityd_find_entity=entityd_find_entity)
+    pluginmanager = types.SimpleNamespace(hooks=hooks)
+    nodeentity.session = types.SimpleNamespace(pluginmanager=pluginmanager)
+    with pytest.raises(LookupError):
+        nodeentity.cluster_ueid
+
+def test_cluster_ueid_found(cluster_entity_plugin):
+    nodeentity = entityd.kubernetes.node.NodeEntity()
+    entity = entityd.entityupdate.EntityUpdate('Foo', ueid='a' * 32)
+    def entityd_find_entity(name, attrs):
+        return [[entity]]
+    hooks = types.SimpleNamespace(entityd_find_entity=entityd_find_entity)
+    pluginmanager = types.SimpleNamespace(hooks=hooks)
+    nodeentity.session = types.SimpleNamespace(pluginmanager=pluginmanager)
+    assert nodeentity.cluster_ueid == entity.ueid
 
 def test_get_first_entity(entities, node):
     entity = next(entities)
@@ -189,8 +213,8 @@ def test_get_first_entity(entities, node):
         'kubernetes:meta:uid').value == '7b211c2e-9644-11e6-8a78-42010af00021'
     assert len(list(entity.children)) == 2
     assert cobe.UEID('a' * 32) in entity.parents
-    assert cobe.UEID('b1403d18c648da9999529e4142f729c6') in entity.children
-    assert cobe.UEID('f4f300a2ac28bdbd7754454a2a3eadfa') in entity.children
+    assert cobe.UEID('847c21eb4c17a4000b539939dca9f654') in entity.children
+    assert cobe.UEID('d84281bb49f4c7b52eab5d8c81662c44') in entity.children
     assert node._logged_k8s_unreachable == False
 
 
@@ -204,14 +228,14 @@ def test_get_second_entity(entities):
     assert entity.attrs.get('bootid').traits == {'entity:id'}
     assert entity.attrs.get('kubernetes:kind').value == 'Node'
     assert len(list(entity.children)) == 1
-    assert cobe.UEID('d1e9317307415dd15ef783d21ad77968') in entity.children
+    assert cobe.UEID('717405ddc912c6179ea97eb0d0001832') in entity.children
 
 
 def test_get_entities_with_pod_missing_nodename(entities_missing_nodename):
     entity = next(entities_missing_nodename)
     assert entity.label == 'nodename1'
     assert len(list(entity.children)) == 1
-    assert cobe.UEID('f4f300a2ac28bdbd7754454a2a3eadfa') in entity.children
+    assert cobe.UEID('847c21eb4c17a4000b539939dca9f654') in entity.children
     with pytest.raises(StopIteration):
         next(entities_missing_nodename)
 

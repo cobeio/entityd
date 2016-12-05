@@ -19,8 +19,8 @@ class ClusterEntity:
         self.session = None
         self._cluster = None
         self._logged_k8s_unreachable = False
-        self._cluster_endpoint = None
-        self._cluster_name = None
+        self._address = None
+        self._project = None
 
     @staticmethod
     @entityd.pm.hookimpl
@@ -49,31 +49,36 @@ class ClusterEntity:
             return self.find_cluster_entity()
 
     @property
-    def cluster_endpoint(self):
-        """Provide the Kubernetes Cluster endpoint."""
-        if self._cluster_endpoint:
-            return self._cluster_endpoint
-        endpoints = self._cluster.proxy.get(
-            'http://localhost:8001/api/v1/endpoints')
-        for item in endpoints['items']:
-            if item.get('metadata', {}).get('name') == 'kubernetes':
-                self._cluster_endpoint = item[
-                    'subsets'][0]['addresses'][0]['ip']
-                break
-        return self._cluster_endpoint
+    def address(self):
+        """Provide the Kubernetes Cluster address."""
+        if self._address:
+            return self._address
+        result = self._cluster.proxy.get(
+            'namespaces/default/endpoints/kubernetes')
+        try:
+            subsets = result['subsets'][0]
+            address = subsets['addresses'][0]['ip']
+            port = subsets['ports'][0]['port']
+            name = subsets['ports'][0]['name']
+            self._address = (
+                '{}://{}:{}/').format(name, address, port)
+        except (KeyError, TypeError, IndexError) as err:
+            log.error('Kubernetes endpoint data '
+                      'not in expected format: {}', err)
+        return self._address
 
     @property
-    def cluster_name(self):
-        """Determine the Cluster's name.
+    def project(self):
+        """Determine the Kubernetes project.
 
-        :returns: Cluster name string.
+        :returns: Project name string.
         """
-        if not self._cluster_name:
+        if not self._project:
             nodeitem = list(self._cluster.nodes)[0]
-            self._cluster_name = re.search(
+            self._project = re.search(
                 r'//([a-z0-9-]+)/',
-                nodeitem.raw['spec']['providerID']).group(1)
-        return self._cluster_name
+                nodeitem.spec()['providerID']).group(1)
+        return self._project
 
     def find_cluster_entity(self):
         """Provide the Kubernetes Cluster entity."""
@@ -89,11 +94,7 @@ class ClusterEntity:
     def create_entity(self):
         """Generator of Kubernetes Cluster Entity."""
         update = entityd.EntityUpdate('Kubernetes:Cluster')
-        update.label = self.cluster_name
+        update.label = self.project
         update.attrs.set('kubernetes:kind', 'Cluster')
-        update.attrs.set(
-            'kubernetes:api_endpoint', self.cluster_endpoint,
-            {'entity:id'}
-        )
-        update.attrs.set('kubernetes:name', self.cluster_name)
+        update.attrs.set('kubernetes:cluster', self.address, {'entity:id'})
         return update

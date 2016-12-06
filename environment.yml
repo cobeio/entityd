@@ -22,7 +22,7 @@ dependencies:
   - pyzmq
   - msgpack-python
   - syskit
-  - requests
+  - requests >=2.11.1
   - pyyaml
   - act
   - kube >=0.8.0,<0.10.0

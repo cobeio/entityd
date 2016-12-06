@@ -3,7 +3,7 @@
 import setuptools
 
 
-__version__ = '0.13.0'
+__version__ = '0.13.1'
 
 
 with open("README.rst") as fp:
@@ -31,7 +31,7 @@ setuptools.setup(
         'Logbook',
         'pyzmq',
         'syskit',
-        'requests',
+        'requests >=2.11.1',
         'pyyaml',
         'kube >=0.8.0,<0.10.0',
         'python-cobe',

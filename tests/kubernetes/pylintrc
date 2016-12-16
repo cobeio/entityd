@@ -1,0 +1,11 @@
+[MESSAGES CONTROL]
+disable = locally-disabled,missing-docstring,no-init,no-member,protected-access,unnecessary-lambda,no-self-use,too-few-public-methods,too-many-public-methods,too-many-arguments,invalid-name,redefined-outer-name,duplicate-code
+
+[BASIC]
+good-names = i,j,k,ex,Run,_,cb,foo,bar
+
+[FORMAT]
+max-line-length = 79
+
+[REPORTS]
+reports = no

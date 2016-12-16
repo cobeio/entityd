@@ -30,6 +30,8 @@ BUILTIN_PLUGIN_NAMES = ['entityd.' + n for n in
                          'fileme:FileEntity',
                          'kubernetes.node:NodeEntity',
                          'kubernetes.cluster:ClusterEntity',
+                         'kubernetes.service:ServiceEntity',
+                         'kubernetes.replicaset:ReplicaSetEntity',
                          'kubernetes.kubernetes',
                          'declentity:DeclarativeEntity']]
 

@@ -8,10 +8,10 @@ plugins.
 """
 
 import collections
-import kube
-import requests
 
+import kube
 import logbook
+import requests
 
 import entityd.pm
 
@@ -28,7 +28,7 @@ class NodeEntity:
         self.session = None
         self._cluster = None
         self._cluster_ueid = None
-        self._logged_k8s_unreachable = False
+        self._logged_k8s_unreachable = None
 
     @staticmethod
     @entityd.pm.hookimpl

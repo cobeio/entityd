@@ -1,10 +1,10 @@
 """Plugin providing Kubernetes Cluster entity."""
 
 import re
-import requests
 
 import kube
 import logbook
+import requests
 
 import entityd.pm
 

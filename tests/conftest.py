@@ -175,3 +175,18 @@ def mock_cpuusage(request):
             entityd.hostme.HostEntity._add_cputime_attrs = add_cputime_attrs
     request.addfinalizer(Reversion.revert)
     return Reversion
+
+
+@pytest.yield_fixture
+def cluster_entity_plugin(pm, session, kvstore):  # pylint: disable=unused-argument
+    cluster_plugin = entityd.kubernetes.cluster.ClusterEntity()
+    cluster_plugin.session = session
+    @entityd.pm.hookimpl
+    def entityd_find_entity(name, attrs):  # pylint: disable=unused-argument
+        yield entityd.entityupdate.EntityUpdate('Kubernetes:Cluster',
+                                                ueid='a' * 32)
+    cluster_plugin.entityd_find_entity = entityd_find_entity
+    pm.register(cluster_plugin, 'entityd.kubernetes.cluster.ClusterEntity')
+    cluster_plugin.entityd_sessionstart(session)
+    yield cluster_plugin
+    cluster_plugin.entityd_sessionfinish()

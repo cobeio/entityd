@@ -28,8 +28,9 @@ def kube_mock(monkeypatch):
     class Spec:
         @staticmethod
         def spec():
-            return {'providerID': 'gce://clustername/europe-west1-d'
-                                   '/gke-cobetest-60058af9-node-3fqh'}
+            return {'providerID':
+                        'gce://clustername/'
+                        'europe-west1-d/gke-cobetest-60058af9-node-3fqh'}
     nodes = [Spec]
     addresses = {
         'metadata': {
@@ -73,13 +74,13 @@ def kube_mock_bad_format(monkeypatch, request):
 
 
 @pytest.yield_fixture
-def clusterentity_mocked(kube_mock, clusterentity):
+def clusterentity_mocked(kube_mock, clusterentity):  # pylint: disable=unused-argument
     """Instance of ``cluster.ClusterEntity``, applying the kube mocking."""
     yield clusterentity
 
 
 @pytest.yield_fixture
-def clusterentity_no_address(kube_mock_bad_format, clusterentity):
+def clusterentity_no_address(kube_mock_bad_format, clusterentity):  # pylint: disable=unused-argument
     """Instance of ``cluster.ClusterEntity``; address not findable."""
     yield clusterentity
 
@@ -104,7 +105,7 @@ def test_find_entity_with_attrs_not_none(clusterentity):
 def test_find_entity(clusterentity_mocked):
     entities = clusterentity_mocked.entityd_find_entity(
         'Kubernetes:Cluster', None, include_ondemand=False)
-    entity=next(entities)
+    entity = next(entities)
     assert entity.metype == 'Kubernetes:Cluster'
     assert entity.label == 'clustername'
     assert entity.attrs.get('kubernetes:kind').value == 'Cluster'
@@ -114,29 +115,29 @@ def test_find_entity(clusterentity_mocked):
         'kubernetes:cluster').traits == {'entity:id'}
     with pytest.raises(StopIteration):
         next(entities)
-    assert clusterentity_mocked._logged_k8s_unreachable == False
+    assert clusterentity_mocked._logged_k8s_unreachable is False
 
 
 def test_k8s_unreachable_log(clusterentity, monkeypatch, loghandler):
-    assert clusterentity._logged_k8s_unreachable == False
+    assert clusterentity._logged_k8s_unreachable is False
     def create_entity():
-        raise(requests.ConnectionError)
+        raise requests.ConnectionError
     monkeypatch.setattr(clusterentity, 'create_entity', create_entity)
     with pytest.raises(StopIteration):
         next(clusterentity.find_cluster_entity())
     assert loghandler.has_info()
-    assert clusterentity._logged_k8s_unreachable == True
+    assert clusterentity._logged_k8s_unreachable is True
 
 
 def test_k8s_unreachable_no_log(clusterentity, monkeypatch, loghandler):
     monkeypatch.setattr(clusterentity, '_logged_k8s_unreachable', True)
     def create_entity():
-        raise(requests.ConnectionError)
+        raise requests.ConnectionError
     monkeypatch.setattr(clusterentity, 'create_entity', create_entity)
     with pytest.raises(StopIteration):
         next(clusterentity.find_cluster_entity())
     assert not loghandler.has_info()
-    assert clusterentity._logged_k8s_unreachable == True
+    assert clusterentity._logged_k8s_unreachable is True
 
 
 def test_address_cached(clusterentity):
@@ -145,7 +146,7 @@ def test_address_cached(clusterentity):
 
 
 def test_address_exception(clusterentity_no_address, loghandler):
-    assert clusterentity_no_address.address == None
+    assert clusterentity_no_address.address is None
     assert loghandler.has_error()
 
 

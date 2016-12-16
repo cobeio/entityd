@@ -12,6 +12,7 @@ htmlcov/
 .cache/
 .tox/
 *.egg-info/
+.idea/
 
 # Files
 .coverage

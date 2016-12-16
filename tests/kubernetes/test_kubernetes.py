@@ -45,7 +45,7 @@ def test_entityd_configure(pm, config):
 
 def test_sessionstart():
     entity = entityd.entityupdate.EntityUpdate('Foo', ueid='a' * 32)
-    def entityd_find_entity(name, attrs):
+    def entityd_find_entity(name, attrs):    # pylint: disable=unused-argument
         return [[entity]]
     hooks = types.SimpleNamespace(entityd_find_entity=entityd_find_entity)
     pluginmanager = types.SimpleNamespace(hooks=hooks)
@@ -55,7 +55,7 @@ def test_sessionstart():
 
 
 def test_sessionstart_no_cluster_ueid():
-    def entityd_find_entity(name, attrs):
+    def entityd_find_entity(name, attrs):    # pylint: disable=unused-argument
         return []
     hooks = types.SimpleNamespace(entityd_find_entity=entityd_find_entity)
     pluginmanager = types.SimpleNamespace(hooks=hooks)
@@ -662,8 +662,8 @@ class TestNearestPoint:
         points = [kubernetes.Point(
             target + datetime.timedelta(seconds=delta), {})]
         with pytest.raises(ValueError):
-            kubernetes.select_nearest_point(target, points,
-                                                    threshold=20 * 60)
+            kubernetes.select_nearest_point(target,
+                                            points, threshold=20 * 60)
 
     @pytest.mark.parametrize('threshold', [1, 5, 10, 20])
     def test_threshold_used_ok(self, threshold):
@@ -673,7 +673,7 @@ class TestNearestPoint:
                 target + datetime.timedelta(seconds=threshold), {})
         ]
         point = kubernetes.select_nearest_point(target, points,
-                                                        threshold=threshold)
+                                                threshold=threshold)
         assert point == points[0]
 
     @pytest.mark.parametrize('threshold', [1, 5, 10, 20])
@@ -685,7 +685,7 @@ class TestNearestPoint:
         ]
         with pytest.raises(ValueError):
             kubernetes.select_nearest_point(target, points,
-                                                    threshold=threshold)
+                                            threshold=threshold)
 
 
 class TestCAdvisorToPoints:

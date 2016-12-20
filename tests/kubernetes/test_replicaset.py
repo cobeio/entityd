@@ -5,6 +5,7 @@ import kube
 import pytest
 import requests
 
+import entityd.kubernetes
 import entityd.kubernetes.cluster
 import entityd.kubernetes.replicaset
 import entityd.pm
@@ -175,3 +176,7 @@ def test_no_cluster_ueid_found(session):
         pluginmanager=pluginmanager)
     with pytest.raises(LookupError):
         assert replicasetentity.cluster_ueid
+
+def test_find_entities_not_implemented():
+    with pytest.raises(TypeError):
+        baseplugin = entityd.kubernetes.BasePlugin()

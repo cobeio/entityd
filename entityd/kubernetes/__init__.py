@@ -49,7 +49,6 @@ class BasePlugin(metaclass=ABCMeta):
     @abstractmethod
     def find_entities(self):
         """Ensure this method is defined in a derived class."""
-        pass
 
     @property
     def cluster_ueid(self):

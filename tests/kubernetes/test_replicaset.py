@@ -179,4 +179,4 @@ def test_no_cluster_ueid_found(session):
 
 def test_find_entities_not_implemented():
     with pytest.raises(TypeError):
-        baseplugin = entityd.kubernetes.BasePlugin()
+        entityd.kubernetes.BasePlugin()

@@ -73,16 +73,16 @@ def service(cluster_entity_plugin, pm, config, session):    # pylint: disable=un
 @pytest.fixture
 def entities(service, cluster):
     """Fixture providing entities."""
-    service._kutils.cluster = cluster
+    service.cluster = cluster
     entities = service.entityd_find_entity(
         name='Kubernetes:Service', attrs=None, include_ondemand=False)
     return entities
 
 
 def test_sessionfinish(service):
-    assert isinstance(service._kutils.cluster, kube._cluster.Cluster)
+    assert isinstance(service.cluster, kube._cluster.Cluster)
     mock = pytest.Mock()
-    service._kutils.cluster = mock
+    service.cluster = mock
     service.entityd_sessionfinish()
     mock.close.assert_called_once_with()
 
@@ -132,7 +132,7 @@ def test_no_cluster_ueid_found(session):
         return [[]]
     hooks = types.SimpleNamespace(entityd_find_entity=entityd_find_entity)
     pluginmanager = types.SimpleNamespace(hooks=hooks)
-    serviceentity._kutils._session = types.SimpleNamespace(
+    serviceentity._session = types.SimpleNamespace(
         pluginmanager=pluginmanager)
     with pytest.raises(LookupError):
-        assert serviceentity._kutils.cluster_ueid
+        assert serviceentity.cluster_ueid

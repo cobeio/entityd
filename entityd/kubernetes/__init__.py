@@ -1,5 +1,7 @@
 """This subpackage contains the Kubernetes modules of entityd."""
 
+from abc import ABCMeta, abstractmethod
+
 import kube
 import logbook
 
@@ -10,14 +12,44 @@ RFC_3339_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 log = logbook.Logger(__name__)
 
 
-class Kutilities:
-    """Provision of utilities to create Kubernetes """
+class BasePlugin(metaclass=ABCMeta):
+    """Base plugin class supporting creation of Kubernetes entities."""
 
-    def __init__(self, session):
+    def __init__(self):
+        self.session = None
+        self.entity_name = None
+        self.plugin_name = None
         self.cluster = kube.Cluster()
         self._cluster_ueid = None
-        self._session = session
-        self._logged_k8s_unreachable = False
+        self._logged_k8s_unreachable = None
+
+    @entityd.pm.hookimpl
+    def entityd_configure(self, config):
+        """Register the Replica Set Entity."""
+        config.addentity(self.entity_name, self.plugin_name)
+
+    @entityd.pm.hookimpl
+    def entityd_sessionstart(self, session):
+        """Store the session for later usage."""
+        self.session = session
+
+    @entityd.pm.hookimpl
+    def entityd_sessionfinish(self):
+        """Safely terminate the plugin."""
+        self.cluster.close()
+
+    @entityd.pm.hookimpl
+    def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
+        """Return an iterator of Kubernetes Replica Set entities."""
+        if name == self.entity_name:
+            if attrs is not None:
+                raise LookupError('Attribute based filtering not supported')
+            return self.find_entities()
+
+    @abstractmethod
+    def find_entities(self):
+        """Ensure this method is defined in a derived class."""
+        pass
 
     @property
     def cluster_ueid(self):
@@ -28,7 +60,7 @@ class Kutilities:
         :returns: A :class:`cobe.UEID` for the Cluster.
         """
         if not self._cluster_ueid:
-            results = self._session.pluginmanager.hooks.entityd_find_entity(
+            results = self.session.pluginmanager.hooks.entityd_find_entity(
                 name='Kubernetes:Cluster', attrs=None)
             if results:
                 for cluster_entity in results[0]:
@@ -78,6 +110,12 @@ class Kutilities:
             pod_ueid = self.create_pod_ueid(pod.meta.name, pod.meta.namespace)
             pods[pod_ueid] = set(pod.meta.labels.items())
         return pods
+
+    def log_api_server_unreachable(self):
+        """Log once that the Kubernetes API server is unreachable."""
+        if not self._logged_k8s_unreachable:
+            log.info('Kubernetes API server unreachable')
+            self._logged_k8s_unreachable = True
 
     def create_base_entity(self, resource, pods):
         """Creator of the base entity for certain Kubernetes resources.

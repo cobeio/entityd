@@ -1,61 +1,27 @@
 """Plugin providing Kubernetes Replica Set entities."""
 
 import kube
-import logbook
 import requests
 
-import entityd.pm
-from . import Kutilities
+import entityd.kubernetes
 
 
-RFC_3339_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
-log = logbook.Logger(__name__)
-
-
-class ReplicaSetEntity:
+class ReplicaSetEntity(entityd.kubernetes.BasePlugin):
     """Plugin to generate Kubernetes Replica Set Entities."""
 
     def __init__(self):
-        self.session = None
-        self._kutils = None
-        self._logged_k8s_unreachable = None
+        super().__init__()
+        self.entity_name = 'Kubernetes:ReplicaSet'
+        self.plugin_name = 'entityd.kubernetes.replicaset.ReplicaSetEntity'
 
-    @staticmethod
-    @entityd.pm.hookimpl
-    def entityd_configure(config):
-        """Register the Replica Set Entity."""
-        config.addentity('Kubernetes:ReplicaSet',
-                         'entityd.kubernetes.replicaset.ReplicaSetEntity')
-
-    @entityd.pm.hookimpl
-    def entityd_sessionstart(self, session):
-        """Store the session for later usage."""
-        self.session = session
-        self._kutils = Kutilities(session)
-
-    @entityd.pm.hookimpl
-    def entityd_sessionfinish(self):
-        """Safely terminate the plugin."""
-        self._kutils.cluster.close()
-
-    @entityd.pm.hookimpl
-    def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
-        """Return an iterator of Kubernetes Replica Set entities."""
-        if name == 'Kubernetes:ReplicaSet':
-            if attrs is not None:
-                raise LookupError('Attribute based filtering not supported')
-            return self.find_replicasets()
-
-    def find_replicasets(self):
+    def find_entities(self):
         """Find Kubernetes Replica Set entities."""
         try:
-            pods = self._kutils.determine_pods_labels()
-            for resource in self._kutils.cluster.replicasets:
+            pods = self.determine_pods_labels()
+            for resource in self.cluster.replicasets:
                 yield self.create_entity(resource, pods)
         except requests.ConnectionError:
-            if not self._logged_k8s_unreachable:
-                log.info('Kubernetes API server unreachable')
-                self._logged_k8s_unreachable = True
+            self.log_api_server_unreachable()
         else:
             self._logged_k8s_unreachable = False
 
@@ -66,7 +32,7 @@ class ReplicaSetEntity:
         :type resource: kube._replicaset.ReplicaSetItem
         :param dict pods: Set of labels for each pod in the cluster.
         """
-        update = self._kutils.create_base_entity(resource, pods)
+        update = self.create_base_entity(resource, pods)
         attributes = {
             'kubernetes:observed-replicas': 'observed_replicas',
             'kubernetes:observed-generation': 'observed_generation',

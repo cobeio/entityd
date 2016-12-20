@@ -83,16 +83,16 @@ def replicaset(cluster_entity_plugin, pm, config, session):    # pylint: disable
 @pytest.fixture
 def entities(replicaset, cluster):
     """Fixture providing entities."""
-    replicaset._kutils.cluster = cluster
+    replicaset.cluster = cluster
     entities = replicaset.entityd_find_entity(
         name='Kubernetes:ReplicaSet', attrs=None, include_ondemand=False)
     return entities
 
 
 def test_sessionfinish(replicaset):
-    assert isinstance(replicaset._kutils.cluster, kube._cluster.Cluster)
+    assert isinstance(replicaset.cluster, kube._cluster.Cluster)
     mock = pytest.Mock()
-    replicaset._kutils.cluster = mock
+    replicaset.cluster = mock
     replicaset.entityd_sessionfinish()
     mock.close.assert_called_once_with()
 
@@ -147,7 +147,7 @@ def test_missing_attributes_handled(replicaset, cluster):
             'spec': {},
         })
     ]
-    replicaset._kutils.cluster = cluster
+    replicaset.cluster = cluster
     entities = replicaset.entityd_find_entity(
         name='Kubernetes:ReplicaSet', attrs=None, include_ondemand=False)
     entity = next(entities)
@@ -171,7 +171,7 @@ def test_no_cluster_ueid_found(session):
         return [[]]
     hooks = types.SimpleNamespace(entityd_find_entity=entityd_find_entity)
     pluginmanager = types.SimpleNamespace(hooks=hooks)
-    replicasetentity._kutils._session = types.SimpleNamespace(
+    replicasetentity._session = types.SimpleNamespace(
         pluginmanager=pluginmanager)
     with pytest.raises(LookupError):
-        assert replicasetentity._kutils.cluster_ueid
+        assert replicasetentity.cluster_ueid

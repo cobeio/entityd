@@ -18,8 +18,7 @@ import zmq.auth
 def pylint(context):
     """Invoke pylint on modules and test code."""
     context.run('pylint entityd')
-    context.run('cd tests; pylint *.py')
-    context.run('cd tests/kubernetes; pylint *.py')
+    context.run('cd tests; pylint **/*.py')
     context.run('pylint setup.py')
     context.run('pylint tasks.py')
 

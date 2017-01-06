@@ -170,7 +170,7 @@ def test_missing_attributes_handled(replicaset, cluster):
 def test_k8s_unreachable(replicaset, monkeypatch):
     monkeypatch.setattr(replicaset, 'create_entity',
                         pytest.Mock(side_effect=requests.ConnectionError))
-    assert replicaset.logged_k8s_unreachable is None
+    assert replicaset.logged_k8s_unreachable is False
     assert list(replicaset.entityd_find_entity(
         name='Kubernetes:ReplicaSet',
         attrs=None, include_ondemand=False)) == []

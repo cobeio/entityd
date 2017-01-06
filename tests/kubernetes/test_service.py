@@ -9,12 +9,10 @@ import entityd.kubernetes.cluster
 import entityd.kubernetes.service
 import entityd.pm
 
-
 @pytest.fixture
-def cluster():
-    """Mock of ``kube.Cluster`` with Service having 2 child pods."""
-    services = [
-        kube.ServiceItem(cluster, {
+def kube_services_ipv4():
+    return [
+        kube.ServiceItem(None, {
             'metadata': {
                 'name': 'test_service',
                 'namespace': 'test_namespace',
@@ -27,10 +25,51 @@ def cluster():
             'status': {
                 'loadBalancer': {
                     'ingress': [
-                        {'ip': '146.145.27.27',
-                         'name': 'loadname'}]}}})]
-    pods = [
-        kube.PodItem(cluster, {
+                        {'ip': '146.145.27.27'}]}}})]
+
+
+@pytest.fixture
+def kube_services_ipv6():
+    return [
+        kube.ServiceItem(None, {
+            'metadata': {
+                'name': 'test_service',
+                'namespace': 'test_namespace',
+                'resourceVersion': '12903054',
+                'creationTimestamp': '2016-10-03T12:49:32Z',
+                'selfLink': 'test_link_path',
+                'uid': '7b211c2e-9644-11e6-8a78-42010af00021',
+                'labels': {'label1': 'string1',
+                           'label2': 'string2'}},
+            'status': {
+                'loadBalancer': {
+                    'ingress': [
+                        {'ip': '2001:db8:85a3::8a2e:370:7334'}]}}})]
+
+
+@pytest.fixture
+def kube_services_hostname():
+    return [
+        kube.ServiceItem(None, {
+            'metadata': {
+                'name': 'test_service',
+                'namespace': 'test_namespace',
+                'resourceVersion': '12903054',
+                'creationTimestamp': '2016-10-03T12:49:32Z',
+                'selfLink': 'test_link_path',
+                'uid': '7b211c2e-9644-11e6-8a78-42010af00021',
+                'labels': {'label1': 'string1',
+                           'label2': 'string2'}},
+            'status': {
+                'loadBalancer': {
+                    'ingress': [
+                        {'hostname': 'derreck'}]}}})]
+
+
+@pytest.fixture
+def kube_pods():
+    return [
+        kube.PodItem(None, {
             'metadata': {
                 'name': 'podname1-v3-ut4bz',
                 'namespace': 'namespace',
@@ -40,7 +79,7 @@ def cluster():
             },
             'spec': {
                 'nodeName': 'nodename1'}}),
-        kube.PodItem(cluster, {
+        kube.PodItem(None, {
             'metadata': {
                 'name': 'podname2-v3-xa5at',
                 'namespace': 'namespace',
@@ -50,7 +89,7 @@ def cluster():
             },
             'spec': {
                 'nodeName': 'nodename1'}}),
-        kube.PodItem(cluster, {
+        kube.PodItem(None, {
             'metadata': {
                 'name': 'podname3-v3-tv9zw',
                 'namespace': 'namespace',
@@ -60,8 +99,30 @@ def cluster():
             'spec': {
                 'nodeName': 'nodename1'}}),
     ]
+
+
+@pytest.fixture
+def cluster_ipv4(kube_services_ipv4, kube_pods):
+    """Mock of ``kube.Cluster`` with service having IPv4 ingress point."""
     kind = 'Kind.Service'
-    return types.SimpleNamespace(services=services, pods=pods, kind=kind)
+    return types.SimpleNamespace(
+        services=kube_services_ipv4, pods=kube_pods, kind=kind)
+
+
+@pytest.fixture
+def cluster_ipv6(kube_services_ipv6, kube_pods):
+    """Mock of ``kube.Cluster`` with service having IPv6 ingress point."""
+    kind = 'Kind.Service'
+    return types.SimpleNamespace(
+        services=kube_services_ipv6, pods=kube_pods, kind=kind)
+
+
+@pytest.fixture
+def cluster_hostname(kube_services_hostname, kube_pods):
+    """Mock of ``kube.Cluster`` with service having hostname ingress point."""
+    kind = 'Kind.Service'
+    return types.SimpleNamespace(
+        services=kube_services_hostname, pods=kube_pods, kind=kind)
 
 
 @pytest.fixture
@@ -75,9 +136,27 @@ def service(cluster_entity_plugin, pm, config, session):    # pylint: disable=un
 
 
 @pytest.fixture
-def entities(service, cluster):
-    """Fixture providing entities."""
-    service.cluster = cluster
+def entities_ipv4(service, cluster_ipv4):
+    """Fixture providing entities for services with IPv4 ingress points."""
+    service.cluster = cluster_ipv4
+    entities = service.entityd_find_entity(
+        name='Kubernetes:Service', attrs=None, include_ondemand=False)
+    return entities
+
+
+@pytest.fixture
+def entities_ipv6(service, cluster_ipv6):
+    """Fixture providing entities for services with IPv6 ingress points."""
+    service.cluster = cluster_ipv6
+    entities = service.entityd_find_entity(
+        name='Kubernetes:Service', attrs=None, include_ondemand=False)
+    return entities
+
+
+@pytest.fixture
+def entities_hostname(service, cluster_hostname):
+    """Fixture providing entities for services with IPv4 ingress points."""
+    service.cluster = cluster_hostname
     entities = service.entityd_find_entity(
         name='Kubernetes:Service', attrs=None, include_ondemand=False)
     return entities
@@ -97,8 +176,9 @@ def test_find_entity_with_attrs_not_none(service):
             'Kubernetes:Service', {'attr': 'foo-entity-bar'})
 
 
-def test_service_entities(service, entities):
-    entity = next(entities)
+def test_service_entities_ipv4(service, entities_ipv4):
+    # Test with service having IPv4 ingress point.
+    entity = next(entities_ipv4)
     assert entity.metype == 'Kubernetes:Service'
     assert entity.label == 'test_service'
     assert entity.attrs.get('kubernetes:kind').value == 'Service'
@@ -111,20 +191,42 @@ def test_service_entities(service, entities):
     assert entity.attrs.get(
         'kubernetes:meta:uid').value == '7b211c2e-9644-11e6-8a78-42010af00021'
     assert entity.attrs.get(
-        'kubernetes:loadbalancer-ingress-ip').value == '146.145.27.27'
+        'kubernetes:load-balancer-ingress').value == '146.145.27.27'
+    assert entity.attrs.get(
+        'kubernetes:load-balancer-ingress').traits == {'ipaddr:v4'}
     assert len(list(entity.children)) == 2
     assert len(list(entity.parents)) == 1
     assert cobe.UEID('ff290adeb112ae377e8fca009ca4fd9f') in entity.parents
     assert cobe.UEID('5a3a32ba5409a19c744633eb9f81a222') in entity.children
     assert cobe.UEID('43043ccc3b2dc9f57abc64b052e6aa3e') in entity.children
     with pytest.raises(StopIteration):
-        next(entities)
+        next(entities_ipv4)
     assert service.logged_k8s_unreachable is False
 
 
-def test_missing_attributes_handled(service, cluster):
-    cluster.services = [
-        kube.ServiceItem(cluster, {
+def test_service_entities_ipv6(entities_ipv6):
+    # Test with service having IPv6 ingress point.
+    entity = next(entities_ipv6)
+    assert entity.attrs.get(
+        'kubernetes:load-balancer-ingress'
+    ).value == '2001:db8:85a3::8a2e:370:7334'
+    assert entity.attrs.get(
+        'kubernetes:load-balancer-ingress').traits == {'ipaddr:v6'}
+
+
+def test_service_entities_hostname(entities_hostname):
+    # Test with service having hostname ingress point.
+    entity = next(entities_hostname)
+    assert entity.attrs.get(
+        'kubernetes:load-balancer-ingress'
+    ).value == 'derreck'
+    assert entity.attrs.get(
+        'kubernetes:load-balancer-ingress').traits == set()
+
+
+def test_missing_attributes_handled(service, cluster_ipv4):
+    cluster_ipv4.services = [
+        kube.ServiceItem(cluster_ipv4, {
             'metadata': {
                 'name': 'test_service',
                 'namespace': 'test_namespace',
@@ -135,20 +237,18 @@ def test_missing_attributes_handled(service, cluster):
                 'labels': {'label1': 'string1',
                            'label2': 'string2'}},
             'status': {}})]
-    service.cluster = cluster
+    service.cluster = cluster_ipv4
     entities = service.entityd_find_entity(
         name='Kubernetes:Service', attrs=None, include_ondemand=False)
     entity = next(entities)
     assert entity.metype == 'Kubernetes:Service'
-    assert entity.attrs._deleted_attrs == {
-        'kubernetes:loadbalancer-ingress-ip',
-        'kubernetes:loadbalancer-ingress-name'}
+    assert entity.attrs._deleted_attrs == {'kubernetes:load-balancer-ingress'}
 
 
 def test_k8s_unreachable(service, monkeypatch):
     monkeypatch.setattr(service, 'create_entity',
                         pytest.Mock(side_effect=requests.ConnectionError))
-    assert service.logged_k8s_unreachable is None
+    assert service.logged_k8s_unreachable is False
     assert list(service.entityd_find_entity(
         name='Kubernetes:Service', attrs=None, include_ondemand=False)) == []
     assert service.logged_k8s_unreachable is True

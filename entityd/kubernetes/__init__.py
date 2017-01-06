@@ -21,7 +21,7 @@ class BasePlugin(metaclass=ABCMeta):
         self.session = None
         self.cluster = kube.Cluster()
         self._cluster_ueid = None
-        self.logged_k8s_unreachable = None
+        self.logged_k8s_unreachable = False
 
     @entityd.pm.hookimpl
     def entityd_configure(self, config):
@@ -48,7 +48,10 @@ class BasePlugin(metaclass=ABCMeta):
 
     @abstractmethod
     def find_entities(self):
-        """Find and yield Kubernetes entities."""
+        """Finds and yields Kubernetes entities.
+
+        :returns: A generator of :class:`entityd.EntityUpdate`s.
+        """
 
     @property
     def cluster_ueid(self):

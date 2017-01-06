@@ -37,15 +37,16 @@ class ServiceEntity(entityd.kubernetes.BasePlugin):
         """
         update = self.create_base_entity(resource, pods)
         try:
-            for item in resource.loadbalancer_ingress:
-                itype = type(item)
-                if itype in [ipaddress.IPv4Address, ipaddress.IPv6Address]:
+            for point in resource.loadbalancer_ingress:
+                if isinstance(point, ipaddress.IPv4Address):
+                    update.attrs.set('kubernetes:load-balancer-ingress',
+                                     str(point), traits={'ipaddr:v4'})
+                elif isinstance(point, ipaddress.IPv6Address):
+                    update.attrs.set('kubernetes:load-balancer-ingress',
+                                     str(point), traits={'ipaddr:v6'})
+                elif isinstance(point, str):
                     update.attrs.set(
-                        'kubernetes:loadbalancer-ingress-ip', str(item))
-                if itype == str:
-                    update.attrs.set(
-                        'kubernetes:loadbalancer-ingress-name', item)
+                        'kubernetes:load-balancer-ingress', point)
         except kube.StatusError:
-            update.attrs.delete('kubernetes:loadbalancer-ingress-ip')
-            update.attrs.delete('kubernetes:loadbalancer-ingress-name')
+            update.attrs.delete('kubernetes:load-balancer-ingress')
         return update

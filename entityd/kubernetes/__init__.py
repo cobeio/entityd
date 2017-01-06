@@ -15,18 +15,18 @@ log = logbook.Logger(__name__)
 class BasePlugin(metaclass=ABCMeta):
     """Base plugin class supporting creation of Kubernetes entities."""
 
-    def __init__(self):
+    def __init__(self, entity_name, plugin_name):
+        self._entity_name = entity_name
+        self._plugin_name = plugin_name
         self.session = None
-        self.entity_name = None
-        self.plugin_name = None
         self.cluster = kube.Cluster()
         self._cluster_ueid = None
-        self._logged_k8s_unreachable = None
+        self.logged_k8s_unreachable = None
 
     @entityd.pm.hookimpl
     def entityd_configure(self, config):
         """Register the Replica Set Entity."""
-        config.addentity(self.entity_name, self.plugin_name)
+        config.addentity(self._entity_name, self._plugin_name)
 
     @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
@@ -41,14 +41,14 @@ class BasePlugin(metaclass=ABCMeta):
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
         """Return an iterator of Kubernetes Replica Set entities."""
-        if name == self.entity_name:
+        if name == self._entity_name:
             if attrs is not None:
                 raise LookupError('Attribute based filtering not supported')
             return self.find_entities()
 
     @abstractmethod
     def find_entities(self):
-        """Ensure this method is defined in a derived class."""
+        """Find and yield Kubernetes entities."""
 
     @property
     def cluster_ueid(self):
@@ -112,9 +112,9 @@ class BasePlugin(metaclass=ABCMeta):
 
     def log_api_server_unreachable(self):
         """Log once that the Kubernetes API server is unreachable."""
-        if not self._logged_k8s_unreachable:
+        if not self.logged_k8s_unreachable:
             log.info('Kubernetes API server unreachable')
-            self._logged_k8s_unreachable = True
+            self.logged_k8s_unreachable = True
 
     def create_base_entity(self, resource, pods):
         """Creator of the base entity for certain Kubernetes resources.
@@ -122,7 +122,7 @@ class BasePlugin(metaclass=ABCMeta):
         This provides the base entity for Replica Sets and Services.
 
         :param resource: Kubernetes resource item.
-        :type resource: kube._replicaset.ReplicaSetItem
+        :type resource: kube.ReplicaSetItem | kube.ServiceItem
         :param dict pods: Set of labels for each pod in the cluster.
         """
         meta = resource.meta

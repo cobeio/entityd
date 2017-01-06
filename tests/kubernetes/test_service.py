@@ -23,8 +23,12 @@ def cluster():
                 'selfLink': 'test_link_path',
                 'uid': '7b211c2e-9644-11e6-8a78-42010af00021',
                 'labels': {'label1': 'string1',
-                           'label2': 'string2'}}})
-    ]
+                           'label2': 'string2'}},
+            'status': {
+                'loadBalancer': {
+                    'ingress': [
+                        {'ip': '146.145.27.27',
+                         'name': 'loadname'}]}}})]
     pods = [
         kube.PodItem(cluster, {
             'metadata': {
@@ -106,6 +110,8 @@ def test_service_entities(service, entities):
     assert entity.attrs.get('kubernetes:meta:link').traits == {'uri'}
     assert entity.attrs.get(
         'kubernetes:meta:uid').value == '7b211c2e-9644-11e6-8a78-42010af00021'
+    assert entity.attrs.get(
+        'kubernetes:loadbalancer-ingress-ip').value == '146.145.27.27'
     assert len(list(entity.children)) == 2
     assert len(list(entity.parents)) == 1
     assert cobe.UEID('ff290adeb112ae377e8fca009ca4fd9f') in entity.parents
@@ -113,16 +119,39 @@ def test_service_entities(service, entities):
     assert cobe.UEID('43043ccc3b2dc9f57abc64b052e6aa3e') in entity.children
     with pytest.raises(StopIteration):
         next(entities)
-    assert service._logged_k8s_unreachable is False
+    assert service.logged_k8s_unreachable is False
+
+
+def test_missing_attributes_handled(service, cluster):
+    cluster.services = [
+        kube.ServiceItem(cluster, {
+            'metadata': {
+                'name': 'test_service',
+                'namespace': 'test_namespace',
+                'resourceVersion': '12903054',
+                'creationTimestamp': '2016-10-03T12:49:32Z',
+                'selfLink': 'test_link_path',
+                'uid': '7b211c2e-9644-11e6-8a78-42010af00021',
+                'labels': {'label1': 'string1',
+                           'label2': 'string2'}},
+            'status': {}})]
+    service.cluster = cluster
+    entities = service.entityd_find_entity(
+        name='Kubernetes:Service', attrs=None, include_ondemand=False)
+    entity = next(entities)
+    assert entity.metype == 'Kubernetes:Service'
+    assert entity.attrs._deleted_attrs == {
+        'kubernetes:loadbalancer-ingress-ip',
+        'kubernetes:loadbalancer-ingress-name'}
 
 
 def test_k8s_unreachable(service, monkeypatch):
     monkeypatch.setattr(service, 'create_entity',
                         pytest.Mock(side_effect=requests.ConnectionError))
-    assert service._logged_k8s_unreachable is None
+    assert service.logged_k8s_unreachable is None
     assert list(service.entityd_find_entity(
         name='Kubernetes:Service', attrs=None, include_ondemand=False)) == []
-    assert service._logged_k8s_unreachable is True
+    assert service.logged_k8s_unreachable is True
 
 
 def test_no_cluster_ueid_found(session):

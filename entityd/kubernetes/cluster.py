@@ -54,7 +54,7 @@ class ClusterEntity:
         if self._address:
             return self._address
         result = self._cluster.proxy.get(
-            'namespaces/default/endpoints/kubernetes')
+            'api/v1/namespaces/default/endpoints/kubernetes')
         try:
             subsets = result['subsets'][0]
             address = subsets['addresses'][0]['ip']

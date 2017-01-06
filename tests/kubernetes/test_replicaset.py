@@ -30,6 +30,8 @@ def cluster():
                 'replicas': 1,
                 'observedGeneration': 2,
                 'fullyLabeledReplicas': 3,
+                'readyReplicas': 5,
+                'availableReplicas': 6,
             },
             'spec': {
                 'replicas': 4
@@ -120,6 +122,8 @@ def test_replicaset_entities(replicaset, entities):
     assert entity.attrs.get('kubernetes:observed-replicas').value == 1
     assert entity.attrs.get('kubernetes:observed-generation').value == 2
     assert entity.attrs.get('kubernetes:fully-labeled-replicas').value == 3
+    assert entity.attrs.get('kubernetes:ready-replicas').value == 5
+    assert entity.attrs.get('kubernetes:available-replicas').value == 6
     assert entity.attrs.get('kubernetes:replicas-desired').value == 4
     assert len(list(entity.children)) == 2
     assert len(list(entity.parents)) == 1
@@ -128,7 +132,7 @@ def test_replicaset_entities(replicaset, entities):
     assert cobe.UEID('43043ccc3b2dc9f57abc64b052e6aa3e') in entity.children
     with pytest.raises(StopIteration):
         next(entities)
-    assert replicaset._logged_k8s_unreachable is False
+    assert replicaset.logged_k8s_unreachable is False
 
 
 def test_missing_attributes_handled(replicaset, cluster):
@@ -153,16 +157,24 @@ def test_missing_attributes_handled(replicaset, cluster):
         name='Kubernetes:ReplicaSet', attrs=None, include_ondemand=False)
     entity = next(entities)
     assert entity.metype == 'Kubernetes:ReplicaSet'
+    assert entity.attrs._deleted_attrs == {
+        'kubernetes:observed-replicas',
+        'kubernetes:observed-generation',
+        'kubernetes:fully-labeled-replicas',
+        'kubernetes:ready-replicas',
+        'kubernetes:available-replicas',
+        'kubernetes:replicas-desired',
+    }
 
 
 def test_k8s_unreachable(replicaset, monkeypatch):
     monkeypatch.setattr(replicaset, 'create_entity',
                         pytest.Mock(side_effect=requests.ConnectionError))
-    assert replicaset._logged_k8s_unreachable is None
+    assert replicaset.logged_k8s_unreachable is None
     assert list(replicaset.entityd_find_entity(
         name='Kubernetes:ReplicaSet',
         attrs=None, include_ondemand=False)) == []
-    assert replicaset._logged_k8s_unreachable is True
+    assert replicaset.logged_k8s_unreachable is True
 
 
 def test_no_cluster_ueid_found(session):
@@ -176,7 +188,3 @@ def test_no_cluster_ueid_found(session):
         pluginmanager=pluginmanager)
     with pytest.raises(LookupError):
         assert replicasetentity.cluster_ueid
-
-def test_find_entities_not_implemented():
-    with pytest.raises(TypeError):
-        entityd.kubernetes.BasePlugin()

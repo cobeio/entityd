@@ -10,9 +10,10 @@ class ReplicaSetEntity(entityd.kubernetes.BasePlugin):
     """Plugin to generate Kubernetes Replica Set Entities."""
 
     def __init__(self):
-        super().__init__()
-        self.entity_name = 'Kubernetes:ReplicaSet'
-        self.plugin_name = 'entityd.kubernetes.replicaset.ReplicaSetEntity'
+        super().__init__(
+            entity_name='Kubernetes:ReplicaSet',
+            plugin_name='entityd.kubernetes.replicaset.ReplicaSetEntity'
+        )
 
     def find_entities(self):
         """Find Kubernetes Replica Set entities."""
@@ -23,7 +24,7 @@ class ReplicaSetEntity(entityd.kubernetes.BasePlugin):
         except requests.ConnectionError:
             self.log_api_server_unreachable()
         else:
-            self._logged_k8s_unreachable = False
+            self.logged_k8s_unreachable = False
 
     def create_entity(self, resource, pods):
         """Create an entity representing a Kubernetes Replica Set.
@@ -37,15 +38,17 @@ class ReplicaSetEntity(entityd.kubernetes.BasePlugin):
             'kubernetes:observed-replicas': 'observed_replicas',
             'kubernetes:observed-generation': 'observed_generation',
             'kubernetes:fully-labeled-replicas': 'fully_labeled_replicas',
+            'kubernetes:ready-replicas': 'ready_replicas',
+            'kubernetes:available-replicas': 'available_replicas',
         }
         for attr in attributes:
             try:
                 update.attrs.set(attr, getattr(resource, attributes[attr]))
             except kube.StatusError:
-                pass
+                update.attrs.delete(attr)
         spec = resource.spec()
         try:
             update.attrs.set('kubernetes:replicas-desired', spec['replicas'])
         except KeyError:
-            pass
+            update.attrs.delete('kubernetes:replicas-desired')
         return update

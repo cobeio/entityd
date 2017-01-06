@@ -1,5 +1,7 @@
 """Plugin providing Kubernetes Service entities."""
 
+import ipaddress
+
 import kube
 import requests
 
@@ -10,9 +12,10 @@ class ServiceEntity(entityd.kubernetes.BasePlugin):
     """Plugin to generate Kubernetes Service Entities."""
 
     def __init__(self):
-        super().__init__()
-        self.entity_name = 'Kubernetes:Service'
-        self.plugin_name = 'entityd.kubernetes.service.ServiceEntity'
+        super().__init__(
+            entity_name='Kubernetes:Service',
+            plugin_name='entityd.kubernetes.service.ServiceEntity'
+        )
 
     def find_entities(self):
         """Find Kubernetes Service entities."""
@@ -23,7 +26,7 @@ class ServiceEntity(entityd.kubernetes.BasePlugin):
         except requests.ConnectionError:
             self.log_api_server_unreachable()
         else:
-            self._logged_k8s_unreachable = False
+            self.logged_k8s_unreachable = False
 
     def create_entity(self, resource, pods):
         """Create an entity representing a Kubernetes Service.
@@ -34,7 +37,15 @@ class ServiceEntity(entityd.kubernetes.BasePlugin):
         """
         update = self.create_base_entity(resource, pods)
         try:
-            update.attrs.set('kubernetes:load', resource.loadbalancer_ingress)
+            for item in resource.loadbalancer_ingress:
+                itype = type(item)
+                if itype in [ipaddress.IPv4Address, ipaddress.IPv6Address]:
+                    update.attrs.set(
+                        'kubernetes:loadbalancer-ingress-ip', str(item))
+                if itype == str:
+                    update.attrs.set(
+                        'kubernetes:loadbalancer-ingress-name', item)
         except kube.StatusError:
-            pass
+            update.attrs.delete('kubernetes:loadbalancer-ingress-ip')
+            update.attrs.delete('kubernetes:loadbalancer-ingress-name')
         return update

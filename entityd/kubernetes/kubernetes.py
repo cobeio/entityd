@@ -543,7 +543,7 @@ def container_metrics(container, update):
         try:
             # TODO: See if it's possible to request a smaller range of values.
             response = cluster.proxy.get(
-                'proxy/nodes', node.meta.name + ':4194',
+                'api/v1/proxy/nodes', node.meta.name + ':4194',
                 'api/v2.0/stats', container_id, type='docker')
         except kube.APIError as exc:
             pass

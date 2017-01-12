@@ -101,6 +101,22 @@ class BasePlugin(metaclass=ABCMeta):
                          traits={'entity:id', 'entity:ueid'})
         return update.ueid
 
+    def create_replicaset_ueid(self, rs_name, namespace):
+        """Create the ueid for a replicaset.
+
+        :param str rs_name: Replicaset's name.
+        :param str namespace: Replicaset's namespace.
+
+        :returns: A :class:`cobe.UEID` for the Replica Set.
+        """
+        update = entityd.EntityUpdate('Kubernetes:ReplicaSet')
+        update.attrs.set('kubernetes:meta:name', rs_name, traits={'entity:id'})
+        update.attrs.set(
+            'kubernetes:meta:namespace', namespace, traits={'entity:id'})
+        update.attrs.set(
+            'cluster', str(self.cluster_ueid), traits={'entity:id'})
+        return update.ueid
+
     def determine_pods_labels(self):
         """Determine the set of labels for each pod in the cluster.
 
@@ -112,6 +128,20 @@ class BasePlugin(metaclass=ABCMeta):
             pod_ueid = self.create_pod_ueid(pod.meta.name, pod.meta.namespace)
             pods[pod_ueid] = set(pod.meta.labels.items())
         return pods
+
+    def determine_replicaset_labels(self):
+        """Determine the set of labels for each replicaset in the cluster.
+
+        :returns: A dict of form:
+            {replicaset :class:`cobe.UEID`: {(label_key1, label_value1), ...},
+             ...}
+        """
+        replicasets = {}
+        for replicaset in self.cluster.replicasets:
+            rs_ueid = self.create_replicaset_ueid(replicaset.meta.name,
+                                                  replicaset.meta.namespace)
+            replicasets[rs_ueid] = set(replicaset.meta.labels.items())
+        return replicasets
 
     def log_api_server_unreachable(self):
         """Log once that the Kubernetes API server is unreachable."""

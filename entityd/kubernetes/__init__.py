@@ -149,14 +149,21 @@ class BasePlugin(metaclass=ABCMeta):
             log.info('Kubernetes API server unreachable')
             self.logged_k8s_unreachable = True
 
-    def create_base_entity(self, resource, pods):
+    def create_base_entity(self, resource, children):
         """Creator of the base entity for certain Kubernetes resources.
 
-        This provides the base entity for Replica Sets and Services.
+        This provides the base entity for Replica Sets, Services,
+        Replication Controllers, Deployments and Daemonsets.
+
+        The labels of the resource that correspond (as a subset) to those of
+        the resource's children are obtained from the resource's template,
+        other than for a Service, where the Service metadata labels are used.
 
         :param resource: Kubernetes resource item.
-        :type resource: kube.ReplicaSetItem | kube.ServiceItem
-        :param dict pods: Set of labels for each pod in the cluster.
+        :type resource: kube.<Resource>Item
+        :param dict children: Dict where keys are all the UEIDs in the cluster
+            of the entity type that may be children of resource, and values are
+            the set of labels for those potential child entities.
         """
         meta = resource.meta
         kind = str(resource.kind).replace('Kind.', '')
@@ -176,8 +183,8 @@ class BasePlugin(metaclass=ABCMeta):
         update.attrs.set('kubernetes:meta:link', meta.link, traits={'uri'})
         update.attrs.set('kubernetes:meta:uid', meta.uid)
         labels = set(meta.labels.items())
-        for pod in pods:
-            if labels.issubset(pods[pod]):
-                update.children.add(pod)
+        for child in children:
+            if labels.issubset(children[child]):
+                update.children.add(child)
         update.parents.add(self.create_namespace_ueid(meta.namespace))
         return update

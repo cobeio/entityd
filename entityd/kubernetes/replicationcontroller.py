@@ -10,10 +10,11 @@ class ReplicationControllerEntity(entityd.kubernetes.BasePlugin):
     """Plugin to generate Kubernetes Replication Controller Entities."""
 
     def __init__(self):
-        super().__init__()
-        self.entity_name = 'Kubernetes:ReplicationController'
-        self.plugin_name = 'entityd.kubernetes.' \
-                           'replicationcontroller.ReplicationControllerEntity'
+        super().__init__(
+            entity_name='Kubernetes:ReplicationController',
+            plugin_name='entityd.kubernetes.'
+                        'replicationcontroller.ReplicationControllerEntity'
+        )
 
     def find_entities(self):
         """Find Kubernetes Replication Controller entities."""
@@ -24,7 +25,7 @@ class ReplicationControllerEntity(entityd.kubernetes.BasePlugin):
         except requests.ConnectionError:
             self.log_api_server_unreachable()
         else:
-            self._logged_k8s_unreachable = False
+            self.logged_k8s_unreachable = False
 
     def create_entity(self, resource, pods):
         """Create an entity representing a Kubernetes Replication Controller.
@@ -38,15 +39,17 @@ class ReplicationControllerEntity(entityd.kubernetes.BasePlugin):
             'kubernetes:observed-replicas': 'observed_replicas',
             'kubernetes:observed-generation': 'observed_generation',
             'kubernetes:fully-labeled-replicas': 'fully_labeled_replicas',
+            'kubernetes:ready-replicas': 'ready_replicas',
+            'kubernetes:available-replicas': 'available_replicas',
         }
         for attr in attributes:
             try:
                 update.attrs.set(attr, getattr(resource, attributes[attr]))
             except kube.StatusError:
-                pass
+                update.attrs.delete(attr)
         spec = resource.spec()
         try:
             update.attrs.set('kubernetes:replicas-desired', spec['replicas'])
         except KeyError:
-            pass
+            update.attrs.delete('kubernetes:replicas-desired')
         return update

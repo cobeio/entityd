@@ -22,6 +22,12 @@ def kube_services_ipv4():
                 'uid': '7b211c2e-9644-11e6-8a78-42010af00021',
                 'labels': {'label1': 'string1',
                            'label2': 'string2'}},
+            'spec': {
+                'selector': {
+                    'svc': 'test_service',
+                    'ti': 'test-ti',
+                },
+            },
             'status': {
                 'loadBalancer': {
                     'ingress': [
@@ -68,61 +74,52 @@ def kube_services_hostname():
 
 @pytest.fixture
 def kube_pods():
-    return [
-        kube.PodItem(None, {
-            'metadata': {
-                'name': 'podname1-v3-ut4bz',
-                'namespace': 'namespace',
-                'labels': {'label1': 'string1',
-                           'label2': 'string2',
-                           'label3': 'string3'},
+    return {
+        'items': [
+            {
+                'metadata': {
+                    'name': 'podname1-v3-ut4bz',
+                    'namespace': 'test_namespace',
+                }
             },
-            'spec': {
-                'nodeName': 'nodename1'}}),
-        kube.PodItem(None, {
-            'metadata': {
-                'name': 'podname2-v3-xa5at',
-                'namespace': 'namespace',
-                'labels': {'label1': 'string1',
-                           'label2': 'string2',
-                           'label4': 'string4'},
+            {
+                'metadata': {
+                    'name': 'podname2-v3-xa5at',
+                    'namespace': 'test_namespace',
+                },
             },
-            'spec': {
-                'nodeName': 'nodename1'}}),
-        kube.PodItem(None, {
-            'metadata': {
-                'name': 'podname3-v3-tv9zw',
-                'namespace': 'namespace',
-                'labels': {'label5': 'string5',
-                           'label6': 'string6'},
-            },
-            'spec': {
-                'nodeName': 'nodename1'}}),
-    ]
+        ],
+    }
 
 
 @pytest.fixture
 def cluster_ipv4(kube_services_ipv4, kube_pods):
     """Mock of ``kube.Cluster`` with service having IPv4 ingress point."""
     kind = 'Kind.Service'
+    proxy = types.SimpleNamespace(get=pytest.Mock(return_value=kube_pods))
+    pods = types.SimpleNamespace(api_path='api/v1')
     return types.SimpleNamespace(
-        services=kube_services_ipv4, pods=kube_pods, kind=kind)
+        services=kube_services_ipv4, pods=pods, kind=kind, proxy=proxy)
 
 
 @pytest.fixture
 def cluster_ipv6(kube_services_ipv6, kube_pods):
     """Mock of ``kube.Cluster`` with service having IPv6 ingress point."""
     kind = 'Kind.Service'
+    proxy = types.SimpleNamespace(get=pytest.Mock(return_value=kube_pods))
+    pods = types.SimpleNamespace(api_path='api/v1')
     return types.SimpleNamespace(
-        services=kube_services_ipv6, pods=kube_pods, kind=kind)
+        services=kube_services_ipv6, pods=pods, kind=kind, proxy=proxy)
 
 
 @pytest.fixture
 def cluster_hostname(kube_services_hostname, kube_pods):
     """Mock of ``kube.Cluster`` with service having hostname ingress point."""
     kind = 'Kind.Service'
-    return types.SimpleNamespace(
-        services=kube_services_hostname, pods=kube_pods, kind=kind)
+    proxy = types.SimpleNamespace(get=pytest.Mock(return_value=kube_pods))
+    pods = types.SimpleNamespace(api_path='api/v1')
+    return types.SimpleNamespace(services=kube_services_hostname,
+                                 pods=pods, kind=kind, proxy=proxy)
 
 
 @pytest.fixture
@@ -176,9 +173,15 @@ def test_find_entity_with_attrs_not_none(service):
             'Kubernetes:Service', {'attr': 'foo-entity-bar'})
 
 
-def test_service_entities_ipv4(service, entities_ipv4):
+def test_service_entities_ipv4(service, entities_ipv4, cluster_ipv4):
     # Test with service having IPv4 ingress point.
     entity = next(entities_ipv4)
+    assert cluster_ipv4.proxy.get.call_args_list[0][1]['labelSelector'] in [
+        'svc=test_service,ti=test-ti',
+        'ti=test-ti,svc=test_service',
+    ]
+    assert cluster_ipv4.proxy.get.call_args_list[0][0] == (
+        'api/v1/namespaces/test_namespace/pods',)
     assert entity.metype == 'Kubernetes:Service'
     assert entity.label == 'test_service'
     assert entity.attrs.get('kubernetes:kind').value == 'Service'
@@ -197,8 +200,8 @@ def test_service_entities_ipv4(service, entities_ipv4):
     assert len(list(entity.children)) == 2
     assert len(list(entity.parents)) == 1
     assert cobe.UEID('ff290adeb112ae377e8fca009ca4fd9f') in entity.parents
-    assert cobe.UEID('5a3a32ba5409a19c744633eb9f81a222') in entity.children
-    assert cobe.UEID('43043ccc3b2dc9f57abc64b052e6aa3e') in entity.children
+    assert cobe.UEID('04b7f2f17b8067afd71fd4c40d930149') in entity.children
+    assert cobe.UEID('8281b9ac13e96fc6af3471cad4047813') in entity.children
     with pytest.raises(StopIteration):
         next(entities_ipv4)
     assert service.logged_k8s_unreachable is False

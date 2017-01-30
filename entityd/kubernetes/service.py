@@ -20,21 +20,21 @@ class ServiceEntity(entityd.kubernetes.BasePlugin):
     def find_entities(self):
         """Find Kubernetes Service entities."""
         try:
-            pods = self.determine_pods_labels()
             for resource in self.cluster.services:
-                yield self.create_entity(resource, pods)
+                yield self.create_entity(resource)
         except requests.ConnectionError:
             self.log_api_server_unreachable()
         else:
             self.logged_k8s_unreachable = False
 
-    def create_entity(self, resource, pods):
+    def create_entity(self, resource):
         """Create an entity representing a Kubernetes Service.
 
         :param resource: Kubernetes resource item.
         :type resource: kube._service.ServiceItem
-        :param dict pods: Set of labels for each pod in the cluster.
         """
+        pods = self.find_service_pod_children(
+            resource, self.cluster.pods.api_path)
         update = self.create_base_entity(resource, pods)
         try:
             for point in resource.loadbalancer_ingress:

@@ -72,7 +72,7 @@ class BasePlugin(metaclass=ABCMeta):
         return self._cluster_ueid
 
     def create_pod_ueid(self, podname, namespace):
-        """Create the ueid for a pod.
+        """Create the UEID for a pod.
 
         :param str podname: Pod's name.
         :param str namespace: Pod's namespace.
@@ -101,16 +101,70 @@ class BasePlugin(metaclass=ABCMeta):
                          traits={'entity:id', 'entity:ueid'})
         return update.ueid
 
-    def determine_pods_labels(self):
-        """Determine the set of labels for each pod in the cluster.
+    def find_resource_pod_children(self, resource, api_path):
+        """Find the set of pod UEIDs that are the children of a resource.
 
-        :returns: A dict of form:
-            {pod :class:`cobe.UEID`: {(label_key1, label_value1), ...}, ...}
+        This is suitable for those resources with
+        `spec.selector.matchLabels`/ and `spec.selector.matchExpressions` -
+        e.g. suitable for Replica Sets, but not Services, which have
+        their own method.
+
+        :param resource: Kubernetes resource item.
+        :type resource: kube._replicaset.ReplicaSetItem
+        :param str api_path: The k8s API base path to find pods.
         """
-        pods = {}
-        for pod in self.cluster.pods:
-            pod_ueid = self.create_pod_ueid(pod.meta.name, pod.meta.namespace)
-            pods[pod_ueid] = set(pod.meta.labels.items())
+        try:
+            matchlabels = resource.spec()['selector']['matchLabels']
+        except KeyError:
+            matchlabels = {}
+        matchlabels = ','.join(
+            '{}={}'.format(k, v) for k, v in matchlabels.items())
+        try:
+            matchexpressions = resource.spec(
+                )['selector']['matchExpressions']
+        except KeyError:
+            matchexpressions = []
+        expressions = []
+        for expression in matchexpressions:
+            values = ' '.join(
+                ['{}'.format(item) for item in expression['values']])
+            expressions.append('{} {} ({})'.format(
+                expression['key'], expression['operator'], values))
+        matchexpressions = ','.join(expressions)
+        labels = ','.join([matchlabels, matchexpressions]).strip(',')
+        return self.find_pods_by_labels(
+            resource.meta.namespace, labels, api_path)
+
+    def find_service_pod_children(self, resource, api_path):
+        """Find the set of pod UEIDs that are the children of a Service.
+
+        :param resource: Kubernetes Service resource.
+        :type resource: kube._service.ServiceItem
+        :param str api_path: The k8s API base path.
+        """
+        try:
+            labels = resource.spec()['selector']
+        except KeyError:
+            labels = {}
+        labels = ','.join('{}={}'.format(k, v) for k, v in labels.items())
+        return self.find_pods_by_labels(
+            resource.meta.namespace, labels, api_path)
+
+    def find_pods_by_labels(self, namespace, labels, api_path):
+        """Find pods in a namespace by their labels.
+
+        :param str namespace: Name of the namespace pods are in.
+        :param str labels: labelSelector string.
+        :param str api_path: The k8s API base path to find pods.
+        """
+        params = {}
+        params['labelSelector'] = labels
+        response = self.cluster.proxy.get(
+            '{}/namespaces/{}/pods'.format(api_path, namespace), **params)
+        pods = set()
+        for rawpod in response['items']:
+            poditem = kube.PodItem(self.cluster, rawpod)
+            pods.add(self.create_pod_ueid(poditem.meta.name, namespace))
         return pods
 
     def log_api_server_unreachable(self):
@@ -119,14 +173,15 @@ class BasePlugin(metaclass=ABCMeta):
             log.info('Kubernetes API server unreachable')
             self.logged_k8s_unreachable = True
 
-    def create_base_entity(self, resource, pods):
+    def create_base_entity(self, resource, children):
         """Creator of the base entity for certain Kubernetes resources.
 
         This provides the base entity for Replica Sets and Services.
 
         :param resource: Kubernetes resource item.
         :type resource: kube.ReplicaSetItem | kube.ServiceItem
-        :param dict pods: Set of labels for each pod in the cluster.
+        :param set children: Set of UEIDs that are the children of
+            the resource.
         """
         meta = resource.meta
         kind = str(resource.kind).replace('Kind.', '')
@@ -145,9 +200,7 @@ class BasePlugin(metaclass=ABCMeta):
                          traits={'chrono:rfc3339'})
         update.attrs.set('kubernetes:meta:link', meta.link, traits={'uri'})
         update.attrs.set('kubernetes:meta:uid', meta.uid)
-        labels = set(meta.labels.items())
-        for pod in pods:
-            if labels.issubset(pods[pod]):
-                update.children.add(pod)
+        for child in children:
+            update.children.add(child)
         update.parents.add(self.create_namespace_ueid(meta.namespace))
         return update

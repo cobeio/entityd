@@ -110,7 +110,8 @@ class BasePlugin(metaclass=ABCMeta):
         their own method.
 
         :param resource: Kubernetes resource item.
-        :type resource: kube._replicaset.ReplicaSetItem
+        :type resource: kube.{resource_type}.{resource_type}Item,
+            as described above; e.g. kube._replicaset.ReplicaSetItem,
         :param str api_path: The k8s API base path to find pods.
         """
         try:

@@ -168,6 +168,20 @@ class BasePlugin(metaclass=ABCMeta):
             pods.add(self.create_pod_ueid(poditem.meta.name, namespace))
         return pods
 
+    def determine_replicaset_labels(self):
+        """Determine the set of labels for each replicaset in the cluster.
+
+        :returns: A dict of form:
+            {replicaset :class:`cobe.UEID`: {(label_key1, label_value1), ...},
+             ...}
+        """
+        replicasets = {}
+        for replicaset in self.cluster.replicasets:
+            rs_ueid = self.create_replicaset_ueid(replicaset.meta.name,
+                                                  replicaset.meta.namespace)
+            replicasets[rs_ueid] = set(replicaset.meta.labels.items())
+        return replicasets
+
     def log_api_server_unreachable(self):
         """Log once that the Kubernetes API server is unreachable."""
         if not self.logged_k8s_unreachable:
@@ -177,7 +191,12 @@ class BasePlugin(metaclass=ABCMeta):
     def create_base_entity(self, resource, children):
         """Creator of the base entity for certain Kubernetes resources.
 
-        This provides the base entity for Replica Sets and Services.
+        This provides the base entity for Replica Sets, Services,
+        Replication Controllers, Deployments and Daemonsets.
+
+        The labels of the resource that correspond (as a subset) to those of
+        the resource's children are obtained from the resource's template,
+        other than for a Service, where the Service metadata labels are used.
 
         :param resource: Kubernetes resource item.
         :type resource: kube.ReplicaSetItem | kube.ServiceItem

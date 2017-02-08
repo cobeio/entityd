@@ -13,9 +13,9 @@ import entityd.pm
 
 @pytest.fixture
 def cluster():
-    """Mock of ``kube.Cluster`` with Daemon Set having 2 child pods."""
+    """Mock of ``kube.Cluster`` with Daemon Set having 2 pods."""
     daemonsets = [
-        kube.DaemonSetItem(cluster, {
+        kube.DaemonSetItem(None, {
             'metadata': {
                 'name': 'test_daemonset',
                 'namespace': 'test_namespace',
@@ -23,50 +23,61 @@ def cluster():
                 'creationTimestamp': '2016-10-03T12:49:32Z',
                 'selfLink': 'test_link_path',
                 'uid': '7b211c2e-9644-11e6-8a78-42010af00021',
-                'labels': {'label1': 'string1',
-                           'label2': 'string2'}
+                'labels': {
+                    'label2': 'string2',
+                    'label3': 'string2',
+                },
             },
             'status': {
+                'replicas': 1,
                 'currentNumberScheduled': 2,
                 'numberMisscheduled': 0,
                 'desiredNumberScheduled': 3,
                 'numberReady': 1,
-            }}),
+            },
+            'spec': {
+                'selector': {
+                    'matchLabels': {
+                        'pod-template-hash': '1268107570',
+                        'label1': 'string1',
+                    },
+                    'matchExpressions': [
+                        {
+                            'key': 'tier',
+                            'operator': 'In',
+                            'values': ['cache'],
+                        },
+                        {
+                            'key': 'environment',
+                            'operator': 'NotIn',
+                            'values': ['dev'],
+                        },
+                    ],
+                },
+            },
+        }),
     ]
-    pods = [
-        kube.PodItem(cluster, {
-            'metadata': {
-                'name': 'podname1-v3-ut4bz',
-                'namespace': 'namespace',
-                # todo: should labels be exactly same?
-                'labels': {'label1': 'string1',
-                           'label2': 'string2',
-                           'label3': 'string3'},
+    podsitems = {
+        'items': [
+            {
+                'metadata': {
+                    'name': 'podname1-v3-ut4bz',
+                    'namespace': 'test_namespace',
+                },
             },
-            'spec': {
-                'replicas': 4}}),
-        kube.PodItem(cluster, {
-            'metadata': {
-                'name': 'podname2-v3-xa5at',
-                'namespace': 'namespace',
-                'labels': {'label1': 'string1',
-                           'label2': 'string2',
-                           'label4': 'string4'},
+            {
+                'metadata': {
+                    'name': 'podname2-v3-xa5at',
+                    'namespace': 'test_namespace',
+                },
             },
-            'spec': {
-                'nodeName': 'nodename1'}}),
-        kube.PodItem(cluster, {
-            'metadata': {
-                'name': 'podname3-v3-tv9zw',
-                'namespace': 'namespace',
-                'labels': {'label5': 'string5',
-                           'label6': 'string6'},
-            },
-            'spec': {
-                'nodeName': 'nodename1'}}),
-    ]
+        ],
+    }
     kind = 'Kind.DaemonSet'
-    return types.SimpleNamespace(daemonsets=daemonsets, pods=pods, kind=kind)
+    proxy = types.SimpleNamespace(get=pytest.Mock(return_value=podsitems))
+    pods = types.SimpleNamespace(api_path='apis/extensions/v1beta1')
+    return types.SimpleNamespace(daemonsets=daemonsets,
+                                 pods=pods, kind=kind, proxy=proxy)
 
 
 @pytest.fixture
@@ -103,8 +114,16 @@ def test_find_entity_with_attrs_not_none(daemonset):
             'Kubernetes:DaemonSet', {'attr': 'foo-entity-bar'})
 
 
-def test_daemonset_entities(daemonset, entities):
+def test_daemonset_entities(daemonset, entities, cluster):
     entity = next(entities)
+    assert cluster.proxy.get.call_args_list[0][1]['labelSelector'] in [
+        'pod-template-hash=1268107570,label1=string1,tier In (cache),'
+        'environment NotIn (dev)',
+        'label1=string1,'
+        'pod-template-hash=1268107570,tier In (cache),environment NotIn (dev)',
+    ]
+    assert cluster.proxy.get.call_args_list[0][0] == (
+        'apis/extensions/v1beta1/namespaces/test_namespace/pods',)
     assert entity.metype == 'Kubernetes:DaemonSet'
     assert entity.label == 'test_daemonset'
     assert entity.attrs.get('kubernetes:kind').value == 'DaemonSet'
@@ -123,8 +142,8 @@ def test_daemonset_entities(daemonset, entities):
     assert len(list(entity.children)) == 2
     assert len(list(entity.parents)) == 1
     assert cobe.UEID('ff290adeb112ae377e8fca009ca4fd9f') in entity.parents
-    assert cobe.UEID('5a3a32ba5409a19c744633eb9f81a222') in entity.children
-    assert cobe.UEID('43043ccc3b2dc9f57abc64b052e6aa3e') in entity.children
+    assert cobe.UEID('04b7f2f17b8067afd71fd4c40d930149') in entity.children
+    assert cobe.UEID('8281b9ac13e96fc6af3471cad4047813') in entity.children
     with pytest.raises(StopIteration):
         next(entities)
     assert daemonset.logged_k8s_unreachable is False
@@ -168,16 +187,3 @@ def test_k8s_unreachable(daemonset, monkeypatch):
         name='Kubernetes:DaemonSet',
         attrs=None, include_ondemand=False)) == []
     assert daemonset.logged_k8s_unreachable is True
-
-
-def test_no_cluster_ueid_found(session):
-    daemonsetentity = entityd.kubernetes.daemonset.DaemonSetEntity()
-    daemonsetentity.entityd_sessionstart(session)
-    def entityd_find_entity(name, attrs):    # pylint: disable=unused-argument
-        return [[]]
-    hooks = types.SimpleNamespace(entityd_find_entity=entityd_find_entity)
-    pluginmanager = types.SimpleNamespace(hooks=hooks)
-    daemonsetentity._session = types.SimpleNamespace(
-        pluginmanager=pluginmanager)
-    with pytest.raises(LookupError):
-        assert daemonsetentity.cluster_ueid

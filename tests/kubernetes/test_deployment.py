@@ -13,9 +13,9 @@ import entityd.pm
 
 @pytest.fixture
 def cluster():
-    """Mock of ``kube.Cluster`` with Deployment having 2 child replicasets."""
+    """Mock of ``kube.Cluster`` with a deployment."""
     deployments = [
-        kube.DeploymentItem(cluster, {
+        kube.DeploymentItem(None, {
             'metadata': {
                 'name': 'test_deployment',
                 'namespace': 'test_namespace',
@@ -23,49 +23,57 @@ def cluster():
                 'creationTimestamp': '2016-10-03T12:49:32Z',
                 'selfLink': 'test_link_path',
                 'uid': '7b211c2e-9644-11e6-8a78-42010af00021',
-                'labels': {'label1': 'string1',
-                           'label2': 'string2'}
+                'labels': {
+                    'label2': 'string2',
+                    'label3': 'string2',
+                },
             },
             'status': {
                 'observedGeneration': 1,
-                'replicas': 3,
-                'updatedReplicas': 2,
-                'availableReplicas': 1,
-                'unavailableReplicas': 2,
+                'replicas': 2,
+                'updatedReplicas': 3,
+                'availableReplicas': 5,
+                'unavailableReplicas': 6,
             },
             'spec': {
-                'replicas': 3
-            }})
+                'replicas': 4,
+                'selector': {
+                    'matchLabels': {
+                        'pod-template-hash': '1268107570',
+                        'label1': 'string1',
+                    },
+                    'matchExpressions': [
+                        {
+                            'key': 'tier',
+                            'operator': 'In',
+                            'values': ['cache'],
+                        },
+                        {
+                            'key': 'environment',
+                            'operator': 'NotIn',
+                            'values': ['dev'],
+                        },
+                    ],
+                },
+            },
+        }),
     ]
-    replicasets = [
-        kube.ReplicaSetItem(cluster, {
-            'metadata': {
-                'name': 'rs-name1-v3-ut4bz',
-                'namespace': 'namespace',
-                'labels': {'label1': 'string1',
-                           'label2': 'string2',
-                           'label3': 'string3'},
-            }}),
-        kube.ReplicaSetItem(cluster, {
-            'metadata': {
-                'name': 'rs-name2-v3-xa5at',
-                'namespace': 'namespace',
-                'labels': {'label1': 'string1',
-                           'label2': 'string2',
-                           'label4': 'string4'},
-            }}),
-        kube.ReplicaSetItem(cluster, {
-            'metadata': {
-                'name': 'rs-name3-v3-tv9zw',
-                'namespace': 'namespace',
-                'labels': {'label5': 'string5',
-                           'label6': 'string6'},
-            }}),
-    ]
+    rsitems = {
+        'items': [
+            {
+                'metadata': {
+                    'name': 'rsname1-1268107570',
+                    'namespace': 'test_namespace',
+                },
+            },
+        ],
+    }
     kind = 'Kind.Deployment'
+    proxy = types.SimpleNamespace(get=pytest.Mock(return_value=rsitems))
+    replicasets = types.SimpleNamespace(api_path='apis/extensions/v1beta1')
     return types.SimpleNamespace(deployments=deployments,
                                  replicasets=replicasets,
-                                 kind=kind)
+                                 kind=kind, proxy=proxy)
 
 
 @pytest.fixture
@@ -102,8 +110,16 @@ def test_find_entity_with_attrs_not_none(deployment):
             'Kubernetes:Deployment', {'attr': 'foo-entity-bar'})
 
 
-def test_deployment_entities(deployment, entities):
+def test_deployment_entities(deployment, entities, cluster):
     entity = next(entities)
+    assert cluster.proxy.get.call_args_list[0][1]['labelSelector'] in [
+        'pod-template-hash=1268107570,label1=string1,tier In (cache),'
+        'environment NotIn (dev)',
+        'label1=string1,'
+        'pod-template-hash=1268107570,tier In (cache),environment NotIn (dev)',
+    ]
+    assert cluster.proxy.get.call_args_list[0][0] == (
+        'apis/extensions/v1beta1/namespaces/test_namespace/replicasets',)
     assert entity.metype == 'Kubernetes:Deployment'
     assert entity.label == 'test_deployment'
     assert entity.attrs.get('kubernetes:kind').value == 'Deployment'
@@ -116,17 +132,15 @@ def test_deployment_entities(deployment, entities):
     assert entity.attrs.get(
         'kubernetes:meta:uid').value == '7b211c2e-9644-11e6-8a78-42010af00021'
     assert entity.attrs.get('kubernetes:observed-generation').value == 1
-    assert entity.attrs.get('kubernetes:observed-replicas').value == 3
-    assert entity.attrs.get('kubernetes:updated-replicas').value == 2
-    assert entity.attrs.get('kubernetes:available-replicas').value == 1
-    assert entity.attrs.get('kubernetes:unavailable-replicas').value == 2
-    assert entity.attrs.get('kubernetes:replicas-desired').value == 3
-    assert len(list(entity.children)) == 2
+    assert entity.attrs.get('kubernetes:observed-replicas').value == 2
+    assert entity.attrs.get('kubernetes:updated-replicas').value == 3
+    assert entity.attrs.get('kubernetes:available-replicas').value == 5
+    assert entity.attrs.get('kubernetes:unavailable-replicas').value == 6
+    assert entity.attrs.get('kubernetes:replicas-desired').value == 4
+    assert len(list(entity.children)) == 1
     assert len(list(entity.parents)) == 1
     assert cobe.UEID('ff290adeb112ae377e8fca009ca4fd9f') in entity.parents
-    assert cobe.UEID('72ce22397a8603236d4cb0d163e8f5b0') in entity.children
-    assert cobe.UEID('ef0084bcb528c95a942d11860c8f0960') in entity.children
-    assert cobe.UEID('114d33b9870a80ad4c3a69b5f10ec30a') not in entity.children
+    assert cobe.UEID('7535ca32b5337aeaf4e7d14b15a0b052') in entity.children
     with pytest.raises(StopIteration):
         next(entities)
     assert deployment.logged_k8s_unreachable is False
@@ -172,16 +186,3 @@ def test_k8s_unreachable(deployment, monkeypatch):
         name='Kubernetes:Deployment',
         attrs=None, include_ondemand=False)) == []
     assert deployment.logged_k8s_unreachable is True
-
-
-def test_no_cluster_ueid_found(session):
-    deploymententity = entityd.kubernetes.deployment.DeploymentEntity()
-    deploymententity.entityd_sessionstart(session)
-    def entityd_find_entity(name, attrs):    # pylint: disable=unused-argument
-        return [[]]
-    hooks = types.SimpleNamespace(entityd_find_entity=entityd_find_entity)
-    pluginmanager = types.SimpleNamespace(hooks=hooks)
-    deploymententity._session = types.SimpleNamespace(
-        pluginmanager=pluginmanager)
-    with pytest.raises(LookupError):
-        assert deploymententity.cluster_ueid

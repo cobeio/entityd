@@ -30,10 +30,10 @@ class ServiceEntity(entityd.kubernetes.BasePlugin):
     def create_entity(self, resource):
         """Create an entity representing a Kubernetes Service.
 
-        :param resource: Kubernetes resource item.
+        :param resource: kube service item.
         :type resource: kube._service.ServiceItem
         """
-        pods = self.find_service_pod_children(
+        pods = self.find_service_or_rc_pod_children(
             resource, self.cluster.pods.api_path)
         update = self.create_base_entity(resource, pods)
         try:

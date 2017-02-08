@@ -5,6 +5,7 @@ import requests
 
 import entityd.kubernetes
 
+
 class ReplicaSetEntity(entityd.kubernetes.BasePlugin):
     """Plugin to generate Kubernetes Replica Set Entities."""
 
@@ -27,7 +28,7 @@ class ReplicaSetEntity(entityd.kubernetes.BasePlugin):
     def create_entity(self, resource):
         """Create an entity representing a Kubernetes Replica Set.
 
-        :param resource: Kubernetes resource item.
+        :param resource: kube replica set item.
         :type resource: kube._replicaset.ReplicaSetItem
         """
         pods = self.find_resource_pod_children(

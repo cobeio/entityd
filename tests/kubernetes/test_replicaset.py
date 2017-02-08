@@ -13,7 +13,7 @@ import entityd.pm
 
 @pytest.fixture
 def cluster():
-    """Mock of ``kube.Cluster`` with Replica Set having 2 child pods."""
+    """Mock of ``kube.Cluster`` with Replica Set having 2 pods."""
     replicasets = [
         kube.ReplicaSetItem(None, {
             'metadata': {
@@ -76,7 +76,7 @@ def cluster():
     }
     kind = 'Kind.ReplicaSet'
     proxy = types.SimpleNamespace(get=pytest.Mock(return_value=podsitems))
-    pods = types.SimpleNamespace(api_path='api/v1')
+    pods = types.SimpleNamespace(api_path='apis/extensions/v1beta1')
     return types.SimpleNamespace(replicasets=replicasets,
                                  pods=pods, kind=kind, proxy=proxy)
 
@@ -124,7 +124,7 @@ def test_replicaset_entities(replicaset, entities, cluster):
         'pod-template-hash=1268107570,tier In (cache),environment NotIn (dev)',
     ]
     assert cluster.proxy.get.call_args_list[0][0] == (
-        'api/v1/namespaces/test_namespace/pods',)
+        'apis/extensions/v1beta1/namespaces/test_namespace/pods',)
     assert entity.metype == 'Kubernetes:ReplicaSet'
     assert entity.label == 'test_replicaset'
     assert entity.attrs.get('kubernetes:kind').value == 'ReplicaSet'

@@ -18,21 +18,21 @@ class DaemonSetEntity(entityd.kubernetes.BasePlugin):
     def find_entities(self):
         """Find Kubernetes Daemon Set entities."""
         try:
-            pods = self.determine_pods_labels()
             for resource in self.cluster.daemonsets:
-                yield self.create_entity(resource, pods)
+                yield self.create_entity(resource)
         except requests.ConnectionError:
             self.log_api_server_unreachable()
         else:
             self.logged_k8s_unreachable = False
 
-    def create_entity(self, resource, pods):
+    def create_entity(self, resource):
         """Create an entity representing a Kubernetes Daemon Set.
 
-        :param resource: Kubernetes resource item.
+        :param resource: kube daemon set item.
         :type resource: kube._daemonset.DaemonSetItem
-        :param dict pods: Set of labels for each pod in the cluster.
         """
+        pods = self.find_resource_pod_children(
+            resource, self.cluster.pods.api_path)
         update = self.create_base_entity(resource, pods)
         attributes = {
             'kubernetes:current-number-scheduled': 'current_number_scheduled',

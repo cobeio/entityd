@@ -19,21 +19,21 @@ class ReplicationControllerEntity(entityd.kubernetes.BasePlugin):
     def find_entities(self):
         """Find Kubernetes Replication Controller entities."""
         try:
-            pods = self.determine_pods_labels()
             for resource in self.cluster.replicationcontrollers:
-                yield self.create_entity(resource, pods)
+                yield self.create_entity(resource)
         except requests.ConnectionError:
             self.log_api_server_unreachable()
         else:
             self.logged_k8s_unreachable = False
 
-    def create_entity(self, resource, pods):
+    def create_entity(self, resource):
         """Create an entity representing a Kubernetes Replication Controller.
 
-        :param resource: Kubernetes resource item.
-        :type resource: kube._replicaset.ReplicaSetItem
-        :param dict pods: Set of labels for each pod in the cluster.
+        :param resource: kube replication controller item.
+        :type resource: kube._replicaset.ReplicationControllerItem
         """
+        pods = self.find_service_or_rc_pod_children(
+            resource, self.cluster.pods.api_path)
         update = self.create_base_entity(resource, pods)
         attributes = {
             'kubernetes:observed-replicas': 'observed_replicas',

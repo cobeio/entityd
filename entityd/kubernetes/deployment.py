@@ -6,9 +6,6 @@ import requests
 import entityd.kubernetes
 
 
-RFC_3339_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
-
-
 class DeploymentEntity(entityd.kubernetes.BasePlugin):
     """Plugin to generate Kubernetes Deployment entities."""
 

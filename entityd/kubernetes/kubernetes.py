@@ -199,16 +199,27 @@ def generate_updates(generator_function):
             next(generator)
             while True:
                 update = entityd.EntityUpdate(name)
+                update.exception = False
                 try:
                     generator.send(update)
                 except StopIteration:
-                    yield update
+                    # todo: apply better approach to this, as described below
+                    if not update.exception:
+                        del update.exception
+                        yield update
                     break
                 except kube.StatusError:
                     log.exception('Unexpected status error')
                     break
                 else:
-                    yield update
+                    # todo: same here
+                    if not update.exception:
+                        del update.exception
+                        yield update
+                    else:
+                        # included purely for pytest test & coverage purposes
+                        assert update.exception
+
         except requests.ConnectionError:
             if not _LOGGED_K8S_UNREACHABLE:
                 log.info('Kubernetes API server unreachable')
@@ -337,9 +348,17 @@ def generate_containers(cluster):
         else:
             for container in pod.containers:
                 update = yield
-                update.parents.add(pod_update)
-                container_metrics(container, update)
-                container_update(container, update)
+                try:
+                    update.parents.add(pod_update)
+                    container_metrics(container, update)
+                    container_update(container, update)
+                # todo: tidy this approach to handling no containerId from kube
+                except KeyError as err:
+                    update.exception = True
+                    log.info('KeyError, likely due to container '
+                             'having no containerID: {}'.format(err))
+                else:
+                    update.exception = False
 
 
 def container_update(container, update):

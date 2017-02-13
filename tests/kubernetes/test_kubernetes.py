@@ -127,7 +127,6 @@ def test_cluster_unreachable(unreachable_cluster, update_generator):  # pylint: 
 def test_uncaught_status_error(update_generator):
 
     def generator(_):
-        print('initial')
         update = yield
         update.label = 'first'
         update = yield
@@ -414,6 +413,12 @@ class TestContainers:
 
     @pytest.fixture
     def raw_pod_resource(self):
+        """Note that for testing 2 of the pod's containers have no containerID.
+
+        Containers with no containerID attribute represent containers that are
+        in a state of `ContainerCreating`. These containers enable
+        testing to show that entities are not created for such containers.
+        """
         return {
             'metadata': {
                 'name': 'pod',
@@ -434,6 +439,34 @@ class TestContainers:
                             'docker://3a542701e9896f6a4e526cc69e'
                             '6191b221cf29e1cabb43edf3b47fe5b33a7a59'
                         ),
+                        'imageID': (
+                            'docker://33688d2af35f810373734d5928'
+                            'f3e7c579e2569aa80ed80580436f1fd90e53c6'
+                        ),
+                        'image': 'repository/user/image:tag',
+                        'ready': True,
+                        'state': {
+                            'running': {
+                                'startedAt': '2015-12-04T19:15:23Z',
+                            }
+                        },
+                    },
+                    {
+                        'name': 'container_with_no_containerID attribute',
+                        'imageID': (
+                            'docker://33688d2af35f810373734d5928'
+                            'f3e7c579e2569aa80ed80580436f1fd90e53c6'
+                        ),
+                        'image': 'repository/user/image:tag',
+                        'ready': True,
+                        'state': {
+                            'running': {
+                                'startedAt': '2015-12-04T19:15:23Z',
+                            }
+                        },
+                    },
+                    {
+                        'name': 'container_with_no_containerID attribute',
                         'imageID': (
                             'docker://33688d2af35f810373734d5928'
                             'f3e7c579e2569aa80ed80580436f1fd90e53c6'

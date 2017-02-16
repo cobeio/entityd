@@ -25,7 +25,7 @@ dependencies:
   - requests >=2.11.1
   - pyyaml
   - act
-  - kube >=0.8.0,<0.10.0
+  - kube >=0.10.0
   - python-cobe >=0.2.0
   - docker-py
 

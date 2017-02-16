@@ -33,7 +33,7 @@ setuptools.setup(
         'syskit',
         'requests >=2.11.1',
         'pyyaml',
-        'kube >=0.8.0,<0.10.0',
+        'kube >=0.10.0',
         'python-cobe',
         'cobe-act',
         'docker-py',

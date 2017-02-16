@@ -7,17 +7,17 @@ import requests
 
 import entityd.kubernetes
 import entityd.kubernetes.cluster
-import entityd.kubernetes.replicaset
+import entityd.kubernetes.daemonset
 import entityd.pm
 
 
 @pytest.fixture
 def cluster():
-    """Mock of ``kube.Cluster`` with Replica Set having 2 pods."""
-    replicasets = [
-        kube.ReplicaSetItem(None, {
+    """Mock of ``kube.Cluster`` with Daemon Set having 2 pods."""
+    daemonsets = [
+        kube.DaemonSetItem(None, {
             'metadata': {
-                'name': 'test_replicaset',
+                'name': 'test_daemonset',
                 'namespace': 'test_namespace',
                 'resourceVersion': '12903054',
                 'creationTimestamp': '2016-10-03T12:49:32Z',
@@ -30,13 +30,12 @@ def cluster():
             },
             'status': {
                 'replicas': 1,
-                'observedGeneration': 2,
-                'fullyLabeledReplicas': 3,
-                'readyReplicas': 5,
-                'availableReplicas': 6,
+                'currentNumberScheduled': 2,
+                'numberMisscheduled': 0,
+                'desiredNumberScheduled': 3,
+                'numberReady': 1,
             },
             'spec': {
-                'replicas': 4,
                 'selector': {
                     'matchLabels': {
                         'pod-template-hash': '1268107570',
@@ -74,48 +73,48 @@ def cluster():
             },
         ],
     }
-    kind = 'Kind.ReplicaSet'
+    kind = 'Kind.DaemonSet'
     proxy = types.SimpleNamespace(get=pytest.Mock(return_value=podsitems))
     pods = types.SimpleNamespace(api_path='apis/extensions/v1beta1')
-    return types.SimpleNamespace(replicasets=replicasets,
+    return types.SimpleNamespace(daemonsets=daemonsets,
                                  pods=pods, kind=kind, proxy=proxy)
 
 
 @pytest.fixture
-def replicaset(cluster_entity_plugin, pm, config, session):    # pylint: disable=unused-argument
-    """Fixture providing instance of ``replicaset.ReplicaSetEntity``."""
-    replicaset = entityd.kubernetes.replicaset.ReplicaSetEntity()
+def daemonset(cluster_entity_plugin, pm, config, session):    # pylint: disable=unused-argument
+    """Fixture providing instance of ``daemonset.DaemonSetEntity``."""
+    daemonset = entityd.kubernetes.daemonset.DaemonSetEntity()
     pm.register(
-        replicaset, name='entityd.kubernetes.replicaset.ReplicaSetEntity')
-    replicaset.entityd_sessionstart(session)
-    replicaset.entityd_configure(config)
-    return replicaset
+        daemonset, name='entityd.kubernetes.daemonset.DaemonSetEntity')
+    daemonset.entityd_sessionstart(session)
+    daemonset.entityd_configure(config)
+    return daemonset
 
 
 @pytest.fixture
-def entities(replicaset, cluster):
+def entities(daemonset, cluster):
     """Fixture providing entities."""
-    replicaset.cluster = cluster
-    entities = replicaset.entityd_find_entity(
-        name='Kubernetes:ReplicaSet', attrs=None, include_ondemand=False)
+    daemonset.cluster = cluster
+    entities = daemonset.entityd_find_entity(
+        name='Kubernetes:DaemonSet', attrs=None, include_ondemand=False)
     return entities
 
 
-def test_sessionfinish(replicaset):
-    assert isinstance(replicaset.cluster, kube._cluster.Cluster)
+def test_sessionfinish(daemonset):
+    assert isinstance(daemonset.cluster, kube._cluster.Cluster)
     mock = pytest.Mock()
-    replicaset.cluster = mock
-    replicaset.entityd_sessionfinish()
+    daemonset.cluster = mock
+    daemonset.entityd_sessionfinish()
     mock.close.assert_called_once_with()
 
 
-def test_find_entity_with_attrs_not_none(replicaset):
+def test_find_entity_with_attrs_not_none(daemonset):
     with pytest.raises(LookupError):
-        replicaset.entityd_find_entity(
-            'Kubernetes:ReplicaSet', {'attr': 'foo-entity-bar'})
+        daemonset.entityd_find_entity(
+            'Kubernetes:DaemonSet', {'attr': 'foo-entity-bar'})
 
 
-def test_replicaset_entities(replicaset, entities, cluster):
+def test_daemonset_entities(daemonset, entities, cluster):
     entity = next(entities)
     assert cluster.proxy.get.call_args_list[0][1]['labelSelector'] in [
         'pod-template-hash=1268107570,label1=string1,tier In (cache),'
@@ -125,10 +124,10 @@ def test_replicaset_entities(replicaset, entities, cluster):
     ]
     assert cluster.proxy.get.call_args_list[0][0] == (
         'apis/extensions/v1beta1/namespaces/test_namespace/pods',)
-    assert entity.metype == 'Kubernetes:ReplicaSet'
-    assert entity.label == 'test_replicaset'
-    assert entity.attrs.get('kubernetes:kind').value == 'ReplicaSet'
-    assert entity.attrs.get('kubernetes:meta:name').value == 'test_replicaset'
+    assert entity.metype == 'Kubernetes:DaemonSet'
+    assert entity.label == 'test_daemonset'
+    assert entity.attrs.get('kubernetes:kind').value == 'DaemonSet'
+    assert entity.attrs.get('kubernetes:meta:name').value == 'test_daemonset'
     assert entity.attrs.get('kubernetes:meta:version').value == '12903054'
     assert entity.attrs.get(
         'kubernetes:meta:created').value == '2016-10-03T12:49:32Z'
@@ -136,12 +135,10 @@ def test_replicaset_entities(replicaset, entities, cluster):
     assert entity.attrs.get('kubernetes:meta:link').traits == {'uri'}
     assert entity.attrs.get(
         'kubernetes:meta:uid').value == '7b211c2e-9644-11e6-8a78-42010af00021'
-    assert entity.attrs.get('kubernetes:observed-replicas').value == 1
-    assert entity.attrs.get('kubernetes:observed-generation').value == 2
-    assert entity.attrs.get('kubernetes:fully-labeled-replicas').value == 3
-    assert entity.attrs.get('kubernetes:ready-replicas').value == 5
-    assert entity.attrs.get('kubernetes:available-replicas').value == 6
-    assert entity.attrs.get('kubernetes:replicas-desired').value == 4
+    assert entity.attrs.get('kubernetes:current-number-scheduled').value == 2
+    assert entity.attrs.get('kubernetes:number-misscheduled').value == 0
+    assert entity.attrs.get('kubernetes:desired-number-scheduled').value == 3
+    assert entity.attrs.get('kubernetes:number-ready').value == 1
     assert len(list(entity.children)) == 2
     assert len(list(entity.parents)) == 1
     assert cobe.UEID('ff290adeb112ae377e8fca009ca4fd9f') in entity.parents
@@ -149,14 +146,14 @@ def test_replicaset_entities(replicaset, entities, cluster):
     assert cobe.UEID('8281b9ac13e96fc6af3471cad4047813') in entity.children
     with pytest.raises(StopIteration):
         next(entities)
-    assert replicaset.logged_k8s_unreachable is False
+    assert daemonset.logged_k8s_unreachable is False
 
 
-def test_missing_attributes_handled(replicaset, cluster):
-    cluster.replicasets = [
-        kube.ReplicaSetItem(cluster, {
+def test_missing_attributes_handled(daemonset, cluster):
+    cluster.daemonsets = [
+        kube.DaemonSetItem(cluster, {
             'metadata': {
-                'name': 'test_replicaset',
+                'name': 'test_daemonset',
                 'namespace': 'test_namespace',
                 'resourceVersion': '12903054',
                 'creationTimestamp': '2016-10-03T12:49:32Z',
@@ -169,39 +166,24 @@ def test_missing_attributes_handled(replicaset, cluster):
             'spec': {},
         })
     ]
-    replicaset.cluster = cluster
-    entities = replicaset.entityd_find_entity(
-        name='Kubernetes:ReplicaSet', attrs=None, include_ondemand=False)
+    daemonset.cluster = cluster
+    entities = daemonset.entityd_find_entity(
+        name='Kubernetes:DaemonSet', attrs=None, include_ondemand=False)
     entity = next(entities)
-    assert entity.metype == 'Kubernetes:ReplicaSet'
+    assert entity.metype == 'Kubernetes:DaemonSet'
     assert entity.attrs._deleted_attrs == {
-        'kubernetes:observed-replicas',
-        'kubernetes:observed-generation',
-        'kubernetes:fully-labeled-replicas',
-        'kubernetes:ready-replicas',
-        'kubernetes:available-replicas',
-        'kubernetes:replicas-desired',
+        'kubernetes:current-number-scheduled',
+        'kubernetes:number-misscheduled',
+        'kubernetes:desired-number-scheduled',
+        'kubernetes:number-ready',
     }
 
 
-def test_k8s_unreachable(replicaset, monkeypatch):
-    monkeypatch.setattr(replicaset, 'create_entity',
+def test_k8s_unreachable(daemonset, monkeypatch):
+    monkeypatch.setattr(daemonset, 'create_entity',
                         pytest.Mock(side_effect=requests.ConnectionError))
-    assert replicaset.logged_k8s_unreachable is False
-    assert list(replicaset.entityd_find_entity(
-        name='Kubernetes:ReplicaSet',
+    assert daemonset.logged_k8s_unreachable is False
+    assert list(daemonset.entityd_find_entity(
+        name='Kubernetes:DaemonSet',
         attrs=None, include_ondemand=False)) == []
-    assert replicaset.logged_k8s_unreachable is True
-
-
-def test_no_cluster_ueid_found(session):
-    replicasetentity = entityd.kubernetes.replicaset.ReplicaSetEntity()
-    replicasetentity.entityd_sessionstart(session)
-    def entityd_find_entity(name, attrs):    # pylint: disable=unused-argument
-        return [[]]
-    hooks = types.SimpleNamespace(entityd_find_entity=entityd_find_entity)
-    pluginmanager = types.SimpleNamespace(hooks=hooks)
-    replicasetentity._session = types.SimpleNamespace(
-        pluginmanager=pluginmanager)
-    with pytest.raises(LookupError):
-        assert replicasetentity.cluster_ueid
+    assert daemonset.logged_k8s_unreachable is True

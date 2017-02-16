@@ -1,4 +1,4 @@
-"""Plugin providing Kubernetes Replica Set entities."""
+"""Plugin providing Kubernetes Replication Controller entities."""
 
 import kube
 import requests
@@ -6,19 +6,20 @@ import requests
 import entityd.kubernetes
 
 
-class ReplicaSetEntity(entityd.kubernetes.BasePlugin):
-    """Plugin to generate Kubernetes Replica Set Entities."""
+class ReplicationControllerEntity(entityd.kubernetes.BasePlugin):
+    """Plugin to generate Kubernetes Replication Controller Entities."""
 
     def __init__(self):
         super().__init__(
-            entity_name='Kubernetes:ReplicaSet',
-            plugin_name='entityd.kubernetes.replicaset.ReplicaSetEntity'
+            entity_name='Kubernetes:ReplicationController',
+            plugin_name='entityd.kubernetes.'
+                        'replicationcontroller.ReplicationControllerEntity'
         )
 
     def find_entities(self):
-        """Find Kubernetes Replica Set entities."""
+        """Find Kubernetes Replication Controller entities."""
         try:
-            for resource in self.cluster.replicasets:
+            for resource in self.cluster.replicationcontrollers:
                 yield self.create_entity(resource)
         except requests.ConnectionError:
             self.log_api_server_unreachable()
@@ -26,12 +27,12 @@ class ReplicaSetEntity(entityd.kubernetes.BasePlugin):
             self.logged_k8s_unreachable = False
 
     def create_entity(self, resource):
-        """Create an entity representing a Kubernetes Replica Set.
+        """Create an entity representing a Kubernetes Replication Controller.
 
-        :param resource: kube replica set item.
-        :type resource: kube._replicaset.ReplicaSetItem
+        :param resource: kube replication controller item.
+        :type resource: kube._replicaset.ReplicationControllerItem
         """
-        pods = self.find_resource_pod_children(
+        pods = self.find_service_or_rc_pod_children(
             resource, self.cluster.pods.api_path)
         update = self.create_base_entity(resource, pods)
         attributes = {

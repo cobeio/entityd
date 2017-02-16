@@ -13,10 +13,10 @@ import kube
 import logbook
 import requests
 
+import entityd.kubernetes
 import entityd.pm
 
 
-RFC_3339_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 log = logbook.Logger(__name__)
 Poddata = collections.namedtuple('Poddata', ['name', 'namespace'])
 
@@ -138,7 +138,8 @@ class NodeEntity:
         update.attrs.set('kubernetes:meta:name', node_name)
         update.attrs.set('kubernetes:meta:version', meta.version)
         update.attrs.set('kubernetes:meta:created',
-                         meta.created.strftime(RFC_3339_FORMAT),
+                         meta.created.strftime(
+                             entityd.kubernetes.RFC_3339_FORMAT),
                          traits={'chrono:rfc3339'})
         update.attrs.set('kubernetes:meta:link', meta.link, traits={'uri'})
         update.attrs.set('kubernetes:meta:uid', meta.uid)

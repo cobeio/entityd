@@ -13,11 +13,11 @@ import kube
 import logbook
 import requests
 
+import entityd.kubernetes
 import entityd.pm
 
 
 log = logbook.Logger(__name__)
-RFC_3339_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 _LOGGED_K8S_UNREACHABLE = False
 _CLUSTER_UEID = None
 ENTITIES_PROVIDED = {
@@ -252,7 +252,7 @@ def apply_meta_update(meta, update):
     update.attrs.set('kubernetes:meta:version', meta.version)
     update.attrs.set(
         'kubernetes:meta:created',
-        meta.created.strftime(RFC_3339_FORMAT),
+        meta.created.strftime(entityd.kubernetes.RFC_3339_FORMAT),
         traits={'chrono:rfc3339'},
     )
     # TODO: Maybe convert to absolute URI
@@ -313,7 +313,8 @@ def pod_update(pod, update):
     update.attrs.set(
         'phase', pod.phase.value, traits={'kubernetes:pod-phase'})
     update.attrs.set('start_time',
-                     pod.start_time.strftime(RFC_3339_FORMAT),
+                     pod.start_time.strftime(
+                         entityd.kubernetes.RFC_3339_FORMAT),
                      traits={'chrono:rfc3339'})
     try:
         update.attrs.set('ip', str(pod.ip),
@@ -380,7 +381,8 @@ def container_update(container, update):
     if container.state.running or container.state.terminated:
         update.attrs.set(
             'state:started-at',
-            container.state.started_at.strftime(RFC_3339_FORMAT),
+            container.state.started_at.strftime(
+                entityd.kubernetes.RFC_3339_FORMAT),
             traits={'chrono:rfc3339'},
         )
     else:
@@ -401,7 +403,8 @@ def container_update(container, update):
             update.attrs.delete('state:message')
         update.attrs.set(
             'state:finished-at',
-            container.state.finished_at.strftime(RFC_3339_FORMAT),
+            container.state.finished_at.strftime(
+                entityd.kubernetes.RFC_3339_FORMAT),
             traits={'chrono:rfc3339'},
         )
     else:

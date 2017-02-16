@@ -1,4 +1,4 @@
-"""Plugin providing Kubernetes Replica Set entities."""
+"""Plugin providing Kubernetes Deployment entities."""
 
 import kube
 import requests
@@ -6,19 +6,19 @@ import requests
 import entityd.kubernetes
 
 
-class ReplicaSetEntity(entityd.kubernetes.BasePlugin):
-    """Plugin to generate Kubernetes Replica Set Entities."""
+class DeploymentEntity(entityd.kubernetes.BasePlugin):
+    """Plugin to generate Kubernetes Deployment entities."""
 
     def __init__(self):
         super().__init__(
-            entity_name='Kubernetes:ReplicaSet',
-            plugin_name='entityd.kubernetes.replicaset.ReplicaSetEntity'
+            entity_name='Kubernetes:Deployment',
+            plugin_name='entityd.kubernetes.deployment.DeploymentEntity'
         )
 
     def find_entities(self):
-        """Find Kubernetes Replica Set entities."""
+        """Find Kubernetes Deployment entities."""
         try:
-            for resource in self.cluster.replicasets:
+            for resource in self.cluster.deployments:
                 yield self.create_entity(resource)
         except requests.ConnectionError:
             self.log_api_server_unreachable()
@@ -26,20 +26,20 @@ class ReplicaSetEntity(entityd.kubernetes.BasePlugin):
             self.logged_k8s_unreachable = False
 
     def create_entity(self, resource):
-        """Create an entity representing a Kubernetes Replica Set.
+        """Create an entity representing a Kubernetes Deployment.
 
-        :param resource: kube replica set item.
-        :type resource: kube._replicaset.ReplicaSetItem
+        :param resource: kube deployment item.
+        :type resource: kube._deployment.DeploymentItem
         """
-        pods = self.find_resource_pod_children(
-            resource, self.cluster.pods.api_path)
-        update = self.create_base_entity(resource, pods)
+        replicasets = self.find_deployment_rs_children(
+            resource, self.cluster.replicasets.api_path)
+        update = self.create_base_entity(resource, replicasets)
         attributes = {
-            'kubernetes:observed-replicas': 'observed_replicas',
             'kubernetes:observed-generation': 'observed_generation',
-            'kubernetes:fully-labeled-replicas': 'fully_labeled_replicas',
-            'kubernetes:ready-replicas': 'ready_replicas',
+            'kubernetes:observed-replicas': 'observed_replicas',
+            'kubernetes:updated-replicas': 'updated_replicas',
             'kubernetes:available-replicas': 'available_replicas',
+            'kubernetes:unavailable-replicas': 'unavailable_replicas',
         }
         for attr in attributes:
             try:

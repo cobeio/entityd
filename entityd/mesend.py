@@ -3,7 +3,11 @@
 This plugin implements the sending of Monitored Entities to the modeld
 destination.
 
+
 """
+import pathlib
+import struct
+
 import act
 import logbook
 import msgpack
@@ -24,6 +28,7 @@ class MonitoredEntitySender:
         self.session = None
         self.packed_protocol_version = b'streamapi/5'
         self._socket = None
+        self._stream_file = None
 
     @property
     def socket(self):
@@ -60,6 +65,11 @@ class MonitoredEntitySender:
             type=str,
             help='ZeroMQ address of modeld destination.',
         )
+        parser.add_argument(
+            '--write-stream',
+            default=None,
+            type=pathlib.Path,
+        )
 
     @staticmethod
     @entityd.pm.hookimpl
@@ -72,6 +82,9 @@ class MonitoredEntitySender:
         """Called when the monitoring session starts."""
         self.context = zmq.Context()
         self.session = session
+        if self.session.config.args.write_stream:
+            self._stream_file = \
+                self.session.config.args.write_stream.open("ab")
 
     @entityd.pm.hookimpl
     def entityd_sessionfinish(self):
@@ -84,6 +97,8 @@ class MonitoredEntitySender:
         self.context.term()
         self.context = None
         self.session = None
+        if self._stream_file:
+            self._stream_file.close()
 
     @entityd.pm.hookimpl
     def entityd_send_entity(self, entity):
@@ -100,6 +115,9 @@ class MonitoredEntitySender:
             packed_entity = self.encode_entity(entity)
         else:
             packed_entity = msgpack.packb(entity, use_bin_type=True)
+        if self._stream_file:
+            self._stream_file.write(
+                struct.pack('<I', len(packed_entity)) + packed_entity)
         try:
             self.socket.send_multipart([self.packed_protocol_version,
                                         packed_entity],

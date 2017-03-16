@@ -544,13 +544,13 @@ def container_metrics(container, update):
 
     This searches the Kubernetes cluster for cAdvisors listening on each
     node's 4194 port to determine which node hosts the given container.
-    Once the correct node is the found, the stats returned by cAdvisor for
+    Once the correct node is then found, the stats returned by cAdvisor for
     the container are converted to attributes on the entity update.
 
     As cAdvisor returns a range of stats for a container (a minutes worth
     at one second intervals), the closest matching data point is used for
     the metrics. If there is no data point within 20 minutes, then no
-    metrics will be added to the update to avoid stale metrics.
+    metrics will be added to the update, to avoid stale metrics.
 
     If no node can be found for the container then no metrics are added.
 

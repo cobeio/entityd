@@ -80,7 +80,7 @@ class ClusterEntity:
                     r'//([a-zA-Z0-9-]+)/',
                     nodeitem.spec()['providerID']).group(1)
             except KeyError:
-                return 'Cluster-' + nodeitem.spec()['externalID']
+                self._project = 'Cluster-' + nodeitem.spec()['externalID']
         return self._project
 
     def find_cluster_entity(self):

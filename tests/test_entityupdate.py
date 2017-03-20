@@ -80,6 +80,20 @@ def test_attrs(update, value):
     assert 'key' in update.attrs.deleted()
 
 
+def test_attrs_set_clear(update):
+    update.attrs.set('key', None, traits=set())
+    assert len(list(update.attrs)) == 1
+    update.attrs.clear('key')
+    assert len(list(update.attrs)) == 0
+
+
+def test_attrs_delete_clear(update):
+    update.attrs.delete('key')
+    assert len(update.attrs.deleted()) == 1
+    update.attrs.clear('key')
+    assert len(update.attrs.deleted()) == 0
+
+
 def test_attr_delete_nonexistent(update):
     update.attrs.delete('NA')
     assert 'NA' in update.attrs.deleted()

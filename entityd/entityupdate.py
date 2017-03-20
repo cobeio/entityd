@@ -120,6 +120,18 @@ class UpdateAttributes:
         """
         return set(self._deleted_attrs)
 
+    def clear(self, name):
+        """Clear an attribute from the update by name.
+
+        This drops the given attribute from the collection of attributes,
+        whether it's been set or deleted.
+        """
+        try:
+            del self._attrs[name]
+        except KeyError:
+            pass
+        self._deleted_attrs.discard(name)
+
 
 class UpdateRelations:
     """A set of UEIDs; either parent or child relations."""

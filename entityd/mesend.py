@@ -91,7 +91,7 @@ class MonitoredEntitySender:
         self.session = session
         self._optimised = self.session.config.args.stream_optimise
         self._optimised_cycles_max = \
-            self.session.config.args.stream_optimise_frequency
+            max(1, self.session.config.args.stream_optimise_frequency)
 
     @entityd.pm.hookimpl
     def entityd_sessionfinish(self):
@@ -232,6 +232,7 @@ class MonitoredEntitySender:
             if name in self._seen_attributes[ueid]:
                 del self._seen_attributes[ueid][name]
         attributes_send = attributes_new | attributes_changed
-        for attribute in update.attrs:
-            if attribute.name not in attributes_send:
-                update.attrs.clear(attribute.name)
+        attributes_clear = \
+            {attribute.name for attribute in update.attrs} - attributes_send
+        for attribute_name in attributes_clear:
+            update.attrs.clear(attribute_name)

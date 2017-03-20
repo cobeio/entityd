@@ -99,17 +99,35 @@ def test_configure(sender, config):
     assert config.keydir == act.fsloc.sysconfdir.joinpath('entityd', 'keys')
 
 
-def test_sessionstart():
+@pytest.mark.parametrize('optimised', [True, False])
+@pytest.mark.parametrize(
+    ('optimised_frequency', 'optimised_frequency_expected'),
+    [
+        (-1, 1),
+        (0, 1),
+        (1, 1),
+        (5, 5),
+    ],
+)
+def test_sessionstart(
+        optimised, optimised_frequency, optimised_frequency_expected):
     session = pytest.Mock()
+    session.config.args.stream_optimise = optimised
+    session.config.args.stream_optimise_frequency = optimised_frequency
     sender = entityd.mesend.MonitoredEntitySender()
     sender.entityd_sessionstart(session)
     assert sender.session == session
     assert isinstance(sender.context, zmq.Context)
+    assert sender._optimised == optimised
+    assert sender._optimised_cycles_max == optimised_frequency_expected
 
 
 def test_sessionfinish():
+    session = pytest.Mock()
+    session.config.args.stream_optimise = False
+    session.config.args.stream_optimise_frequency = 5
     sender = entityd.mesend.MonitoredEntitySender()
-    sender.entityd_sessionstart(pytest.Mock())
+    sender.entityd_sessionstart(session)
     sender._socket = pytest.Mock()
     context = sender.context
     sender.entityd_sessionfinish()
@@ -263,3 +281,91 @@ def test_deleted_attribute():
     encoded = entityd.mesend.MonitoredEntitySender.encode_entity(entity)
     decoded = msgpack.unpackb(encoded, encoding='utf8')
     assert decoded['attrs']['deleted']['deleted'] is True
+
+
+class TestUpdateOptimisation:
+
+    @pytest.fixture()
+    def sender(self):
+        session = pytest.Mock()
+        sender = entityd.mesend.MonitoredEntitySender()
+        session.config.args.stream_optimise = True
+        session.config.args.stream_optimise_frequency = 1000
+        sender.entityd_sessionstart(session)
+        return sender
+
+    def test_remove_duplicate(self, sender):
+        update_0 = entityd.EntityUpdate('Foo')
+        update_0.attrs.set('id', 'snowflake', {'entity:id'})
+        update_1 = entityd.EntityUpdate('Foo')
+        update_1.attrs.set('id', 'snowflake', {'entity:id'})
+        sender._optimise_update(update_0)
+        sender._optimise_update(update_1)
+        assert {attribute.name for attribute in update_0.attrs} == {'id'}
+        assert {attribute.name for attribute in update_1.attrs} == set()
+
+    def test_send_after_delete(self, sender):
+        update_0 = entityd.EntityUpdate('Foo')
+        update_0.attrs.set('id', 'snowflake', {'entity:id'})
+        update_0.attrs.set('tobe', 'ornot', {'tobe'})
+        update_1 = entityd.EntityUpdate('Foo')
+        update_1.attrs.set('id', 'snowflake', {'entity:id'})
+        update_1.attrs.delete('tobe')
+        update_2 = entityd.EntityUpdate('Foo')
+        update_2.attrs.set('id', 'snowflake', {'entity:id'})
+        update_2.attrs.set('tobe', 'ornot', {'tobe'})
+        sender._optimise_update(update_0)
+        sender._optimise_update(update_1)
+        sender._optimise_update(update_2)
+        assert {
+            attribute.name for attribute in update_0.attrs} == {'id', 'tobe'}
+        assert {attribute.name for attribute in update_1.attrs} == set()
+        assert {attribute.name for attribute in update_2.attrs} == {'tobe'}
+
+    def test_send_if_values_change(self, sender):
+        update_0 = entityd.EntityUpdate('Foo')
+        update_0.attrs.set('id', 'snowflake', {'entity:id'})
+        update_0.attrs.set('changes', 'initial', set())
+        update_1 = entityd.EntityUpdate('Foo')
+        update_1.attrs.set('id', 'snowflake', {'entity:id'})
+        update_1.attrs.set('changes', 'changed', set())
+        sender._optimise_update(update_0)
+        sender._optimise_update(update_1)
+        assert {
+            attribute.name for attribute in update_0.attrs} == {'id', 'changes'}
+        assert {attribute.name for attribute in update_1.attrs} == {'changes'}
+
+    def test_send_if_traits_change(self, sender):
+        update_0 = entityd.EntityUpdate('Foo')
+        update_0.attrs.set('id', 'snowflake', {'entity:id'})
+        update_0.attrs.set('changes', '...', {'initial'})
+        update_1 = entityd.EntityUpdate('Foo')
+        update_1.attrs.set('id', 'snowflake', {'entity:id'})
+        update_1.attrs.set('changes', '...', {'initial', 'changed'})
+        sender._optimise_update(update_0)
+        sender._optimise_update(update_1)
+        assert {
+            attribute.name for attribute in update_0.attrs} == {'id', 'changes'}
+        assert {attribute.name for attribute in update_1.attrs} == {'changes'}
+
+    def test_send_all_after_limit(self, sender):
+        sender._optimised_cycles_max = 1
+        update_0 = entityd.EntityUpdate('Foo')
+        update_0.attrs.set('id', 'snowflake', {'entity:id'})
+        update_1 = entityd.EntityUpdate('Foo')
+        update_1.attrs.set('id', 'snowflake', {'entity:id'})
+        sender._optimise_update(update_0)
+        sender._optimise_update(update_1)
+        assert {attribute.name for attribute in update_0.attrs} == {'id'}
+        assert {attribute.name for attribute in update_1.attrs} == {'id'}
+
+    def test_send_all_if_disabled(self, sender):
+        sender._optimised = False
+        update_0 = entityd.EntityUpdate('Foo')
+        update_0.attrs.set('id', 'snowflake', {'entity:id'})
+        update_1 = entityd.EntityUpdate('Foo')
+        update_1.attrs.set('id', 'snowflake', {'entity:id'})
+        sender._optimise_update(update_0)
+        sender._optimise_update(update_1)
+        assert {attribute.name for attribute in update_0.attrs} == {'id'}
+        assert {attribute.name for attribute in update_1.attrs} == {'id'}

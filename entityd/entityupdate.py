@@ -113,8 +113,12 @@ class UpdateAttributes:
             pass
 
     def deleted(self):
-        """Get all deleted attribute names."""
-        return self._deleted_attrs
+        """Get all deleted attribute names.
+
+        :returns: A copy of a set of all the attribute names
+            marked for deletion.
+        """
+        return set(self._deleted_attrs)
 
 
 class UpdateRelations:

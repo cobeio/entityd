@@ -59,9 +59,11 @@ def receiver(request, certificates):
 def get_sender(endpoint, keydir):
     session = pytest.Mock()
     sender = entityd.mesend.MonitoredEntitySender()
-    sender.entityd_sessionstart(session)
     session.config.args.dest = endpoint
     session.config.keydir = pathlib.Path(str(keydir))
+    session.config.args.stream_optimise = False
+    session.config.args.stream_optimise_frequency = 1
+    sender.entityd_sessionstart(session)
     return sender
 
 

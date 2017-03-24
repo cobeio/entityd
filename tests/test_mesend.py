@@ -83,13 +83,21 @@ def test_option_default():
     entityd.mesend.MonitoredEntitySender().entityd_addoption(parser)
     args = parser.parse_args([])
     assert args.dest == 'tcp://127.0.0.1:25010'
+    assert args.stream_write is None
 
 
-def test_addoption():
+def test_addoption(tmpdir):
+    tmpdir = pathlib.Path(str(tmpdir))
     parser = argparse.ArgumentParser()
     entityd.mesend.MonitoredEntitySender().entityd_addoption(parser)
-    args = parser.parse_args(['--dest', 'tcp://192.168.0.1:7890'])
+    args = parser.parse_args([
+        '--dest',
+        'tcp://192.168.0.1:7890',
+        '--stream-write',
+        str(tmpdir),
+    ])
     assert args.dest == 'tcp://192.168.0.1:7890'
+    assert args.stream_write == tmpdir
 
 
 def test_configure(sender, config):
@@ -261,3 +269,34 @@ def test_deleted_attribute():
     encoded = entityd.mesend.MonitoredEntitySender.encode_entity(entity)
     decoded = msgpack.unpackb(encoded, encoding='utf8')
     assert decoded['attrs']['deleted']['deleted'] is True
+
+
+class TestStreamWrite:
+
+    @pytest.fixture
+    def stream_path(self, tmpdir):
+        path = pathlib.Path(str(tmpdir)) / 'stream'
+        return path
+
+    @pytest.yield_fixture
+    def sender(self, certificates, stream_path):
+        session = pytest.Mock()
+        session.config.keydir = pathlib.Path(
+            str(certificates.join('entityd', 'keys')))
+        session.config.args.dest = 'tcp://127.0.0.1:25010'
+        session.config.args.stream_write = stream_path
+        sender = entityd.mesend.MonitoredEntitySender()
+        sender.entityd_sessionstart(session)
+        yield sender
+        sender.entityd_sessionfinish()
+
+    def test(self, stream_path, sender):
+        import struct
+        update = entityd.EntityUpdate('Foo')
+        update_encoded = sender.encode_entity(update)
+        sender.entityd_send_entity(update)
+        with stream_path.open('rb') as stream_fp:
+            sender._stream_file.flush()
+            stream = stream_fp.read()
+        assert struct.unpack('<I', stream[:4])[0] == len(update_encoded)
+        assert stream[4:] == update_encoded

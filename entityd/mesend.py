@@ -82,9 +82,9 @@ class MonitoredEntitySender:
         """Called when the monitoring session starts."""
         self.context = zmq.Context()
         self.session = session
-        if self.session.config.args.write_stream:
+        if self.session.config.args.stream_write:
             self._stream_file = \
-                self.session.config.args.write_stream.open("ab")
+                self.session.config.args.stream_write.open("ab")
 
     @entityd.pm.hookimpl
     def entityd_sessionfinish(self):

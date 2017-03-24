@@ -1,6 +1,7 @@
 import argparse
 import pathlib
 import re
+import struct
 import time
 
 import act
@@ -291,7 +292,6 @@ class TestStreamWrite:
         sender.entityd_sessionfinish()
 
     def test(self, stream_path, sender):
-        import struct
         update = entityd.EntityUpdate('Foo')
         update_encoded = sender.encode_entity(update)
         sender.entityd_send_entity(update)

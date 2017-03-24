@@ -4,6 +4,8 @@ This plugin implements the sending of Monitored Entities to the modeld
 destination.
 """
 
+import random
+
 import act
 import logbook
 import msgpack
@@ -179,6 +181,12 @@ class MonitoredEntitySender:
         If stream optimisation is disabled then this will always return
         ``False``.
 
+        The first time a UEID is seen, the counter is set to a random
+        number which is less than the maximum optimised cycles. This smooths
+        out the distribution of optimised updates to avoid large spikes in
+        outgoing update sizes everytime the maximum optimised cycles is
+        reached.
+
         :param update: The entity update to consider for optimisation.
         :type update: entityd.EntityUpdate
 
@@ -188,7 +196,8 @@ class MonitoredEntitySender:
             return False
         ueid = update.ueid
         if ueid not in self._optimised_cycles:
-            self._optimised_cycles[ueid] = 0
+            self._optimised_cycles[ueid] = \
+                random.randrange(0, self._optimised_cycles_max)
         self._optimised_cycles[ueid] += 1
         if self._optimised_cycles[ueid] >= self._optimised_cycles_max:
             self._optimised_cycles[ueid] = 0

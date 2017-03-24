@@ -211,8 +211,12 @@ class MonitoredEntitySender:
 
         Deleted attributes are never dropped from the update. However, it
         will mean that, should the attribute reappear late, it will be sent.
+
+        Note that the given update's UEID is preserved even if the identifying
+        attributes are optimised away.
         """
         ueid = update.ueid
+        update.ueid = ueid  # Explicit UEID set
         if ueid not in self._seen_attributes:
             self._seen_attributes[ueid] = {}
         if not self._should_optimise_update(update):

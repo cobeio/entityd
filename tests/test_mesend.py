@@ -303,6 +303,7 @@ class TestUpdateOptimisation:
         sender._optimise_update(update_1)
         assert {attribute.name for attribute in update_0.attrs} == {'id'}
         assert {attribute.name for attribute in update_1.attrs} == set()
+        assert update_0.ueid == update_1.ueid
 
     def test_send_after_delete(self, sender):
         update_0 = entityd.EntityUpdate('Foo')
@@ -321,6 +322,7 @@ class TestUpdateOptimisation:
             attribute.name for attribute in update_0.attrs} == {'id', 'tobe'}
         assert {attribute.name for attribute in update_1.attrs} == set()
         assert {attribute.name for attribute in update_2.attrs} == {'tobe'}
+        assert update_0.ueid == update_1.ueid == update_2.ueid
 
     def test_send_if_values_change(self, sender):
         update_0 = entityd.EntityUpdate('Foo')
@@ -334,6 +336,7 @@ class TestUpdateOptimisation:
         assert {
             attribute.name for attribute in update_0.attrs} == {'id', 'changes'}
         assert {attribute.name for attribute in update_1.attrs} == {'changes'}
+        assert update_0.ueid == update_1.ueid
 
     def test_send_if_traits_change(self, sender):
         update_0 = entityd.EntityUpdate('Foo')
@@ -347,6 +350,7 @@ class TestUpdateOptimisation:
         assert {
             attribute.name for attribute in update_0.attrs} == {'id', 'changes'}
         assert {attribute.name for attribute in update_1.attrs} == {'changes'}
+        assert update_0.ueid == update_1.ueid
 
     def test_send_all_after_limit(self, sender):
         sender._optimised_cycles_max = 1
@@ -358,6 +362,7 @@ class TestUpdateOptimisation:
         sender._optimise_update(update_1)
         assert {attribute.name for attribute in update_0.attrs} == {'id'}
         assert {attribute.name for attribute in update_1.attrs} == {'id'}
+        assert update_0.ueid == update_1.ueid
 
     def test_send_all_if_disabled(self, sender):
         sender._optimised = False
@@ -369,3 +374,4 @@ class TestUpdateOptimisation:
         sender._optimise_update(update_1)
         assert {attribute.name for attribute in update_0.attrs} == {'id'}
         assert {attribute.name for attribute in update_1.attrs} == {'id'}
+        assert update_0.ueid == update_1.ueid

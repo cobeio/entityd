@@ -69,6 +69,28 @@ def test_ueid():
     assert u1.ueid != u2.ueid
 
 
+@pytest.mark.parametrize('ueid', ['a' * 32, cobe.UEID('a' * 32)])
+def test_ueid_explicit(ueid):
+    update = entityd.EntityUpdate('Type')
+    assert update.ueid == cobe.UEID('3a2fc5ca145e8e8f5d3c3d94e6300c2d')
+    update.ueid = ueid
+    assert isinstance(update.ueid, cobe.UEID)
+    assert update.ueid == cobe.UEID(ueid)
+    update.attrs.set('id', 'snowflare', traits={'entity:id'})
+    assert update.ueid == cobe.UEID(ueid)
+
+
+@pytest.mark.parametrize('ueid', [
+    'a' * 31,
+    'a' * 33,
+    'x' * 32,
+])
+def test_ueid_explicit_error(ueid):
+    update = entityd.EntityUpdate('Type')
+    with pytest.raises(cobe.UEIDError):
+        update.ueid = ueid
+
+
 @pytest.mark.parametrize('value', [None, 0, 0.0, '', b'', [], {}])
 def test_attrs(update, value):
     update.attrs.set('key', value, traits=set())

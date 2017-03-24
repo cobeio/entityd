@@ -67,6 +67,18 @@ class EntityUpdate:
             update.attributes[attribute.name].traits.update(attribute.traits)
         return update.ueid()
 
+    @ueid.setter
+    def ueid(self, ueid):
+        """Explicitly set the update's UEID.
+
+        The given UEID will be converted to a :class:`cobe.UEID`.
+
+        :raises cobe.UEIDError: If the given UEID is the wrong length or
+            contains invalid characters or otherwise cannot be converted to
+            a valid :class:`cobe.UEID` instance.
+        """
+        self._ueid = cobe.UEID(ueid)
+
 
 UpdateAttr = collections.namedtuple('UpdateAttr', ['name', 'value', 'traits'])
 

@@ -210,7 +210,13 @@ class MonitoredEntitySender:
         that this method doesn't modify the update at all.
 
         Deleted attributes are never dropped from the update. However, it
-        will mean that, should the attribute reappear late, it will be sent.
+        will mean that, should the attribute reappear later, it will be sent.
+
+        If the update is marked with :attr:`entityd.EntityUpdate.exists` as
+        ``false`` then the previously seen attribute values will be forgotten.
+        Hence, a subsequent update will not be optimised. This is to avoid
+        holding attribute values in memory for entities that are likely dead
+        and unlikely to have any further updates sent for it.
 
         Note that the given update's UEID is preserved even if the identifying
         attributes are optimised away.
@@ -240,3 +246,5 @@ class MonitoredEntitySender:
             {attribute.name for attribute in update.attrs} - attributes_send
         for attribute_name in attributes_clear:
             update.attrs.clear(attribute_name)
+        if not update.exists:
+            self._seen_attributes[ueid].clear()

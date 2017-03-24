@@ -352,6 +352,24 @@ class TestUpdateOptimisation:
         assert {attribute.name for attribute in update_1.attrs} == {'changes'}
         assert update_0.ueid == update_1.ueid
 
+    def test_send_after_exists_false(self, sender):
+        update_0 = entityd.EntityUpdate('Foo')
+        update_0.exists = True
+        update_0.attrs.set('id', 'snowflake', {'entity:id'})
+        update_1 = entityd.EntityUpdate('Foo')
+        update_1.exists = False
+        update_1.attrs.set('id', 'snowflake', {'entity:id'})
+        update_2 = entityd.EntityUpdate('Foo')
+        update_2.exists = True
+        update_2.attrs.set('id', 'snowflake', {'entity:id'})
+        sender._optimise_update(update_0)
+        sender._optimise_update(update_1)
+        sender._optimise_update(update_2)
+        assert {attribute.name for attribute in update_0.attrs} == {'id'}
+        assert {attribute.name for attribute in update_1.attrs} == set()
+        assert {attribute.name for attribute in update_2.attrs} == {'id'}
+        assert update_0.ueid == update_1.ueid == update_2.ueid
+
     def test_send_all_after_limit(self, sender):
         sender._optimised_cycles_max = 1
         update_0 = entityd.EntityUpdate('Foo')

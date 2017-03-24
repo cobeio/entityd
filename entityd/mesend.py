@@ -66,7 +66,7 @@ class MonitoredEntitySender:
             help='ZeroMQ address of modeld destination.',
         )
         parser.add_argument(
-            '--write-stream',
+            '--stream-write',
             default=None,
             type=pathlib.Path,
         )

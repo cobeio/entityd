@@ -2,8 +2,10 @@
 
 This plugin implements the sending of Monitored Entities to the modeld
 destination.
-
 """
+
+import random
+
 import act
 import logbook
 import msgpack
@@ -24,6 +26,10 @@ class MonitoredEntitySender:
         self.session = None
         self.packed_protocol_version = b'streamapi/5'
         self._socket = None
+        self._optimised = False
+        self._optimised_cycles = {}  # ueid : count
+        self._optimised_cycles_max = 1
+        self._seen_attributes = {}  # ueid : {name : UpdateAttr}
 
     @property
     def socket(self):
@@ -60,6 +66,19 @@ class MonitoredEntitySender:
             type=str,
             help='ZeroMQ address of modeld destination.',
         )
+        parser.add_argument(
+            '--stream-optimise',
+            action='store_true',
+            help='Use optimised Streaming API format.',
+        )
+        parser.add_argument(
+            '--stream-optimise-frequency',
+            type=int,
+            default=5,
+            help=('How often to send whole updates when '
+                  'using optimised Streaming API format. '
+                  'Otherwise this option is ignored.'),
+        )
 
     @staticmethod
     @entityd.pm.hookimpl
@@ -72,6 +91,9 @@ class MonitoredEntitySender:
         """Called when the monitoring session starts."""
         self.context = zmq.Context()
         self.session = session
+        self._optimised = self.session.config.args.stream_optimise
+        self._optimised_cycles_max = \
+            max(1, self.session.config.args.stream_optimise_frequency)
 
     @entityd.pm.hookimpl
     def entityd_sessionfinish(self):
@@ -97,6 +119,7 @@ class MonitoredEntitySender:
         Uses linger=0 and closes the socket in order to empty the buffers.
         """
         if isinstance(entity, entityd.EntityUpdate):
+            self._optimise_update(entity)
             packed_entity = self.encode_entity(entity)
         else:
             packed_entity = msgpack.packb(entity, use_bin_type=True)
@@ -144,3 +167,93 @@ class MonitoredEntitySender:
         if entity.label is not None:
             data['label'] = entity.label
         return msgpack.packb(data, use_bin_type=True)
+
+    def _should_optimise_update(self, update):
+        """Determine if an update should be optimised.
+
+        For each time a given UEID is seen, a corresponding counter is
+        incremented. Whilst this counter is lower than the maximum optimised
+        cycles ``True`` will be returned.
+
+        Once the counter limit is reached, it is reset to zero, and
+        ``False`` is returned.
+
+        If stream optimisation is disabled then this will always return
+        ``False``.
+
+        The first time a UEID is seen, the counter is set to a random
+        number which is less than the maximum optimised cycles. This smooths
+        out the distribution of optimised updates to avoid large spikes in
+        outgoing update sizes everytime the maximum optimised cycles is
+        reached.
+
+        :param update: The entity update to consider for optimisation.
+        :type update: entityd.EntityUpdate
+
+        :returns: Whether or not the update should be optimised as a boolean.
+        """
+        if not self._optimised:
+            return False
+        ueid = update.ueid
+        if ueid not in self._optimised_cycles:
+            self._optimised_cycles[ueid] = \
+                random.randrange(0, self._optimised_cycles_max)
+        self._optimised_cycles[ueid] += 1
+        if self._optimised_cycles[ueid] >= self._optimised_cycles_max:
+            self._optimised_cycles[ueid] = 0
+            return False
+        return True
+
+    def _optimise_update(self, update):
+        """Optimise the attributes of an entity update.
+
+        This checks a given update to see if any attributes are duplicates
+        of the previous attribute that were sent. If they are the same,
+        they are dropped, in-place, from the update.
+
+        An attributes is considered to be a duplicate if it has the exact
+        same value *and* traits.
+
+        The method :meth:`_should_optimise_update` is consulted to determine
+        whether or not the update should be optimised. Hence, it is possible
+        that this method doesn't modify the update at all.
+
+        Deleted attributes are never dropped from the update. However, it
+        will mean that, should the attribute reappear later, it will be sent.
+
+        If the update is marked with :attr:`entityd.EntityUpdate.exists` as
+        ``false`` then the previously seen attribute values will be forgotten.
+        Hence, a subsequent update will not be optimised. This is to avoid
+        holding attribute values in memory for entities that are likely dead
+        and unlikely to have any further updates sent for it.
+
+        Note that the given update's UEID is preserved even if the identifying
+        attributes are optimised away.
+        """
+        ueid = update.ueid
+        update.ueid = ueid  # Explicit UEID set
+        if ueid not in self._seen_attributes:
+            self._seen_attributes[ueid] = {}
+        if not self._should_optimise_update(update):
+            self._seen_attributes[ueid].clear()
+        attributes_seen = set(self._seen_attributes[ueid].keys())
+        attributes_deleted = update.attrs.deleted()
+        attributes_new = set()
+        attributes_changed = set()
+        for attribute in update.attrs:
+            if attribute.name not in attributes_seen:
+                attributes_new.add(attribute.name)
+            else:
+                if attribute != self._seen_attributes[ueid][attribute.name]:
+                    attributes_changed.add(attribute.name)
+            self._seen_attributes[ueid][attribute.name] = attribute
+        for name in attributes_deleted:
+            if name in self._seen_attributes[ueid]:
+                del self._seen_attributes[ueid][name]
+        attributes_send = attributes_new | attributes_changed
+        attributes_clear = \
+            {attribute.name for attribute in update.attrs} - attributes_send
+        for attribute_name in attributes_clear:
+            update.attrs.clear(attribute_name)
+        if not update.exists:
+            self._seen_attributes[ueid].clear()

@@ -375,7 +375,7 @@ def container_update(container, update):
     update.attrs.set('ready', container.ready)
     update.attrs.set('image:id', container.image_id)
     update.attrs.set('image:name', container.image)
-    update.attrs.set('restart_count',
+    update.attrs.set('restart-count',
                      container.restart_count, traits={'metric:counter'})
     for state in ('running', 'waiting', 'terminated'):
         if getattr(container.state, state):

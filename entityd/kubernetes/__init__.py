@@ -248,7 +248,7 @@ class BasePlugin(metaclass=ABCMeta):
             the resource.
         """
         meta = resource.meta
-        kind = str(resource.kind).replace('Kind.', '')
+        kind = resource.kind.value
         update = entityd.EntityUpdate('Kubernetes:{}'.format(kind))
         update.label = meta.name
         update.attrs.set('kubernetes:kind', kind)

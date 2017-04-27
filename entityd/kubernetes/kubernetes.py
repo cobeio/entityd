@@ -284,20 +284,11 @@ def namespace_update(namespace, update):
 
 
 def generate_pods(cluster):
-    """Generate updates for pods.
-
-    Pods will added as children of corresponding namespace entities.
-    """
-    namespaces = {}
-    for namespace in generate_updates(generate_namespaces):
-        namespaces[
-            namespace.attrs.get('kubernetes:meta:name').value] = namespace
+    """Generate updates for pods."""
+    # TODO: Set parent to namespace if pod has no controller
     for pod in cluster.pods:
         update = yield
         pod_update(pod, update)
-        parent_namespace = namespaces.get(pod.meta.namespace)
-        if parent_namespace:
-            update.parents.add(parent_namespace)
 
 
 def pod_update(pod, update):

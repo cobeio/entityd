@@ -293,7 +293,7 @@ class TestPods:
         assert pods[0].attrs.get('start_time').traits == {'chrono:rfc3339'}
         assert pods[0].attrs.get('ip').value == '10.120.0.5'
         assert pods[0].attrs.get('ip').traits == {'ipaddr:v4'}
-        assert list(pods[0].parents) == [namespaces[0].ueid]
+        assert list(pods[0].parents) == []
         assert pods[1].metype == 'Kubernetes:Pod'
         assert pods[1].label == 'pod-2'
         assert pods[1].attrs.get('phase').value == 'Running'

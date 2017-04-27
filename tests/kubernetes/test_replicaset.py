@@ -12,7 +12,7 @@ import entityd.pm
 
 
 @pytest.fixture
-def cluster(monkeypatch):
+def cluster():
     """Mock of ``kube.Cluster`` with Replica Set having 2 pods."""
     replicasets = [
         kube.ReplicaSetItem(None, {
@@ -207,7 +207,7 @@ def test_replicaset_entities(replicaset, entities, cluster):
     assert replicaset.logged_k8s_unreachable is False
 
 
-def test_replicaset_has_deployment(monkeypatch, replicaset, deployment):
+def test_replicaset_has_deployment(monkeypatch, replicaset, deployment):  # pylint: disable=unused-argument
     ueid = next(replicaset.entityd_find_entity(
         name='Kubernetes:ReplicaSet',
         attrs=None,

@@ -450,6 +450,7 @@ class TestContainers:
                                 'startedAt': '2015-12-04T19:15:23Z',
                             }
                         },
+                        'restartCount': 0,
                     },
                     {
                         'name': 'container_with_no_containerID attribute',
@@ -464,6 +465,7 @@ class TestContainers:
                                 'startedAt': '2015-12-04T19:15:23Z',
                             }
                         },
+                        'restartCount': 0,
                     },
                     {
                         'name': 'container_with_no_containerID attribute',
@@ -478,6 +480,7 @@ class TestContainers:
                                 'startedAt': '2015-12-04T19:15:23Z',
                             }
                         },
+                        'restartCount': 0,
                     },
                 ],
             },
@@ -748,6 +751,7 @@ class TestCAdvisorToPoints:
         assert points[0].data is raw_points[0]
         assert points[1].timestamp == datetime.datetime(2000, 8, 1, 14)
         assert points[1].data is raw_points[2]
+
 
 class TestSimpleMetrics:
 

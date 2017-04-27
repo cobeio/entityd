@@ -37,6 +37,10 @@ setuptools.setup(
         'python-cobe',
         'cobe-act',
         'docker-py',
+        # TODO: Fix in python-cobe maybe?
+        'pyzmq >=14.7, <15.0',
+        'msgpack-python >=0.4.5, <0.5',
+        'voluptuous >=0.8.7, <0.9',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',

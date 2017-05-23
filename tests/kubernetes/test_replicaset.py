@@ -207,7 +207,9 @@ def test_replicaset_entities(replicaset, entities, cluster):
     assert replicaset.logged_k8s_unreachable is False
 
 
-def test_replicaset_has_deployment(monkeypatch, replicaset, deployment):  # pylint: disable=unused-argument
+def test_replicaset_has_deployment(
+        monkeypatch, replicaset, deployment, cluster):  # pylint: disable=unused-argument
+    replicaset.cluster = cluster
     ueid = next(replicaset.entityd_find_entity(
         name='Kubernetes:ReplicaSet',
         attrs=None,

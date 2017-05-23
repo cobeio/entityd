@@ -287,6 +287,8 @@ class TestPods:
         assert len(pods) == 2
         assert pods[0].metype == 'Kubernetes:Pod'
         assert pods[0].label == 'pod-1'
+        assert pods[0].attrs.get('kubernetes:kind').value == 'Pod'
+        assert pods[0].attrs.get('kubernetes:kind').traits == set()
         assert pods[0].attrs.get('phase').value == 'Running'
         assert pods[0].attrs.get('phase').traits == {'kubernetes:pod-phase'}
         assert pods[0].attrs.get('start_time').value == '2015-01-14T17:01:37Z'
@@ -500,6 +502,8 @@ class TestContainers:
         assert containers[0].attrs.get('id').traits == {'entity:id'}
         assert containers[0].attrs.get('name').value == 'container-1'
         assert containers[0].attrs.get('name').traits == set()
+        assert containers[0].attrs.get('kubernetes:kind').value == 'Container'
+        assert containers[0].attrs.get('kubernetes:kind').traits == set()
         assert containers[0].attrs.get('manager').value == 'Docker'
         assert containers[0].attrs.get('manager').traits == set()
         assert containers[0].attrs.get('ready').value is True

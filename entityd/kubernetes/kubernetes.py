@@ -301,6 +301,7 @@ def pod_update(pod, update):
     """
     update.label = pod.meta.name
     apply_meta_update(pod.meta, update)
+    update.attrs.set('kubernetes:kind', 'Pod')
     update.attrs.set(
         'phase', pod.phase.value, traits={'kubernetes:pod-phase'})
     update.attrs.set('start_time',
@@ -362,6 +363,7 @@ def container_update(container, update):
     update.label = container.name
     update.attrs.set('id', container.id, traits={'entity:id'})
     update.attrs.set('name', container.name)
+    update.attrs.set('kubernetes:kind', 'Container')
     update.attrs.set('manager', 'Docker')
     update.attrs.set('ready', container.ready)
     update.attrs.set('image:id', container.image_id)

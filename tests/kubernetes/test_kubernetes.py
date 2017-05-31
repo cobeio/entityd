@@ -902,7 +902,8 @@ class TestContainerMetrics:
                 kubernetes.filesystem_metrics,
                 kubernetes.diskio_metrics)
 
-    def test(self, cluster, metrics):
+    @pytest.mark.parametrize('key', ['/foo', '/system.slice/docker-foo'])
+    def test(self, cluster, metrics, key):
         point_data = {
             'timestamp':
                 datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')}
@@ -911,7 +912,7 @@ class TestContainerMetrics:
         update = entityd.entityupdate.EntityUpdate('Entity')
         cluster.nodes = [
             kube.NodeItem(cluster, {'metadata': {'name': 'node'}})]
-        cluster.proxy.get.return_value = {'/foo': [point_data]}
+        cluster.proxy.get.return_value = {key: [point_data]}
         kubernetes.container_metrics(container, update)
         assert metrics[0].called
         assert metrics[1].called

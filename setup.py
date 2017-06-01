@@ -3,7 +3,7 @@
 import setuptools
 
 
-__version__ = '0.17.0'
+__version__ = '0.18.0'
 
 
 with open("README.rst") as fp:
@@ -27,9 +27,7 @@ setuptools.setup(
     },
     install_requires=[
         'setuptools',
-        'msgpack-python',
         'Logbook',
-        'pyzmq',
         'syskit',
         'requests >=2.11.1',
         'pyyaml',

@@ -124,6 +124,12 @@ class BasePlugin(metaclass=ABCMeta):
         `spec.selector.matchLabels` and `spec.selector.matchExpressions` -
         e.g. suitable for Replica Sets, but not Services.
 
+        Note that operators from ``spec.selector.matchExpressions`` are
+        converted to lower case. This with some versions of Kubernetes
+        it seems to be possible to specify an expression using mixed
+        case operators such as ``NotIn`` which are then not usable in
+        label selectors.
+
         :param resource: Kubernetes resource item.
         :type resource: kube.{resource_type}.{resource_type}Item
 
@@ -144,7 +150,7 @@ class BasePlugin(metaclass=ABCMeta):
             values = ' '.join(
                 ['{}'.format(item) for item in expression['values']])
             expressions.append('{} {} ({})'.format(
-                expression['key'], expression['operator'], values))
+                expression['key'], expression['operator'].lower(), values))
         matchexpressions = ','.join(expressions)
         labelselector = ','.join([matchlabels, matchexpressions]).strip(',')
         return labelselector

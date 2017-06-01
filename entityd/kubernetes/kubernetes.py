@@ -565,8 +565,11 @@ def container_metrics(container, update):
         except kube.APIError as exc:
             pass
         else:
+            points_raw = []
+            for points_raw_group in response.values():
+                points_raw.extend(points_raw_group)
             try:
-                points = cadvisor_to_points(response['/' + container_id])
+                points = cadvisor_to_points(points_raw)
             except KeyError:
                 points = []
             try:

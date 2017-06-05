@@ -3,7 +3,7 @@
 import setuptools
 
 
-__version__ = '0.18.0'
+__version__ = '0.18.1'
 
 
 with open("README.rst") as fp:

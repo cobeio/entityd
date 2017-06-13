@@ -81,6 +81,12 @@ def entityd_addoption(parser):
         action='store_true',
         help='Trace the plugin manager actions',
     )
+    parser.add_argument(
+        '--period',
+        default=60,
+        type=lambda period: max(0, float(period)),
+        help='How often to run periodic entity collection',
+    )
 
 
 @entityd.pm.hookimpl
@@ -166,13 +172,13 @@ class Config:
 class Session:
     """A monitoring session.
 
-    When the session is running, entity collection is ran at least once
-    a minute. Once the collection process has finished, the session will
-    suspend itself until its due to run again.
+    When the session is running, entity collection is ran according to
+    the configured periodicity. Once the collection process has finished,
+    the session will suspend itself until its due to run again.
 
     .. note::
-        If the entity collection process takes too long, the session
-        may never suspend itself.
+        If the entity collection process takes longer than the configured
+        periodicity, the session may never suspend itself.
 
     Attributes:
 
@@ -211,7 +217,7 @@ class Session:
             if not self._shutdown.is_set():  # dont collect if shutting down
                 time_start = time.monotonic()
                 self.svc.monitor.collect_entities()
-                time_next = time_start + 60
+                time_next = time_start + self.config.args.period
 
 
     def shutdown(self):

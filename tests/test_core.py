@@ -180,6 +180,7 @@ def test_entityd_addoption(capsys):
     assert '--version' in stdout
     assert '--log-level' in stdout
     assert '--trace' in stdout
+    assert '--period' in stdout
 
 
 def test_entityd_mainloop():
@@ -235,13 +236,13 @@ class TestSession:
 
     @pytest.fixture
     def session(self, pm):
-        config = core.Config(pm, argparse.Namespace())
+        config = core.Config(pm, argparse.Namespace(period=5))
         return core.Session(pm, config)
 
     def test_run(self, session, monitor):  # pylint: disable=unused-argument
         session.svc.monitor = pytest.Mock()
         session._shutdown = pytest.Mock()
-        session._shutdown.is_set.side_effect = [False, True]
+        session._shutdown.is_set.side_effect = [False, False, True]
         session.run()
         assert session.svc.monitor.collect_entities.called
 

@@ -23,6 +23,7 @@ setuptools.setup(
     entry_points={
         'console_scripts': [
             'entityd=entityd.__main__:main',
+            'entityd-health-check=entityd.health:check',
         ],
     },
     install_requires=[

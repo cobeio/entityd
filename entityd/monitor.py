@@ -13,6 +13,7 @@ import collections
 import cobe
 import logbook
 
+import entityd.health
 import entityd.pm
 
 
@@ -43,6 +44,7 @@ class Monitor:
                 cobe.UEID(ueid) for ueid in
                 session.svc.kvstore.getmany(prefix).values()
             )
+        entityd.health.heartbeat()
 
     @entityd.pm.hookimpl(before='entityd.kvstore')
     def entityd_sessionfinish(self):
@@ -56,6 +58,7 @@ class Monitor:
                 to_store[key] = str(ueid)
             self.session.svc.kvstore.addmany(to_store)
         self.session.svc.kvstore.add('metypes', list(self.last_batch.keys()))
+        entityd.health.die()
 
     def collect_entities(self):
         """Collect and send all Monitored Entities."""
@@ -67,6 +70,7 @@ class Monitor:
                 name=metype, attrs=None, include_ondemand=True)
             for result in results:
                 for entity in result:
+                    entityd.health.heartbeat()
                     self.session.pluginmanager.hooks.entityd_send_entity(
                         session=self.session, entity=entity)
                     this_batch[entity.metype].add(entity.ueid)
@@ -76,6 +80,7 @@ class Monitor:
         for metype in types:
             non_existent_ueids = self.last_batch[metype] - this_batch[metype]
             for ueid in non_existent_ueids:
+                entityd.health.heartbeat()
                 update = entityd.entityupdate.EntityUpdate(metype, str(ueid))
                 update.set_not_exists()
                 self.session.pluginmanager.hooks.entityd_send_entity(

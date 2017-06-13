@@ -85,7 +85,7 @@ def entityd_addoption(parser):
         '--period',
         default=60,
         type=lambda period: max(0, float(period)),
-        help='How often to run periodic entity collection',
+        help='How often to run periodic entity collection in seconds',
     )
 
 

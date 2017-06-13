@@ -59,6 +59,7 @@ class Monitor:
 
     def collect_entities(self):
         """Collect and send all Monitored Entities."""
+        log.info('Starting entity collection')
         types = set(self.config.entities) | set(self.last_batch)
         this_batch = collections.defaultdict(set)
         for metype in types:

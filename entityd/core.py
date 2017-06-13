@@ -13,6 +13,7 @@ then runs the application by calling this hook.
 import argparse
 import contextlib
 import threading
+import time
 import types
 
 import act
@@ -165,6 +166,14 @@ class Config:
 class Session:
     """A monitoring session.
 
+    When the session is running, entity collection is ran at least once
+    a minute. Once the collection process has finished, the session will
+    suspend itself until its due to run again.
+
+    .. note::
+        If the entity collection process takes too long, the session
+        may never suspend itself.
+
     Attributes:
 
     :config: The Config instance.
@@ -173,7 +182,6 @@ class Session:
     XXX This is currently way to simplistic, monitoring in this way
         would result in resources spikes etc.  It may also be that the
         actual monitoring activity should be moved to it's own plugin.
-
     """
 
     def __init__(self, pluginmanager, config):
@@ -191,11 +199,20 @@ class Session:
         :raises KeyBoardInterrupt: When SIGTERM is received the
            KeyBoardInterrupt is not caught and propagated up to the
            caller.
-
         """
+        time_next = time.monotonic()
         while not self._shutdown.is_set():
-            self.svc.monitor.collect_entities()
-            self._shutdown.wait(60)
+            time_now = time.monotonic()
+            time_wait = max(0, time_next - time_now)
+            if time_wait:
+                log.debug(
+                    'Suspending entity collection for {:.2f}s', time_wait)
+            self._shutdown.wait(time_wait)
+            if not self._shutdown.is_set():  # dont collect if shutting down
+                time_start = time.monotonic()
+                self.svc.monitor.collect_entities()
+                time_next = time_start + 60
+
 
     def shutdown(self):
         """Signal the session to shutdown.

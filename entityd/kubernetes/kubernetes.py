@@ -11,6 +11,7 @@ import collections
 
 import kube
 import logbook
+import pyrsistent
 import requests
 
 import entityd.kubernetes
@@ -308,6 +309,10 @@ def pod_update(pod, update):
                      pod.start_time.strftime(
                          entityd.kubernetes.RFC_3339_FORMAT),
                      traits={'chrono:rfc3339'})
+    update.attrs.set('resources', {
+        container.name:
+            pyrsistent.thaw(container.resources)
+        for container in pod.raw.spec.containers})
     try:
         update.attrs.set('ip', str(pod.ip),
                          traits={'ipaddr:v{}'.format(pod.ip.version)})

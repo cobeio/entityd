@@ -257,7 +257,7 @@ class TestPods:
             kubernetes, 'generate_namespaces', generate_namespaces)
         return updates
 
-    def test(self, cluster, meta_update, namespaces):
+    def test(self, cluster, meta_update):
         pod_resources = [
             kube.PodItem(cluster, {
                 'metadata': {
@@ -268,6 +268,16 @@ class TestPods:
                     'phase': 'Running',
                     'podIP': '10.120.0.5',
                     'startTime': '2015-01-14T17:01:37Z',
+                },
+                'spec': {
+                    'containers': [{
+                        'name': 'cont1',
+                        'resources': {
+                            'limits': {
+                                'memory': '100Mi',
+                            },
+                        },
+                    }],
                 },
             }),
             kube.PodItem(cluster, {
@@ -280,7 +290,17 @@ class TestPods:
                     'podIP': '10.120.0.7',
                     'startTime': '2016-01-14T17:01:37Z',
                 },
-            }),
+                'spec': {
+                    'containers': [{
+                        'name': 'cont2',
+                        'resources': {
+                            'limits': {
+                                'memory': '800Mi',
+                            },
+                        },
+                    }],
+                },
+                }),
         ]
         cluster.pods.__iter__.return_value = iter(pod_resources)
         pods = list(kubernetes.entityd_find_entity('Kubernetes:Pod'))
@@ -295,6 +315,13 @@ class TestPods:
         assert pods[0].attrs.get('start_time').traits == {'chrono:rfc3339'}
         assert pods[0].attrs.get('ip').value == '10.120.0.5'
         assert pods[0].attrs.get('ip').traits == {'ipaddr:v4'}
+        assert pods[0].attrs.get('resources').value == {
+            'cont1': {
+                'limits': {
+                    'memory': '100Mi',
+                },
+            },
+        }
         assert list(pods[0].parents) == []
         assert pods[1].metype == 'Kubernetes:Pod'
         assert pods[1].label == 'pod-2'
@@ -304,6 +331,13 @@ class TestPods:
         assert pods[1].attrs.get('start_time').traits == {'chrono:rfc3339'}
         assert pods[1].attrs.get('ip').value == '10.120.0.7'
         assert pods[1].attrs.get('ip').traits == {'ipaddr:v4'}
+        assert pods[1].attrs.get('resources').value == {
+            'cont2': {
+                'limits': {
+                    'memory': '800Mi',
+                },
+            },
+        }
         assert meta_update.call_count == 2
         assert meta_update.call_args_list[0][0] == (
             pod_resources[0].meta, pods[0])
@@ -326,6 +360,12 @@ class TestPods:
                     'startTime': '2016-01-14T17:01:37Z',
                     'message': 'Once upon a time ...',
                 },
+                'spec': {
+                    'containers': [{
+                        'name': 'cont',
+                        'resources': {},
+                    }],
+                },
             })
         update = entityd.entityupdate.EntityUpdate('Foo', ueid='a' * 32)
         update.attrs.set('ip', 'test')
@@ -345,6 +385,12 @@ class TestPods:
                     'podIP': '10.120.0.7',
                     'startTime': '2016-01-14T17:01:37Z',
                     'message': 'Once upon a time ...',
+                },
+                'spec': {
+                    'containers': [{
+                        'name': 'cont',
+                        'resources': {},
+                    }],
                 },
             }),
         ]
@@ -372,6 +418,12 @@ class TestPods:
                     'startTime': '2016-01-14T17:01:37Z',
                     'reason': 'ItsWorking',
                 },
+                'spec': {
+                    'containers': [{
+                        'name': 'cont',
+                        'resources': {},
+                    }],
+                },
             }),
         ]
         cluster.pods.__iter__.return_value = iter(pod_resources)
@@ -396,6 +448,12 @@ class TestPods:
                     'phase': 'Running',
                     'podIP': '2001:db8::8:800:200c:417a',
                     'startTime': '2016-01-14T17:01:37Z',
+                },
+                'spec': {
+                    'containers': [{
+                        'name': 'cont',
+                        'resources': {},
+                    }],
                 },
             }),
         ]
@@ -485,6 +543,12 @@ class TestContainers:
                         'restartCount': 0,
                     },
                 ],
+            },
+            'spec': {
+                'containers': [{
+                    'name': 'cont',
+                    'resources': {},
+                }],
             },
         }
 

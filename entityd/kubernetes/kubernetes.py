@@ -349,7 +349,7 @@ def generate_containers(cluster):
                 try:
                     update.parents.add(pod_update)
                     container_metrics(container, update)
-                    container_update(container, update)
+                    container_update(container, pod, update)
                 # todo: tidy this approach to handling no containerId from kube
                 except KeyError as err:
                     update.exception = True
@@ -359,10 +359,11 @@ def generate_containers(cluster):
                     update.exception = False
 
 
-def container_update(container, update):
+def container_update(container, pod, update):
     """Populate update with attributes for a container.
 
     :param kube.Container container: the container to set attributes for.
+    :param kube.Pod pod: the pod the container is within.
     :param entityd.EntityUpdate update: the update to set the attributes on.
     """
     update.label = container.name
@@ -410,6 +411,49 @@ def container_update(container, update):
     else:
         for attribute in ('exit-code', 'signal', 'message', 'finished-at'):
             update.attrs.delete('state:' + attribute)
+    container_resources(container, pod, update)
+
+
+def container_resources(container, pod, update):
+    """Add the container compute resource limits and requests.
+
+    :param kube.Container container: the container to set attributes for.
+    :param kube.Pod pod: the pod the container is within.
+    :param entityd.EntityUpdate update: the update to set the attributes on.
+    """
+    resources = {}
+    for cont in pod.raw.spec.containers:
+        if cont.name == container.name:
+            resources = cont.resources
+            break
+
+    request_memory = entityd.kubernetes.\
+        ram_conversion(resources.get('requests', {}).get('memory'))
+    if request_memory:
+        update.attrs.set('resources:requests:memory',
+                         request_memory,
+                         traits={'metric:gauge', 'unit:bytes'})
+
+    request_cpu = entityd.kubernetes.\
+        cpu_conversion(resources.get('requests', {}).get('cpu'))
+    if request_cpu:
+        update.attrs.set('resources:requests:cpu',
+                         request_cpu,
+                         traits={'metric:gauge', 'unit:percent'})
+
+    limit_memory = entityd.kubernetes.\
+        ram_conversion(resources.get('limit', {}).get('memory'))
+    if limit_memory:
+        update.attrs.set('resources:limit:memory',
+                         limit_memory,
+                         traits={'metric:gauge', 'unit:bytes'})
+
+    limit_cpu = entityd.kubernetes.\
+        cpu_conversion(resources.get('limit', {}).get('cpu'))
+    if limit_cpu:
+        update.attrs.set('resources:limit:cpu',
+                         limit_cpu,
+                         traits={'metric:gauge', 'unit:percent'})
 
 
 def select_nearest_point(target, points, threshold):

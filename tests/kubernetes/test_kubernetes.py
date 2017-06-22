@@ -300,7 +300,7 @@ class TestPods:
                         },
                     }],
                 },
-                }),
+            }),
         ]
         cluster.pods.__iter__.return_value = iter(pod_resources)
         pods = list(kubernetes.entityd_find_entity('Kubernetes:Pod'))

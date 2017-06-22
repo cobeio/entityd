@@ -12,6 +12,15 @@ RFC_3339_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 log = logbook.Logger(__name__)
 
 
+SYMBOLS = [
+    'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'K', 'M', 'G', 'T', 'P', 'E'
+]
+FACTORS = [
+    1024, 1024**2, 1024**3, 1024**4, 1024**5, 1024**6,
+    1000, 1000**2, 1000**3, 1000**4, 1000**5, 1000**6
+]
+
+
 class BasePlugin(metaclass=ABCMeta):
     """Base plugin class supporting creation of Kubernetes entities."""
 
@@ -274,3 +283,53 @@ class BasePlugin(metaclass=ABCMeta):
             update.children.add(child)
         update.parents.add(self.create_namespace_ueid(meta.namespace))
         return update
+
+
+def cpu_conversion(cpu):
+    """Converts Kubernetes cpu string to int|float percent cpu used.
+
+    Cases:
+        250m is converted to 25
+        0.1 is converted to 10
+        1 is converted to 100
+
+    :param str cpu: Kubernetes-derived cpu resource usage; e.g. '1', '250m'.
+
+    :returns: CPU percentage.
+    """
+    try:
+        if not cpu:
+            return
+        elif cpu.endswith('m'):
+            return float(cpu[:-1]) / 10
+        else:
+            return float(cpu) * 100
+    except ValueError:
+        log.error('Issue handling cpu conversion of {}', cpu)
+
+
+def ram_conversion(ram):
+    """Converts Kubernetes RAM string to bytes int.
+
+    Symbols for measures are held in module list constant SYMBOLS.
+    Their corresponding multiples are held in module list constant FACTORS
+
+    :param str ram: Kubernetes-derived ram resource usage;
+        e.g. 128974848, 129e6, 129M , 123Mi
+
+    :returns: Bytes int.
+    """
+    try:
+        if not ram:
+            return
+        elif 'e' in ram:
+            numbers = ram.split('e')
+            return int(float(numbers[0]) * 10 ** float(numbers[1]))
+        elif ram[-1].isdigit():
+            return int(ram)
+        else:
+            for index, symbol in enumerate(SYMBOLS):
+                if ram.endswith(symbol):
+                    return int(ram[:-len(symbol)]) * FACTORS[index]
+    except ValueError:
+        log.error('Issue converting RAM string {} to bytes int', ram)

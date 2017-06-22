@@ -427,32 +427,32 @@ def container_resources(container, pod, update):
             resources = cont.resources
             break
 
-    request_memory = entityd.kubernetes.\
+    requests_memory = entityd.kubernetes.\
         ram_conversion(resources.get('requests', {}).get('memory'))
-    if request_memory:
+    if requests_memory:
         update.attrs.set('resources:requests:memory',
-                         request_memory,
+                         requests_memory,
                          traits={'metric:gauge', 'unit:bytes'})
 
-    request_cpu = entityd.kubernetes.\
+    requests_cpu = entityd.kubernetes.\
         cpu_conversion(resources.get('requests', {}).get('cpu'))
-    if request_cpu:
+    if requests_cpu:
         update.attrs.set('resources:requests:cpu',
-                         request_cpu,
+                         requests_cpu,
                          traits={'metric:gauge', 'unit:percent'})
 
-    limit_memory = entityd.kubernetes.\
-        ram_conversion(resources.get('limit', {}).get('memory'))
-    if limit_memory:
-        update.attrs.set('resources:limit:memory',
-                         limit_memory,
+    limits_memory = entityd.kubernetes.\
+        ram_conversion(resources.get('limits', {}).get('memory'))
+    if limits_memory:
+        update.attrs.set('resources:limits:memory',
+                         limits_memory,
                          traits={'metric:gauge', 'unit:bytes'})
 
-    limit_cpu = entityd.kubernetes.\
-        cpu_conversion(resources.get('limit', {}).get('cpu'))
-    if limit_cpu:
-        update.attrs.set('resources:limit:cpu',
-                         limit_cpu,
+    limits_cpu = entityd.kubernetes.\
+        cpu_conversion(resources.get('limits', {}).get('cpu'))
+    if limits_cpu:
+        update.attrs.set('resources:limits:cpu',
+                         limits_cpu,
                          traits={'metric:gauge', 'unit:percent'})
 
 

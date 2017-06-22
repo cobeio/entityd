@@ -67,6 +67,18 @@ class EntityUpdate:
             update.attributes[attribute.name].traits.update(attribute.traits)
         return update.ueid()
 
+    @ueid.setter
+    def ueid(self, ueid):
+        """Explicitly set the update's UEID.
+
+        The given UEID will be converted to a :class:`cobe.UEID`.
+
+        :raises cobe.UEIDError: If the given UEID is the wrong length or
+            contains invalid characters or otherwise cannot be converted to
+            a valid :class:`cobe.UEID` instance.
+        """
+        self._ueid = cobe.UEID(ueid)
+
 
 UpdateAttr = collections.namedtuple('UpdateAttr', ['name', 'value', 'traits'])
 
@@ -113,8 +125,24 @@ class UpdateAttributes:
             pass
 
     def deleted(self):
-        """Get all deleted attribute names."""
-        return self._deleted_attrs
+        """Get all deleted attribute names.
+
+        :returns: A copy of a set of all the attribute names
+            marked for deletion.
+        """
+        return set(self._deleted_attrs)
+
+    def clear(self, name):
+        """Clear an attribute from the update by name.
+
+        This drops the given attribute from the collection of attributes,
+        whether it's been set or deleted.
+        """
+        try:
+            del self._attrs[name]
+        except KeyError:
+            pass
+        self._deleted_attrs.discard(name)
 
 
 class UpdateRelations:
@@ -125,6 +153,9 @@ class UpdateRelations:
 
     def __iter__(self):
         return self._relations.__iter__()
+
+    def __len__(self):
+        return len(self._relations)
 
     def add(self, entity):
         """Add entity to the relations for this update.
@@ -142,3 +173,20 @@ class UpdateRelations:
             raise ValueError('Can only add UEID or EntityUpdate '
                              'as relations but got {!r}'.format(type(ueid)))
         self._relations.add(ueid)
+
+    def discard(self, entity):
+        """Discard an entity from the relations of this update.
+
+        :param entity: Either a UEID or and EntityUpdate object.
+        :type entity: cobe.UEID or entityd.EntityUpdate
+
+        :raises ValueError: If not given a valid UEID.
+        """
+        if isinstance(entity, EntityUpdate):
+            ueid = entity.ueid
+        else:
+            ueid = entity
+        if not isinstance(ueid, cobe.UEID):
+            raise ValueError('Can only delete UEID or EntityUpdate '
+                             'as relations but got {!r}'.format(type(ueid)))
+        self._relations.discard(ueid)

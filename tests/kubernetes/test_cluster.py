@@ -18,19 +18,16 @@ def clusterentity():
     clusterentity.entityd_sessionfinish()
 
 
-@pytest.fixture
-def kube_mock(monkeypatch):
+@pytest.fixture(params=[{'providerID': 'gce://Cluster-clustername/'
+                                       'europe-west1-d/'
+                                       'gke-cobetest-60058af9-node-3fqh'},
+                        {'externalID': 'clustername'}])
+def kube_mock(monkeypatch, request):
     """Mocking out of kube."""
-    nodes = [
-        types.SimpleNamespace(raw={
-            'spec': {'providerID': 'gce://clustername/europe-west1-d'
-                                   '/gke-cobetest-60058af9-node-3fqh'}})]
     class Spec:
         @staticmethod
         def spec():
-            return {'providerID':
-                        'gce://clustername/'
-                        'europe-west1-d/gke-cobetest-60058af9-node-3fqh'}
+            return request.param
     nodes = [Spec]
     addresses = {
         'metadata': {
@@ -107,7 +104,7 @@ def test_find_entity(clusterentity_mocked):
         'Kubernetes:Cluster', None, include_ondemand=False)
     entity = next(entities)
     assert entity.metype == 'Kubernetes:Cluster'
-    assert entity.label == 'clustername'
+    assert entity.label == 'Cluster-clustername'
     assert entity.attrs.get('kubernetes:kind').value == 'Cluster'
     assert entity.attrs.get(
         'kubernetes:cluster').value == 'https://69.69.69.69:443/'

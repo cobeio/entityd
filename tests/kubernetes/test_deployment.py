@@ -113,10 +113,10 @@ def test_find_entity_with_attrs_not_none(deployment):
 def test_deployment_entities(deployment, entities, cluster):
     entity = next(entities)
     assert cluster.proxy.get.call_args_list[0][1]['labelSelector'] in [
-        'pod-template-hash=1268107570,label1=string1,tier In (cache),'
-        'environment NotIn (dev)',
+        'pod-template-hash=1268107570,label1=string1,tier in (cache),'
+        'environment notin (dev)',
         'label1=string1,'
-        'pod-template-hash=1268107570,tier In (cache),environment NotIn (dev)',
+        'pod-template-hash=1268107570,tier in (cache),environment notin (dev)',
     ]
     assert cluster.proxy.get.call_args_list[0][0] == (
         'apis/extensions/v1beta1/namespaces/test_namespace/replicasets',)

@@ -75,9 +75,12 @@ class ClusterEntity:
         """
         if not self._project:
             nodeitem = list(self._cluster.nodes)[0]
-            self._project = re.search(
-                r'//([a-z0-9-]+)/',
-                nodeitem.spec()['providerID']).group(1)
+            try:
+                self._project = re.search(
+                    r'//([a-zA-Z0-9-]+)/',
+                    nodeitem.spec()['providerID']).group(1)
+            except KeyError:
+                self._project = 'Cluster-' + nodeitem.spec()['externalID']
         return self._project
 
     def find_cluster_entity(self):

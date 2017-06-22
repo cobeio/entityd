@@ -284,20 +284,11 @@ def namespace_update(namespace, update):
 
 
 def generate_pods(cluster):
-    """Generate updates for pods.
-
-    Pods will added as children of corresponding namespace entities.
-    """
-    namespaces = {}
-    for namespace in generate_updates(generate_namespaces):
-        namespaces[
-            namespace.attrs.get('kubernetes:meta:name').value] = namespace
+    """Generate updates for pods."""
+    # TODO: Set parent to namespace if pod has no controller
     for pod in cluster.pods:
         update = yield
         pod_update(pod, update)
-        parent_namespace = namespaces.get(pod.meta.namespace)
-        if parent_namespace:
-            update.parents.add(parent_namespace)
 
 
 def pod_update(pod, update):
@@ -310,6 +301,7 @@ def pod_update(pod, update):
     """
     update.label = pod.meta.name
     apply_meta_update(pod.meta, update)
+    update.attrs.set('kubernetes:kind', 'Pod')
     update.attrs.set(
         'phase', pod.phase.value, traits={'kubernetes:pod-phase'})
     update.attrs.set('start_time',
@@ -371,10 +363,13 @@ def container_update(container, update):
     update.label = container.name
     update.attrs.set('id', container.id, traits={'entity:id'})
     update.attrs.set('name', container.name)
+    update.attrs.set('kubernetes:kind', 'Container')
     update.attrs.set('manager', 'Docker')
     update.attrs.set('ready', container.ready)
     update.attrs.set('image:id', container.image_id)
     update.attrs.set('image:name', container.image)
+    update.attrs.set('restart-count',
+                     container.restart_count, traits={'metric:counter'})
     for state in ('running', 'waiting', 'terminated'):
         if getattr(container.state, state):
             update.attrs.set('state', state)
@@ -544,13 +539,13 @@ def container_metrics(container, update):
 
     This searches the Kubernetes cluster for cAdvisors listening on each
     node's 4194 port to determine which node hosts the given container.
-    Once the correct node is the found, the stats returned by cAdvisor for
+    Once the correct node is then found, the stats returned by cAdvisor for
     the container are converted to attributes on the entity update.
 
     As cAdvisor returns a range of stats for a container (a minutes worth
     at one second intervals), the closest matching data point is used for
     the metrics. If there is no data point within 20 minutes, then no
-    metrics will be added to the update to avoid stale metrics.
+    metrics will be added to the update, to avoid stale metrics.
 
     If no node can be found for the container then no metrics are added.
 
@@ -570,8 +565,11 @@ def container_metrics(container, update):
         except kube.APIError as exc:
             pass
         else:
+            points_raw = []
+            for points_raw_group in response.values():
+                points_raw.extend(points_raw_group)
             try:
-                points = cadvisor_to_points(response['/' + container_id])
+                points = cadvisor_to_points(points_raw)
             except KeyError:
                 points = []
             try:

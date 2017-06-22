@@ -294,9 +294,9 @@ class ProcessEntity:
         for pid in pids:
             try:
                 with open('/proc/{}/cgroup'.format(pid), 'r') as fp:
-                    container_id = fp.readline().strip().split('/')[-1]
-                    if container_id in containerids:
-                        containers[pid] = container_id
+                    for containerid in containerids:
+                        if containerid in fp.readline():
+                            containers[pid] = containerid
             except FileNotFoundError:
                 continue
         return containers

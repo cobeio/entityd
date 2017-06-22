@@ -1,5 +1,6 @@
 """Local py.test plugin."""
 
+import pathlib
 import tempfile
 import threading
 import types
@@ -56,7 +57,6 @@ def kvstore(session):
     """Return a kvstore instance registered to the session fixture.
 
     This creates a KVStore and registers it to the ``session`` fixture.
-
     """
     kvstore = entityd.kvstore.KVStore(':memory:')
     session.addservice('kvstore', kvstore)
@@ -71,6 +71,16 @@ def host_entity_plugin(pm, session, kvstore):  # pylint: disable=unused-argument
     host_plugin.entityd_sessionstart(session)
     yield host_plugin
     host_plugin.entityd_sessionfinish()
+
+
+@pytest.fixture(autouse=True)
+def path_health(tmpdir, monkeypatch):
+    """Use a temporary file as health marker."""
+    monkeypatch.setattr(
+        entityd.health,
+        '_PATH_HEALTH',
+        pathlib.Path(str(tmpdir.join('healthy'))),
+    )
 
 
 class HookRecorder:

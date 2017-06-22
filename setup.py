@@ -3,7 +3,7 @@
 import setuptools
 
 
-__version__ = '0.14.0'
+__version__ = '0.19.0'
 
 
 with open("README.rst") as fp:
@@ -17,19 +17,18 @@ setuptools.setup(
     author_email='info@cobe.io',
     license='LGPLv3',
     url='https://bitbucket.org/cobeio/act',
-    description=' Entity monitoring agent for cobe.io',
+    description='Entity monitoring agent for cobe.io',
     long_description=LONG_DESCRIPTION,
     packages=setuptools.find_packages(),
     entry_points={
         'console_scripts': [
             'entityd=entityd.__main__:main',
+            'entityd-health-check=entityd.health:check',
         ],
     },
     install_requires=[
         'setuptools',
-        'msgpack-python',
         'Logbook',
-        'pyzmq',
         'syskit',
         'requests >=2.11.1',
         'pyyaml',
@@ -37,6 +36,10 @@ setuptools.setup(
         'python-cobe',
         'cobe-act',
         'docker-py',
+        # TODO: Fix in python-cobe maybe?
+        'pyzmq >=14.7, <15.0',
+        'msgpack-python >=0.4.5, <0.5',
+        'voluptuous >=0.8.7, <0.9',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',

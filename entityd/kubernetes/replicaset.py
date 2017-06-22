@@ -28,6 +28,10 @@ class ReplicaSetEntity(entityd.kubernetes.BasePlugin):
     def create_entity(self, resource):
         """Create an entity representing a Kubernetes Replica Set.
 
+        If the replica set is managed by a deployment, then the created
+        entity will be a child of that deployment. Otherwise, it'll be
+        a child of the namespace.
+
         :param resource: kube replica set item.
         :type resource: kube._replicaset.ReplicaSetItem
         """
@@ -51,4 +55,11 @@ class ReplicaSetEntity(entityd.kubernetes.BasePlugin):
             update.attrs.set('kubernetes:replicas-desired', spec['replicas'])
         except KeyError:
             update.attrs.delete('kubernetes:replicas-desired')
+        for deployment in self.cluster.deployments:
+            possible_rs = self.find_deployment_rs_children(
+                deployment, self.cluster.replicasets.api_path)
+            if update.ueid in possible_rs:
+                update.parents.discard(
+                    self.create_namespace_ueid(resource.meta.namespace))
+                break
         return update

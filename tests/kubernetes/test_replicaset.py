@@ -58,6 +58,7 @@ def cluster():
             },
         }),
     ]
+    deployments = []
     podsitems = {
         'items': [
             {
@@ -77,8 +78,62 @@ def cluster():
     kind = 'Kind.ReplicaSet'
     proxy = types.SimpleNamespace(get=pytest.Mock(return_value=podsitems))
     pods = types.SimpleNamespace(api_path='apis/extensions/v1beta1')
-    return types.SimpleNamespace(replicasets=replicasets,
-                                 pods=pods, kind=kind, proxy=proxy)
+
+    class TestReplicaSetView(kube.ReplicaSetView):
+
+        def __iter__(self):
+            yield from replicasets
+
+        @property
+        def api_path(self):
+            return 'apis/extensions/v1beta1'
+
+    return types.SimpleNamespace(
+        replicasets=TestReplicaSetView(pytest.Mock()),
+        deployments=deployments,
+        pods=pods,
+        kind=kind,
+        proxy=proxy,
+    )
+
+
+@pytest.fixture
+def deployment(cluster):
+    deployment = kube.DeploymentItem(
+        None,
+        {
+            'metadata': {
+                'name': 'test_deployment',
+                'namespace': 'test_namespace',
+                'resourceVersion': '12903054',
+                'creationTimestamp': '2016-10-03T12:49:32Z',
+                'selfLink': 'test_link_path',
+                'uid': '7b211c2e-9644-11e6-8a78-42010af00021',
+                'labels': {
+                    'label2': 'string2',
+                    'label3': 'string2',
+                },
+            },
+            'status': {
+                'observedGeneration': 1,
+                'replicas': 2,
+                'updatedReplicas': 3,
+                'availableReplicas': 5,
+                'unavailableReplicas': 6,
+            },
+            'spec': {
+                'replicas': 4,
+                'selector': {
+                    'matchLabels': {
+                        'pod-template-hash': '1268107570',
+                        'label1': 'string1',
+                    },
+                },
+            },
+        },
+    )
+    cluster.deployments.append(deployment)
+    return deployment
 
 
 @pytest.fixture
@@ -118,10 +173,10 @@ def test_find_entity_with_attrs_not_none(replicaset):
 def test_replicaset_entities(replicaset, entities, cluster):
     entity = next(entities)
     assert cluster.proxy.get.call_args_list[0][1]['labelSelector'] in [
-        'pod-template-hash=1268107570,label1=string1,tier In (cache),'
-        'environment NotIn (dev)',
+        'pod-template-hash=1268107570,label1=string1,tier in (cache),'
+        'environment notin (dev)',
         'label1=string1,'
-        'pod-template-hash=1268107570,tier In (cache),environment NotIn (dev)',
+        'pod-template-hash=1268107570,tier in (cache),environment notin (dev)',
     ]
     assert cluster.proxy.get.call_args_list[0][0] == (
         'apis/extensions/v1beta1/namespaces/test_namespace/pods',)
@@ -150,6 +205,27 @@ def test_replicaset_entities(replicaset, entities, cluster):
     with pytest.raises(StopIteration):
         next(entities)
     assert replicaset.logged_k8s_unreachable is False
+
+
+def test_replicaset_has_deployment(
+        monkeypatch, replicaset, deployment, cluster):  # pylint: disable=unused-argument
+    replicaset.cluster = cluster
+    ueid = next(replicaset.entityd_find_entity(
+        name='Kubernetes:ReplicaSet',
+        attrs=None,
+        include_ondemand=False,
+    )).ueid
+    monkeypatch.setattr(
+        replicaset,
+        'find_deployment_rs_children',
+        pytest.Mock(return_value=[ueid]),
+    )
+    entity = next(replicaset.entityd_find_entity(
+        name='Kubernetes:ReplicaSet',
+        attrs=None,
+        include_ondemand=False,
+    ))
+    assert len(entity.parents) == 0
 
 
 def test_missing_attributes_handled(replicaset, cluster):

@@ -287,13 +287,15 @@ class TestPods:
         assert len(pods) == 2
         assert pods[0].metype == 'Kubernetes:Pod'
         assert pods[0].label == 'pod-1'
+        assert pods[0].attrs.get('kubernetes:kind').value == 'Pod'
+        assert pods[0].attrs.get('kubernetes:kind').traits == set()
         assert pods[0].attrs.get('phase').value == 'Running'
         assert pods[0].attrs.get('phase').traits == {'kubernetes:pod-phase'}
         assert pods[0].attrs.get('start_time').value == '2015-01-14T17:01:37Z'
         assert pods[0].attrs.get('start_time').traits == {'chrono:rfc3339'}
         assert pods[0].attrs.get('ip').value == '10.120.0.5'
         assert pods[0].attrs.get('ip').traits == {'ipaddr:v4'}
-        assert list(pods[0].parents) == [namespaces[0].ueid]
+        assert list(pods[0].parents) == []
         assert pods[1].metype == 'Kubernetes:Pod'
         assert pods[1].label == 'pod-2'
         assert pods[1].attrs.get('phase').value == 'Running'
@@ -450,6 +452,7 @@ class TestContainers:
                                 'startedAt': '2015-12-04T19:15:23Z',
                             }
                         },
+                        'restartCount': 0,
                     },
                     {
                         'name': 'container_with_no_containerID attribute',
@@ -464,6 +467,7 @@ class TestContainers:
                                 'startedAt': '2015-12-04T19:15:23Z',
                             }
                         },
+                        'restartCount': 0,
                     },
                     {
                         'name': 'container_with_no_containerID attribute',
@@ -478,6 +482,7 @@ class TestContainers:
                                 'startedAt': '2015-12-04T19:15:23Z',
                             }
                         },
+                        'restartCount': 0,
                     },
                 ],
             },
@@ -497,6 +502,8 @@ class TestContainers:
         assert containers[0].attrs.get('id').traits == {'entity:id'}
         assert containers[0].attrs.get('name').value == 'container-1'
         assert containers[0].attrs.get('name').traits == set()
+        assert containers[0].attrs.get('kubernetes:kind').value == 'Container'
+        assert containers[0].attrs.get('kubernetes:kind').traits == set()
         assert containers[0].attrs.get('manager').value == 'Docker'
         assert containers[0].attrs.get('manager').traits == set()
         assert containers[0].attrs.get('ready').value is True
@@ -749,6 +756,7 @@ class TestCAdvisorToPoints:
         assert points[1].timestamp == datetime.datetime(2000, 8, 1, 14)
         assert points[1].data is raw_points[2]
 
+
 class TestSimpleMetrics:
 
     def test(self, monkeypatch):
@@ -894,7 +902,8 @@ class TestContainerMetrics:
                 kubernetes.filesystem_metrics,
                 kubernetes.diskio_metrics)
 
-    def test(self, cluster, metrics):
+    @pytest.mark.parametrize('key', ['/foo', '/system.slice/docker-foo'])
+    def test(self, cluster, metrics, key):
         point_data = {
             'timestamp':
                 datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%S.%fZ')}
@@ -903,7 +912,7 @@ class TestContainerMetrics:
         update = entityd.entityupdate.EntityUpdate('Entity')
         cluster.nodes = [
             kube.NodeItem(cluster, {'metadata': {'name': 'node'}})]
-        cluster.proxy.get.return_value = {'/foo': [point_data]}
+        cluster.proxy.get.return_value = {key: [point_data]}
         kubernetes.container_metrics(container, update)
         assert metrics[0].called
         assert metrics[1].called

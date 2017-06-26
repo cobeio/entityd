@@ -1,4 +1,4 @@
-import collections
+import collections        # pylint: disable=too-many-lines
 import datetime
 import socket
 import types
@@ -269,16 +269,6 @@ class TestPods:
                     'podIP': '10.120.0.5',
                     'startTime': '2015-01-14T17:01:37Z',
                 },
-                'spec': {
-                    'containers': [{
-                        'name': 'cont1',
-                        'resources': {
-                            'limits': {
-                                'memory': '100Mi',
-                            },
-                        },
-                    }],
-                },
             }),
             kube.PodItem(cluster, {
                 'metadata': {
@@ -289,16 +279,6 @@ class TestPods:
                     'phase': 'Running',
                     'podIP': '10.120.0.7',
                     'startTime': '2016-01-14T17:01:37Z',
-                },
-                'spec': {
-                    'containers': [{
-                        'name': 'cont2',
-                        'resources': {
-                            'limits': {
-                                'memory': '800Mi',
-                            },
-                        },
-                    }],
                 },
             }),
         ]
@@ -315,13 +295,6 @@ class TestPods:
         assert pods[0].attrs.get('start_time').traits == {'chrono:rfc3339'}
         assert pods[0].attrs.get('ip').value == '10.120.0.5'
         assert pods[0].attrs.get('ip').traits == {'ipaddr:v4'}
-        assert pods[0].attrs.get('resources').value == {
-            'cont1': {
-                'limits': {
-                    'memory': '100Mi',
-                },
-            },
-        }
         assert list(pods[0].parents) == []
         assert pods[1].metype == 'Kubernetes:Pod'
         assert pods[1].label == 'pod-2'
@@ -331,13 +304,6 @@ class TestPods:
         assert pods[1].attrs.get('start_time').traits == {'chrono:rfc3339'}
         assert pods[1].attrs.get('ip').value == '10.120.0.7'
         assert pods[1].attrs.get('ip').traits == {'ipaddr:v4'}
-        assert pods[1].attrs.get('resources').value == {
-            'cont2': {
-                'limits': {
-                    'memory': '800Mi',
-                },
-            },
-        }
         assert meta_update.call_count == 2
         assert meta_update.call_args_list[0][0] == (
             pod_resources[0].meta, pods[0])
@@ -360,12 +326,6 @@ class TestPods:
                     'startTime': '2016-01-14T17:01:37Z',
                     'message': 'Once upon a time ...',
                 },
-                'spec': {
-                    'containers': [{
-                        'name': 'cont',
-                        'resources': {},
-                    }],
-                },
             })
         update = entityd.entityupdate.EntityUpdate('Foo', ueid='a' * 32)
         update.attrs.set('ip', 'test')
@@ -385,12 +345,6 @@ class TestPods:
                     'podIP': '10.120.0.7',
                     'startTime': '2016-01-14T17:01:37Z',
                     'message': 'Once upon a time ...',
-                },
-                'spec': {
-                    'containers': [{
-                        'name': 'cont',
-                        'resources': {},
-                    }],
                 },
             }),
         ]
@@ -418,12 +372,6 @@ class TestPods:
                     'startTime': '2016-01-14T17:01:37Z',
                     'reason': 'ItsWorking',
                 },
-                'spec': {
-                    'containers': [{
-                        'name': 'cont',
-                        'resources': {},
-                    }],
-                },
             }),
         ]
         cluster.pods.__iter__.return_value = iter(pod_resources)
@@ -448,12 +396,6 @@ class TestPods:
                     'phase': 'Running',
                     'podIP': '2001:db8::8:800:200c:417a',
                     'startTime': '2016-01-14T17:01:37Z',
-                },
-                'spec': {
-                    'containers': [{
-                        'name': 'cont',
-                        'resources': {},
-                    }],
                 },
             }),
         ]
@@ -545,14 +487,43 @@ class TestContainers:
                 ],
             },
             'spec': {
-                'containers': [{
-                    'name': 'cont',
-                    'resources': {},
-                }],
+                'containers': [
+                    {
+                        'name': 'container-1',
+                        'resources': {},
+                    },
+                    {
+                        'name': 'container_with_no_containerID attribute',
+                        'resources': {},
+                    },
+                    {
+                        'name': 'container_with_no_containerID attribute',
+                        'resources': {},
+                    }
+                ],
             },
         }
 
-    def test(self, cluster, raw_pod_resource):
+    @pytest.mark.parametrize(
+        ('resources', 'lim_mem', 'lim_cpu', 'req_mem', 'req_cpu'), [
+            ({
+                'limits': {
+                    'memory': '100Mi',
+                    'cpu': '700m',
+                },
+                'requests': {
+                    'memory': '50Mi',
+                    'cpu': '600m',
+                },
+            }, 104857600, 70, 52428800, 60),
+            ({
+                'limits': {},
+            }, float('inf'), 100.0, float('inf'), 100.0),
+        ])
+    def test(self, cluster, raw_pod_resource,
+             resources, lim_mem, lim_cpu, req_mem, req_cpu, loghandler):
+        raw_pod_resource['spec']['containers'].insert(
+            0, {'name': 'container-1', 'resources': resources})
         pod = kube.PodItem(cluster, raw_pod_resource)
         cluster.pods.__iter__.return_value = iter([pod])
         cluster.pods.fetch.return_value = pod
@@ -579,6 +550,50 @@ class TestContainers:
         assert containers[0].attrs.get('image:name').value == (
             'repository/user/image:tag')
         assert containers[0].attrs.get('image:name').traits == set()
+        assert containers[0].attrs.get(
+            'resources:requests:memory').value == req_mem
+        assert containers[0].attrs.get(
+            'resources:requests:memory').traits == {'unit:bytes'}
+        assert containers[0].attrs.get(
+            'resources:requests:cpu').value == req_cpu
+        assert containers[0].attrs.get(
+            'resources:requests:cpu').traits == {'unit:percent'}
+        assert containers[0].attrs.get(
+            'resources:limits:memory').value == lim_mem
+        assert containers[0].attrs.get(
+            'resources:limits:memory').traits == {'unit:bytes'}
+        assert containers[0].attrs.get(
+            'resources:limits:cpu').value == lim_cpu
+        assert containers[0].attrs.get(
+            'resources:limits:cpu').traits == {'unit:percent'}
+        assert loghandler.has_error() is False
+
+
+    def test_resources_errors(self, cluster, raw_pod_resource, loghandler):
+        resources = {
+            'limits': {
+                'memory': 'something unexpected from k8s',
+                'cpu': 'something unexpected from k8s',
+            },
+            'requests': {
+                'memory': 'something unexpected from k8s',
+                'cpu': 'something unexpected from k8s',
+            },
+        }
+        raw_pod_resource['spec']['containers'].insert(
+            0, {'name': 'container-1', 'resources': resources})
+        pod = kube.PodItem(cluster, raw_pod_resource)
+        cluster.pods.__iter__.return_value = iter([pod])
+        cluster.pods.fetch.return_value = pod
+        containers = list(kubernetes.entityd_find_entity('Container'))
+        for attribute in ['resources:requests:memory',
+                          'resources:requests:cpu',
+                          'resources:limits:memory',
+                          'resources:limits:cpu']:
+            with pytest.raises(KeyError):
+                containers[0].attrs.get(attribute)
+        assert loghandler.has_error() is True
+
 
     def test_running(self, cluster, raw_pod_resource):
         raw_pod_resource['status']['containerStatuses'][0]['state'] = {

@@ -11,7 +11,6 @@ import collections
 
 import kube
 import logbook
-import pyrsistent
 import requests
 
 import entityd.kubernetes
@@ -76,7 +75,7 @@ class Metric:
         """Transform metric value to a normalised form.
 
         By default this returns the value as-is. Subclasses should override
-        this to modify how metric values are interpretted.
+        this to modify how metric values are interpreted.
         """
         return value
 
@@ -309,10 +308,6 @@ def pod_update(pod, update):
                      pod.start_time.strftime(
                          entityd.kubernetes.RFC_3339_FORMAT),
                      traits={'chrono:rfc3339'})
-    update.attrs.set('resources', {
-        container.name:
-            pyrsistent.thaw(container.resources)
-        for container in pod.raw.spec.containers})
     try:
         update.attrs.set('ip', str(pod.ip),
                          traits={'ipaddr:v{}'.format(pod.ip.version)})
@@ -421,39 +416,52 @@ def container_resources(container, pod, update):
     :param kube.Pod pod: the pod the container is within.
     :param entityd.EntityUpdate update: the update to set the attributes on.
     """
-    resources = {}
     for cont in pod.raw.spec.containers:
         if cont.name == container.name:
             resources = cont.resources
             break
+    else:
+        resources = {}
 
-    requests_memory = entityd.kubernetes.\
-        ram_conversion(resources.get('requests', {}).get('memory'))
-    if requests_memory:
+    requests_memory = resources.get('requests', {}).get('memory', 'inf')
+    try:
+        requests_memory = entityd.kubernetes.ram_conversion(requests_memory)
+    except ValueError as err:
+        log.error('Error converting resource:requests:memory value: {}', err)
+    else:
         update.attrs.set('resources:requests:memory',
                          requests_memory,
-                         traits={'metric:gauge', 'unit:bytes'})
+                         traits={'unit:bytes'})
 
-    requests_cpu = entityd.kubernetes.\
-        cpu_conversion(resources.get('requests', {}).get('cpu'))
-    if requests_cpu:
+    requests_cpu = resources.get('requests', {}).get('cpu', '1')
+    try:
+        requests_cpu = entityd.kubernetes.cpu_conversion(requests_cpu)
+    except ValueError as err:
+        log.error('Error converting resource:requests:cpu value: {}', err)
+    else:
         update.attrs.set('resources:requests:cpu',
                          requests_cpu,
-                         traits={'metric:gauge', 'unit:percent'})
+                         traits={'unit:percent'})
 
-    limits_memory = entityd.kubernetes.\
-        ram_conversion(resources.get('limits', {}).get('memory'))
-    if limits_memory:
+    limits_memory = resources.get('limits', {}).get('memory', 'inf')
+    try:
+        limits_memory = entityd.kubernetes.ram_conversion(limits_memory)
+    except ValueError as err:
+        log.error('Error converting resource:limits:memory value: {}', err)
+    else:
         update.attrs.set('resources:limits:memory',
                          limits_memory,
-                         traits={'metric:gauge', 'unit:bytes'})
+                         traits={'unit:bytes'})
 
-    limits_cpu = entityd.kubernetes.\
-        cpu_conversion(resources.get('limits', {}).get('cpu'))
-    if limits_cpu:
+    limits_cpu = resources.get('limits', {}).get('cpu', '1')
+    try:
+        limits_cpu = entityd.kubernetes.cpu_conversion((limits_cpu))
+    except ValueError as err:
+        log.error('Error converting resource:limits:cpu value: {}', err)
+    else:
         update.attrs.set('resources:limits:cpu',
                          limits_cpu,
-                         traits={'metric:gauge', 'unit:percent'})
+                         traits={'unit:percent'})
 
 
 def select_nearest_point(target, points, threshold):

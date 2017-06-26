@@ -1,6 +1,7 @@
 """This subpackage contains the Kubernetes modules of entityd."""
 
 from abc import ABCMeta, abstractmethod
+import re
 
 import kube
 import logbook
@@ -12,13 +13,11 @@ RFC_3339_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 log = logbook.Logger(__name__)
 
 
-SYMBOLS = [
-    'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'K', 'M', 'G', 'T', 'P', 'E'
-]
-FACTORS = [
-    1024, 1024**2, 1024**3, 1024**4, 1024**5, 1024**6,
-    1000, 1000**2, 1000**3, 1000**4, 1000**5, 1000**6
-]
+SYMBOLS = {
+    'Ki': 1024, 'Mi': 1024**2, 'Gi': 1024**3,
+    'Ti': 1024**4, 'Pi': 1024**5, 'Ei': 1024**6, 'K': 1000,
+    'M': 1000**2, 'G': 1000**3, 'T': 1000**4, 'P': 1000**5, 'E': 1000**6,
+}
 
 
 class BasePlugin(metaclass=ABCMeta):
@@ -295,21 +294,24 @@ def cpu_conversion(cpu):
 
     :param str cpu: Kubernetes-derived cpu resource usage; e.g. '1', '250m'.
 
-    :returns: CPU percentage.
+    :returns: CPU percentage, or None if no cpu if None, or cannot be
+        converted due to an unknown syntax.
+
+    :raises ValueError: If an error occurs due to assumptions of
+        kubernetes-derived cpu value syntax or type is incorrect.
     """
     try:
-        if not cpu:
-            return
-        elif cpu.endswith('m'):
+        if cpu.endswith('m'):
             return float(cpu[:-1]) / 10
         else:
             return float(cpu) * 100
-    except ValueError:
-        log.error('Issue handling cpu conversion of {}', cpu)
+    except (TypeError, AttributeError) as exception:
+        raise ValueError(
+            'Issue handling cpu conversion of {!r}'.format(cpu)) from exception
 
 
 def ram_conversion(ram):
-    """Converts Kubernetes RAM string to bytes int.
+    """Converts Kubernetes RAM string to bytes.
 
     Symbols for measures are held in module list constant SYMBOLS.
     Their corresponding multiples are held in module list constant FACTORS
@@ -317,19 +319,22 @@ def ram_conversion(ram):
     :param str ram: Kubernetes-derived ram resource usage;
         e.g. 128974848, 129e6, 129M , 123Mi
 
-    :returns: Bytes int.
+    :returns: int bytes or float infinity.
+
+    :raises ValueError: If an error occurs due to assumptions of
+        kubernetes-derived ram value syntax or type is incorrect.
     """
     try:
-        if not ram:
-            return
+        if ram == 'inf':
+            return float('inf')
         elif 'e' in ram:
             numbers = ram.split('e')
             return int(float(numbers[0]) * 10 ** float(numbers[1]))
         elif ram[-1].isdigit():
             return int(ram)
         else:
-            for index, symbol in enumerate(SYMBOLS):
-                if ram.endswith(symbol):
-                    return int(ram[:-len(symbol)]) * FACTORS[index]
-    except ValueError:
-        log.error('Issue converting RAM string {} to bytes int', ram)
+            split = re.split(r'(\d+)', ram)
+            return int(split[-2]) * int(SYMBOLS[split[-1]])
+    except (TypeError, KeyError, IndexError) as exception:
+        raise ValueError('Issue converting RAM '
+                         'string {!r} to bytes'.format(ram)) from exception

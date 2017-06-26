@@ -65,25 +65,27 @@ def test_resource_pod_children_no_sel_labels(rs_no_labels,
 
 
 @pytest.mark.parametrize(
-    ('input', 'output'), [
+    ('input_', 'output'),
+    [
         ('1000m', 100),
         ('250m', 25),
         ('1', 100),
-        ('0.1', 10)
+        ('0.1', 10),
     ]
 )
-def test_cpu_conversion(input, output):
-    assert entityd.kubernetes.cpu_conversion(input) == output
+def test_cpu_conversion(input_, output):
+    assert entityd.kubernetes.cpu_conversion(input_) == output
 
 
-@pytest.mark.parametrize('input', [1, 'test'])
+@pytest.mark.parametrize('input', ['test'])
 def test_cpu_conversion_exception(input):
     with pytest.raises(ValueError):
         entityd.kubernetes.cpu_conversion(input)
 
 
 @pytest.mark.parametrize(
-    ('input', 'output'), [
+    ('input_', 'output'),
+    [
         ('inf', float('inf')),
         ('129e6', 129000000),
         ('128974848', 128974848),
@@ -99,10 +101,10 @@ def test_cpu_conversion_exception(input):
         ('10T', 10000000000000),
         ('10P', 10000000000000000),
         ('10E', 10000000000000000000),
-    ]
+    ],
 )
-def test_ram_conversion(input, output):
-    assert entityd.kubernetes.ram_conversion(input) == output
+def test_ram_conversion(input_, output):
+    assert entityd.kubernetes.ram_conversion(input_) == output
 
 
 @pytest.mark.parametrize('input', ['test', 1, '10X', 'K', 'e'])

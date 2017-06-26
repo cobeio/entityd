@@ -422,46 +422,20 @@ def container_resources(container, pod, update):
             break
     else:
         resources = {}
-
-    requests_memory = resources.get('requests', {}).get('memory', 'inf')
-    try:
-        requests_memory = entityd.kubernetes.ram_conversion(requests_memory)
-    except ValueError as err:
-        log.error('Error converting resource:requests:memory value: {}', err)
-    else:
-        update.attrs.set('resources:requests:memory',
-                         requests_memory,
-                         traits={'unit:bytes'})
-
-    requests_cpu = resources.get('requests', {}).get('cpu', '1')
-    try:
-        requests_cpu = entityd.kubernetes.cpu_conversion(requests_cpu)
-    except ValueError as err:
-        log.error('Error converting resource:requests:cpu value: {}', err)
-    else:
-        update.attrs.set('resources:requests:cpu',
-                         requests_cpu,
-                         traits={'unit:percent'})
-
-    limits_memory = resources.get('limits', {}).get('memory', 'inf')
-    try:
-        limits_memory = entityd.kubernetes.ram_conversion(limits_memory)
-    except ValueError as err:
-        log.error('Error converting resource:limits:memory value: {}', err)
-    else:
-        update.attrs.set('resources:limits:memory',
-                         limits_memory,
-                         traits={'unit:bytes'})
-
-    limits_cpu = resources.get('limits', {}).get('cpu', '1')
-    try:
-        limits_cpu = entityd.kubernetes.cpu_conversion((limits_cpu))
-    except ValueError as err:
-        log.error('Error converting resource:limits:cpu value: {}', err)
-    else:
-        update.attrs.set('resources:limits:cpu',
-                         limits_cpu,
-                         traits={'unit:percent'})
+    for name, path, value_raw, convert, traits in METRICS_CONTAINER_RESOURCES:
+        object_ = resources
+        for part in path:
+            if part not in object_:
+                break
+            object_ = object_[part]
+        else:
+            value_raw = object_
+        try:
+            value = convert(str(value_raw))
+        except ValueError as exception:
+            log.error('Error converting {!r} value: {}', name, exception)
+        else:
+            update.attrs.set(name, value, traits)
 
 
 def select_nearest_point(target, points, threshold):
@@ -641,6 +615,38 @@ def container_metrics(container, update):
             return
     log.warning(
         'Could not find node for container with ID {}'.format(container_id))
+
+
+METRICS_CONTAINER_RESOURCES = [  # [(name, path, default, converter, traits), ...]
+    (
+        'resources:requests:memory',
+        ['requests', 'memory'],
+        'inf',
+        entityd.kubernetes.ram_conversion,
+        {'unit:bytes'},
+    ),
+    (
+        'resources:requests:cpu',
+        ['requests', 'cpu'],
+        '1',
+        entityd.kubernetes.cpu_conversion,
+        {'unit:percent'},
+    ),
+    (
+        'resources:limits:memory',
+        ['limits', 'memory'],
+        'inf',
+        entityd.kubernetes.ram_conversion,
+        {'unit:bytes'},
+    ),
+    (
+        'resources:limits:cpu',
+        ['limits', 'cpu'],
+        '1',
+        entityd.kubernetes.cpu_conversion,
+        {'unit:percent'},
+    ),
+]
 
 
 METRICS_CONTAINER = [

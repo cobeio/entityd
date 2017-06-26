@@ -300,14 +300,10 @@ def cpu_conversion(cpu):
     :raises ValueError: If an error occurs due to assumptions of
         kubernetes-derived cpu value syntax or type is incorrect.
     """
-    try:
-        if cpu.endswith('m'):
-            return float(cpu[:-1]) / 10
-        else:
-            return float(cpu) * 100
-    except (TypeError, AttributeError) as exception:
-        raise ValueError(
-            'Issue handling cpu conversion of {!r}'.format(cpu)) from exception
+    if cpu.endswith('m'):
+        return float(cpu[:-1]) / 10
+    else:
+        return float(cpu) * 100
 
 
 def ram_conversion(ram):

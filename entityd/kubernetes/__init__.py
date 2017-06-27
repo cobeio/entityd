@@ -1,6 +1,7 @@
 """This subpackage contains the Kubernetes modules of entityd."""
 
 from abc import ABCMeta, abstractmethod
+import re
 
 import kube
 import logbook
@@ -10,6 +11,13 @@ import entityd.entityupdate
 
 RFC_3339_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 log = logbook.Logger(__name__)
+
+
+SYMBOLS = {
+    'Ki': 1024, 'Mi': 1024**2, 'Gi': 1024**3,
+    'Ti': 1024**4, 'Pi': 1024**5, 'Ei': 1024**6, 'K': 1000,
+    'M': 1000**2, 'G': 1000**3, 'T': 1000**4, 'P': 1000**5, 'E': 1000**6,
+}
 
 
 class BasePlugin(metaclass=ABCMeta):
@@ -274,3 +282,55 @@ class BasePlugin(metaclass=ABCMeta):
             update.children.add(child)
         update.parents.add(self.create_namespace_ueid(meta.namespace))
         return update
+
+
+def cpu_conversion(cpu):
+    """Converts Kubernetes cpu string to int|float percent cpu used.
+
+    Cases:
+        250m is converted to 25
+        0.1 is converted to 10
+        1 is converted to 100
+
+    :param str cpu: Kubernetes-derived cpu resource usage; e.g. '1', '250m'.
+
+    :returns: CPU percentage, or None if no cpu if None, or cannot be
+        converted due to an unknown syntax.
+
+    :raises ValueError: If an error occurs due to assumptions of
+        kubernetes-derived cpu value syntax or type is incorrect.
+    """
+    if cpu.endswith('m'):
+        return float(cpu[:-1]) / 10
+    else:
+        return float(cpu) * 100
+
+
+def ram_conversion(ram):
+    """Converts Kubernetes RAM string to bytes.
+
+    Symbols for measures are held in module list constant SYMBOLS.
+    Their corresponding multiples are held in module list constant FACTORS
+
+    :param str ram: Kubernetes-derived ram resource usage;
+        e.g. 128974848, 129e6, 129M , 123Mi
+
+    :returns: int bytes or float infinity.
+
+    :raises ValueError: If an error occurs due to assumptions of
+        kubernetes-derived ram value syntax or type is incorrect.
+    """
+    try:
+        if ram == 'inf':
+            return float('inf')
+        elif 'e' in ram:
+            numbers = ram.split('e')
+            return int(float(numbers[0]) * 10 ** float(numbers[1]))
+        elif ram[-1].isdigit():
+            return int(ram)
+        else:
+            split = re.split(r'(\d+)', ram)
+            return int(split[-2]) * int(SYMBOLS[split[-1]])
+    except (TypeError, KeyError, IndexError) as exception:
+        raise ValueError('Issue converting RAM '
+                         'string {!r} to bytes'.format(ram)) from exception

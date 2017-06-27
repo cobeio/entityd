@@ -75,7 +75,7 @@ class Metric:
         """Transform metric value to a normalised form.
 
         By default this returns the value as-is. Subclasses should override
-        this to modify how metric values are interpretted.
+        this to modify how metric values are interpreted.
         """
         return value
 
@@ -344,7 +344,7 @@ def generate_containers(cluster):
                 try:
                     update.parents.add(pod_update)
                     container_metrics(container, update)
-                    container_update(container, update)
+                    container_update(container, pod, update)
                 # todo: tidy this approach to handling no containerId from kube
                 except KeyError as err:
                     update.exception = True
@@ -354,10 +354,11 @@ def generate_containers(cluster):
                     update.exception = False
 
 
-def container_update(container, update):
+def container_update(container, pod, update):
     """Populate update with attributes for a container.
 
     :param kube.Container container: the container to set attributes for.
+    :param kube.Pod pod: the pod the container is within.
     :param entityd.EntityUpdate update: the update to set the attributes on.
     """
     update.label = container.name
@@ -405,6 +406,36 @@ def container_update(container, update):
     else:
         for attribute in ('exit-code', 'signal', 'message', 'finished-at'):
             update.attrs.delete('state:' + attribute)
+    container_resources(container, pod, update)
+
+
+def container_resources(container, pod, update):
+    """Add the container compute resource limits and requests.
+
+    :param kube.Container container: the container to set attributes for.
+    :param kube.Pod pod: the pod the container is within.
+    :param entityd.EntityUpdate update: the update to set the attributes on.
+    """
+    for cont in pod.raw.spec.containers:
+        if cont.name == container.name:
+            resources = cont.resources
+            break
+    else:
+        resources = {}
+    for name, path, value_raw, convert, traits in METRICS_CONTAINER_RESOURCES:
+        object_ = resources
+        for part in path:
+            if part not in object_:
+                break
+            object_ = object_[part]
+        else:
+            value_raw = object_
+        try:
+            value = convert(str(value_raw))
+        except ValueError as exception:
+            log.error('Error converting {!r} value: {}', name, exception)
+        else:
+            update.attrs.set(name, value, traits)
 
 
 def select_nearest_point(target, points, threshold):
@@ -584,6 +615,38 @@ def container_metrics(container, update):
             return
     log.warning(
         'Could not find node for container with ID {}'.format(container_id))
+
+
+METRICS_CONTAINER_RESOURCES = [  # [(name, path, default, converter, traits), ...]
+    (
+        'resources:requests:memory',
+        ['requests', 'memory'],
+        'inf',
+        entityd.kubernetes.ram_conversion,
+        {'unit:bytes'},
+    ),
+    (
+        'resources:requests:cpu',
+        ['requests', 'cpu'],
+        '1',
+        entityd.kubernetes.cpu_conversion,
+        {'unit:percent'},
+    ),
+    (
+        'resources:limits:memory',
+        ['limits', 'memory'],
+        'inf',
+        entityd.kubernetes.ram_conversion,
+        {'unit:bytes'},
+    ),
+    (
+        'resources:limits:cpu',
+        ['limits', 'cpu'],
+        '1',
+        entityd.kubernetes.cpu_conversion,
+        {'unit:percent'},
+    ),
+]
 
 
 METRICS_CONTAINER = [

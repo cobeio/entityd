@@ -1,7 +1,6 @@
 """Health checks for Entityd."""
 
 import pathlib
-import sys
 
 import act
 

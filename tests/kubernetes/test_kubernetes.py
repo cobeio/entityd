@@ -516,9 +516,6 @@ class TestContainers:
                     'cpu': '600m',
                 },
             }, 104857600, 70, 52428800, 60),
-            ({
-                'limits': {},
-            }, float('inf'), 100.0, float('inf'), 100.0),
         ])
     def test(self, cluster, raw_pod_resource,
              resources, lim_mem, lim_cpu, req_mem, req_cpu, loghandler):

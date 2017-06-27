@@ -422,7 +422,8 @@ def container_resources(container, pod, update):
             break
     else:
         resources = {}
-    for name, path, value_raw, convert, traits in METRICS_CONTAINER_RESOURCES:
+    for name, path, convert, traits in METRICS_CONTAINER_RESOURCES:
+        value_raw = None
         object_ = resources
         for part in path:
             if part not in object_:
@@ -430,12 +431,13 @@ def container_resources(container, pod, update):
             object_ = object_[part]
         else:
             value_raw = object_
-        try:
-            value = convert(str(value_raw))
-        except ValueError as exception:
-            log.error('Error converting {!r} value: {}', name, exception)
-        else:
-            update.attrs.set(name, value, traits)
+        if value_raw is not None:
+            try:
+                value = convert(str(value_raw))
+            except ValueError as exception:
+                log.error('Error converting {!r} value: {}', name, exception)
+            else:
+                update.attrs.set(name, value, traits)
 
 
 def select_nearest_point(target, points, threshold):
@@ -617,32 +619,28 @@ def container_metrics(container, update):
         'Could not find node for container with ID {}'.format(container_id))
 
 
-METRICS_CONTAINER_RESOURCES = [  # [(name, path, default, converter, traits), ...]
+METRICS_CONTAINER_RESOURCES = [  # [(name, path, converter, traits), ...]
     (
         'resources:requests:memory',
         ['requests', 'memory'],
-        'inf',
         entityd.kubernetes.ram_conversion,
         {'unit:bytes'},
     ),
     (
         'resources:requests:cpu',
         ['requests', 'cpu'],
-        '1',
         entityd.kubernetes.cpu_conversion,
         {'unit:percent'},
     ),
     (
         'resources:limits:memory',
         ['limits', 'memory'],
-        'inf',
         entityd.kubernetes.ram_conversion,
         {'unit:bytes'},
     ),
     (
         'resources:limits:cpu',
         ['limits', 'cpu'],
-        '1',
         entityd.kubernetes.cpu_conversion,
         {'unit:percent'},
     ),

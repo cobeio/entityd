@@ -78,7 +78,7 @@ def debian_image():
     images = [image(*l.split()[:3]) for l in out.splitlines()[1:]]
     deb_image = {i for i in images if i.tag == TAG}
     if not deb_image:
-        subprocess.check_call(['gcloud', 'docker', 'pull', IMAGE])
+        subprocess.check_call(['gcloud', 'docker', '--', 'pull', IMAGE])
     return IMAGE
 
 
@@ -263,10 +263,15 @@ def test_find_entity_with_unknown_attrs(procent, session, kvstore):  # pylint: d
 
 def test_find_entity_with_binary(procent, session, kvstore):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
-    entities = procent.entityd_find_entity('Process', {'binary': 'py.test'})
-    proc = next(entities)
+    entities = procent.entityd_find_entity('Process', {'binary': 'pytest'})
+    proc = next(entities, None)
+    if not proc:
+        entities = procent.entityd_find_entity('Process', {'binary': 'py.test'})
+        proc = next(entities, None)
+
+    assert proc
     assert proc.metype == 'Process'
-    assert proc.attrs.get('binary').value == 'py.test'
+    assert proc.attrs.get('binary').value in ['py.test', 'pytest']
 
 
 def test_get_ueid_new(kvstore, session, procent):  # pylint: disable=unused-argument
@@ -462,6 +467,11 @@ def zombie_process(request):
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     request.addfinalizer(popen.kill)
     t = time.time()
+
+    # Sleep here to make sure the process has been started before we use
+    # syskit to get it's status.
+    time.sleep(0.1)
+
     while (time.time() - t < 5 and
            syskit.Process(popen.pid).status != syskit.ProcessStatus.zombie):
         time.sleep(0.1)

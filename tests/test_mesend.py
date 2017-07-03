@@ -60,7 +60,6 @@ def receiver(request, certificates):
 def get_sender(endpoint, keydir):
     session = pytest.Mock()
     sender = entityd.mesend.MonitoredEntitySender()
-    sender.entityd_sessionstart(session)
     session.config.args.dest = endpoint
     session.config.keydir = pathlib.Path(str(keydir))
     session.config.args.stream_optimise = False
@@ -307,6 +306,8 @@ class TestStreamWrite:
             str(certificates.join('entityd', 'keys')))
         session.config.args.dest = 'tcp://127.0.0.1:25010'
         session.config.args.stream_write = stream_path
+        session.config.args.stream_optimise = False
+        session.config.args.stream_optimise_frequency = 1
         sender = entityd.mesend.MonitoredEntitySender()
         sender.entityd_sessionstart(session)
         yield sender

@@ -18,6 +18,8 @@ htmlcov/
 .coverage
 .dir-locals.el
 .python-version
+
 MANIFEST
 entityd_kvstore.db
 coverage.xml
+test_results.xml

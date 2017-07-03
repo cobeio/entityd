@@ -37,7 +37,7 @@ setuptools.setup(
         'cobe-act',
         'docker-py',
         # TODO: Fix in python-cobe maybe?
-        'pyzmq >=14.7, <15.0',
+        'pyzmq >=14.7, <=15.2',
         'msgpack-python >=0.4.5, <0.5',
         'voluptuous >=0.8.7, <0.9',
     ],

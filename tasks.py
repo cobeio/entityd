@@ -35,6 +35,18 @@ def pytest(context):
         context.run('false')     # Crappy way of making the task fail
 
 
+@invoke.task
+def jenkins_pytest(ctx):
+    """Task jenkins uses to run tests"""
+    pytest_exec = sys.prefix + "/bin/py.test"
+    pytest_args = " --junitxml=test_results.xml"
+    pytest_args += " --cov-report term-missing --cov-report xml"
+
+    res = ctx.run(pytest_exec + " " + pytest_args)
+    if res.exited > 0:
+        raise invoke.Exit(code=res.exited)
+
+
 @invoke.task(pre=[pylint, pytest])
 def check(context):  # pylint: disable=unused-argument
     """Perform all checks."""

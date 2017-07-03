@@ -1,0 +1,12 @@
+**/__pycache__*
+.coverage
+.project
+*.hg*
+*/.hg*
+.cache
+Jenkinsfile
+tmsd.Dockerfile
+tmsd-test.Dockerfile
+.idea/
+*.egg-info/
+

@@ -83,7 +83,9 @@ def test_bootid_determined_only_once(host_gen):
     assert host_gen.bootid == 'testbootid'
 
 
-def test_hostname_when_entityd_not_in_container(host_gen):
+def test_hostname_when_entityd_not_in_container(host_gen, monkeypatch):
+    monkeypatch.setattr(entityd.hostme.os.path, 'isfile', pytest.Mock(
+        return_value=False))
     entity = next(host_gen.entityd_find_entity(name='Host', attrs=None))
     assert entity.attrs.get('hostname').value == socket.gethostname()
     assert entity.attrs.get('hostname').traits == set()
@@ -96,7 +98,9 @@ def test_hostname_when_entityd_in_container(host_gen, monkeypatch):
     assert 'hostname' not in entity.attrs
 
 
-def test_fqdn_when_entityd_not_in_container(host_gen):
+def test_fqdn_when_entityd_not_in_container(host_gen, monkeypatch):
+    monkeypatch.setattr(entityd.hostme.os.path, 'isfile', pytest.Mock(
+        return_value=False))
     entity = next(host_gen.entityd_find_entity(name='Host', attrs=None))
     assert entity.attrs.get('fqdn').value == socket.getfqdn()
     assert entity.attrs.get('fqdn').traits == set()
@@ -185,7 +189,9 @@ def test_loadavg(host_gen):
         assert 0 < av.value < 16
 
 
-def test_entity_label_when_not_in_container(host_gen):
+def test_entity_label_when_not_in_container(host_gen, monkeypatch):
+    monkeypatch.setattr(entityd.hostme.os.path, 'isfile', pytest.Mock(
+        return_value=False))
     entity = next(host_gen.entityd_find_entity(name='Host', attrs=None))
     assert entity.label == socket.gethostname()
 

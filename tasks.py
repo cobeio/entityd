@@ -38,11 +38,14 @@ def pytest(context):
 @invoke.task
 def jenkins_pytest(ctx):
     """Task jenkins uses to run tests"""
-    pytest_exec = sys.prefix + "/bin/py.test"
-    pytest_args = " --junitxml=test_results.xml"
-    pytest_args += " --cov-report term-missing --cov-report xml"
+    pytest_args = list()
+    pytest_args.append(sys.prefix + '/bin/py.test')
+    pytest_args.append('-m "not non_container"')
+    pytest_args.append('--junitxml=results/test_results.xml')
+    pytest_args.append('--cov-report term-missing')
+    pytest_args.append('--cov-report xml:results/coverage.xml')
 
-    res = ctx.run(pytest_exec + " " + pytest_args)
+    res = ctx.run(" ".join(pytest_args))
     if res.exited > 0:
         raise invoke.Exit(code=res.exited)
 

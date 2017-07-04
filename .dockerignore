@@ -5,8 +5,7 @@
 */.hg*
 .cache
 Jenkinsfile
-tmsd.Dockerfile
-tmsd-test.Dockerfile
+*.Dockerfile
 .idea/
 *.egg-info/
 

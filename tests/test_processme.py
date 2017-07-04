@@ -190,6 +190,7 @@ def test_entities_have_core_attributes(procent, session, kvstore): # pylint: dis
     assert count
 
 
+@pytest.mark.non_container
 def test_container_entity_has_containerid_attribute(container,
                                                     procent, session, kvstore):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
@@ -202,6 +203,7 @@ def test_container_entity_has_containerid_attribute(container,
         next(entities)
 
 
+@pytest.mark.non_container
 def test_get_process_containers_handles_missing_process(container,
                                                         session, procent):
     procent.entityd_sessionstart(session)
@@ -216,6 +218,7 @@ def test_get_container_data_when_no_docker_client(
     assert procent.get_process_containers({'pid': 1}) == {}
 
 
+@pytest.mark.non_container
 def test_non_container_entity_has_no_containerid_attr(process_entity):
     with pytest.raises(KeyError):
         process_entity.attrs.get('containerid')
@@ -331,6 +334,7 @@ def test_root_process_has_host_parent(procent, session, kvstore, monkeypatch):  
     assert hostueid == hostupdate.ueid
 
 
+@pytest.mark.non_container
 def test_find_single_container_parent(container_entities):
     count = 0
     for entity in container_entities.entities:
@@ -437,6 +441,7 @@ def test_specific_process_deleted(procent, session, kvstore, monkeypatch):  # py
         next(entities)
 
 
+@pytest.mark.non_container
 def test_specific_parent_deleted(procent, session, kvstore, monkeypatch):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
     proc = syskit.Process(os.getpid())

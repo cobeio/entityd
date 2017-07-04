@@ -49,6 +49,8 @@ def main(argv=None, plugins=None):
     This creates a plugin manager, loads the default plugins and runs
     the ``entityd_main()`` hook.
     """
+    if argv is None:
+        argv = sys.argv[1:]
     if plugins is None:
         plugins = BUILTIN_PLUGIN_NAMES
     plugins = _filter_disabled_plugins(argv or [], plugins)

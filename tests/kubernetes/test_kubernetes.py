@@ -153,6 +153,10 @@ class TestApplyMetaUpdate:
                 'creationTimestamp': '2015-01-14T17:01:37Z',
                 'selfLink': '/api/v1/namespaces/andromeda/pods/star',
                 'uid': '7955593e-bae0-11e5-b0b9-42010af00091',
+                'labels': {
+                    'foo': 'bar',
+                    'cobe.io/test': 'yes',
+                },
             },
         }))
         update = entityd.entityupdate.EntityUpdate('Foo')
@@ -176,6 +180,11 @@ class TestApplyMetaUpdate:
         assert update.attrs.get('kubernetes:meta:uid').value == (
             '7955593e-bae0-11e5-b0b9-42010af00091')
         assert update.attrs.get('kubernetes:meta:uid').traits == set()
+        assert update.attrs.get('kubernetes:meta:labels').value == {
+            'foo': 'bar',
+            'cobe.io/test': 'yes',
+        }
+        assert update.attrs.get('kubernetes:meta:labels').traits == set()
 
     def test_missing_namespace(self):
         meta = kube.ObjectMeta(pytest.Mock(raw={
@@ -185,6 +194,7 @@ class TestApplyMetaUpdate:
                 'creationTimestamp': '2015-01-14T17:01:37Z',
                 'selfLink': '/api/v1/namespaces/andromeda/pods/star',
                 'uid': '7955593e-bae0-11e5-b0b9-42010af00091',
+                'labels': {},
             },
         }))
         update = entityd.entityupdate.EntityUpdate('Foo')
@@ -195,8 +205,35 @@ class TestApplyMetaUpdate:
             'kubernetes:meta:created',
             'kubernetes:meta:link',
             'kubernetes:meta:uid',
+            'kubernetes:meta:labels',
             'cluster'
         }
+
+    def test_missing_labels(self):
+        meta = kube.ObjectMeta(pytest.Mock(raw={
+            'metadata': {
+                'name': 'star',
+                'namespace': 'andromeda',
+                'resourceVersion': '1234',
+                'creationTimestamp': '2015-01-14T17:01:37Z',
+                'selfLink': '/api/v1/namespaces/andromeda/pods/star',
+                'uid': '7955593e-bae0-11e5-b0b9-42010af00091',
+            },
+        }))
+        update = entityd.entityupdate.EntityUpdate('Foo')
+        kubernetes.apply_meta_update(meta, update)
+        assert {attribute.name for attribute in update.attrs} == {
+            'kubernetes:meta:name',
+            'kubernetes:meta:namespace',
+            'kubernetes:meta:version',
+            'kubernetes:meta:created',
+            'kubernetes:meta:link',
+            'kubernetes:meta:uid',
+            'kubernetes:meta:labels',
+            'cluster'
+        }
+        assert update.attrs.get('kubernetes:meta:labels').value == {}
+        assert update.attrs.get('kubernetes:meta:labels').traits == set()
 
 
 class TestNamespaces:

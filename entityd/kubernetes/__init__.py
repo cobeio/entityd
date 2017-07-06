@@ -125,7 +125,8 @@ class BasePlugin(metaclass=ABCMeta):
             'cluster', str(self.cluster_ueid), traits={'entity:id'})
         return update.ueid
 
-    def create_labelselector(self, resource):
+    @staticmethod
+    def create_labelselector(resource):
         """Create the `labelSelector` string from resource's selector labels.
 
         This is suitable for those resources having
@@ -147,20 +148,23 @@ class BasePlugin(metaclass=ABCMeta):
             matchlabels = resource.spec()['selector']['matchLabels']
         except KeyError:
             matchlabels = {}
-        matchlabels = ','.join(
+        matchlabels_str = ','.join(
             '{}={}'.format(k, v) for k, v in matchlabels.items())
         try:
             matchexpressions = resource.spec()['selector']['matchExpressions']
         except KeyError:
             matchexpressions = []
+
         expressions = []
         for expression in matchexpressions:
             values = ' '.join(
                 ['{}'.format(item) for item in expression['values']])
             expressions.append('{} {} ({})'.format(
                 expression['key'], expression['operator'].lower(), values))
-        matchexpressions = ','.join(expressions)
-        labelselector = ','.join([matchlabels, matchexpressions]).strip(',')
+
+        matchexpressions_str = ','.join(expressions)
+        labelselector = ','.join(
+            [matchlabels_str, matchexpressions_str]).strip(',')
         return labelselector
 
     def find_resource_pod_children(self, resource, api_path):

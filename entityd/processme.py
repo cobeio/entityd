@@ -6,9 +6,9 @@ import threading
 import act
 import docker
 import logbook
+import zmq
 
 import syskit
-import zmq
 
 import entityd.pm
 

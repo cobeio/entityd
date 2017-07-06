@@ -7,8 +7,9 @@ import threading
 
 import act
 import logbook
-import syskit
 import zmq
+
+import syskit
 
 import entityd.pm
 

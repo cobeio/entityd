@@ -15,12 +15,29 @@ import zmq.auth
 
 
 @invoke.task
-def pylint(context):
+def pylint(ctx):
     """Invoke pylint on modules and test code."""
-    context.run('pylint entityd')
-    context.run('cd tests; pylint **/*.py')
-    context.run('pylint setup.py')
-    context.run('pylint tasks.py')
+    pylint_path = sys.prefix + "/bin/pylint -f parseable"
+    output_cmd = "| tee -a results/pylint.log ; exit ${PIPESTATUS[0]}"
+
+    tasks = [
+        "entityd",
+        "--rcfile tests/pylintrc tests/*.py",
+        "setup.py",
+        "tasks.py",
+    ]
+
+    # Remove the pylint log before running and make sure the results dir exists
+    ctx.run("mkdir -p results && echo "" > results/pylint.log")
+
+    results = list()
+    for task in tasks:
+        cmd = pylint_path + " " + task + " " + output_cmd
+        result = ctx.run(cmd, warn=True)
+        results.append(result.exited)
+
+    if max(results) > 0:
+        raise invoke.Exit(code=max(results))
 
 
 @invoke.task
@@ -38,14 +55,14 @@ def pytest(context):
 @invoke.task
 def jenkins_pytest(ctx):
     """Task jenkins uses to run tests"""
-    pytest_args = list()
-    pytest_args.append(sys.prefix + '/bin/py.test')
-    pytest_args.append('-m "not non_container"')
-    pytest_args.append('--junitxml=results/test_results.xml')
-    pytest_args.append('--cov-report term-missing')
-    pytest_args.append('--cov-report xml:results/coverage.xml')
-
-    res = ctx.run(" ".join(pytest_args))
+    pytest_args = [
+        sys.prefix + '/bin/py.test',
+        '-m "not non_container"',
+        '--junitxml=results/test_results.xml',
+        '--cov-report term-missing',
+        '--cov-report xml:results/coverage.xml',
+    ]
+    res = ctx.run(' '.join(pytest_args))
     if res.exited > 0:
         raise invoke.Exit(code=res.exited)
 

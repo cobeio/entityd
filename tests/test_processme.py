@@ -9,8 +9,9 @@ import cobe
 import docker
 import requests
 import pytest
-import syskit
 import zmq
+
+import syskit
 
 import entityd.hookspec
 import entityd.hostme
@@ -269,7 +270,8 @@ def test_find_entity_with_binary(procent, session, kvstore):  # pylint: disable=
     entities = procent.entityd_find_entity('Process', {'binary': 'pytest'})
     proc = next(entities, None)
     if not proc:
-        entities = procent.entityd_find_entity('Process', {'binary': 'py.test'})
+        entities = procent.entityd_find_entity('Process',
+                                               {'binary': 'py.test'})
         proc = next(entities, None)
 
     assert proc

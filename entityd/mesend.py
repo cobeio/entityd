@@ -23,6 +23,8 @@ log = logbook.Logger(__name__)
 class MonitoredEntitySender:
     """Plugin to send entities to modeld."""
 
+    # pylint: disable=too-many-instance-attributes
+
     def __init__(self):
         self.context = None
         self.session = None

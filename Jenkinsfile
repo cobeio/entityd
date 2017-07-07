@@ -80,7 +80,9 @@ pipeline {
                     // Ensure the node has the latest code
                     checkout scm
                     script {
-                        runTestSteps(entityd_test_image_id, "py.test", 'Running unit tests'){
+                        runTestSteps(entityd_test_image_id, "py.test",
+                            'Running unit tests',
+                            '-v /var/run/docker.sock:/var/run/docker.sock'){
                                 pytest = sh(script:'/venvs/entityd/bin/invoke jenkins_pytest', returnStatus: true)
                                 junit "results/test_results.xml"
                                 step([$class: 'CoberturaPublisher', coberturaReportFile: 'results/coverage.xml'])

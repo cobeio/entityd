@@ -9,6 +9,7 @@ import cobe
 import docker
 import requests
 import pytest
+import sys
 import zmq
 
 import syskit
@@ -267,16 +268,13 @@ def test_find_entity_with_unknown_attrs(procent, session, kvstore):  # pylint: d
 
 def test_find_entity_with_binary(procent, session, kvstore):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
-    entities = procent.entityd_find_entity('Process', {'binary': 'pytest'})
+
+    entities = procent.entityd_find_entity('Process', {'binary': 'py.test'})
     proc = next(entities, None)
-    if not proc:
-        entities = procent.entityd_find_entity('Process',
-                                               {'binary': 'py.test'})
-        proc = next(entities, None)
 
     assert proc
     assert proc.metype == 'Process'
-    assert proc.attrs.get('binary').value in ['py.test', 'pytest']
+    assert proc.attrs.get('binary').value == 'py.test'
 
 
 def test_get_ueid_new(kvstore, session, procent):  # pylint: disable=unused-argument

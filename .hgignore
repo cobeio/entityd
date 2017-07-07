@@ -21,6 +21,4 @@ htmlcov/
 
 MANIFEST
 entityd_kvstore.db
-coverage.xml
-test_results.xml
-pylint.log
+results/

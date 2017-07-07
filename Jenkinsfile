@@ -23,6 +23,7 @@ pipeline {
 
                 node('docker') {
                     // Ensure the node has the latest code
+                    cleanWs()
                     checkout scm
                     script {
                         build_key = 'building'
@@ -78,6 +79,7 @@ pipeline {
             steps{
                 node('docker'){
                     // Ensure the node has the latest code
+                    cleanWs()
                     checkout scm
                     script {
                         runTestSteps(entityd_test_image_id, "py.test",
@@ -93,6 +95,7 @@ pipeline {
 
                 node('docker'){
                     // Ensure the node has the latest code
+                    cleanWs()
                     checkout scm
 
                     script {

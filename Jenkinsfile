@@ -82,13 +82,13 @@ pipeline {
                     cleanWs()
                     checkout scm
                     script {
-                        runTestSteps(entityd_test_image_id, "py.test",
+
+                        runInvoke(entityd_test_image_id, "py.test",
                             'Running unit tests',
-                            '-v /var/run/docker.sock:/var/run/docker.sock'){
+                            '-v /var/run/docker.sock:/var/run/docker.sock -v $WORKSPACE/results:/entityd/results'){
                                 pytest = sh(script:'/venvs/entityd/bin/invoke jenkins_pytest', returnStatus: true)
                                 junit "results/test_results.xml"
                                 step([$class: 'CoberturaPublisher', coberturaReportFile: 'results/coverage.xml'])
-                                return pytest
                             }
                     }
                 }

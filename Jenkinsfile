@@ -45,7 +45,7 @@ pipeline {
                                 subdir: 'pylint-abilisoft'])
 
                             docker_gid = sh(returnStdout: true, script: """
-                                    getent group docker | awk -F: '{printf "%d", $3}'
+                                    getent group docker | awk -F: '{printf "%d", \$3}'
                                 """)
 
                             entityd_test_image = docker.build(entityd_test_tag,

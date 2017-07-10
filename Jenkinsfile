@@ -86,7 +86,7 @@ pipeline {
                         def user_id = ""
                         img.withRun('--entrypoint=""', 'id -u'){ c ->
                             sh "docker wait ${c.id}"
-                            user_id = sh "docker logs ${c.id}"
+                            user_id = sh(returnStdout: true, script: "docker logs ${c.id}").trim()
                             sh "echo user_id set to ${user_id}"
                         }
 

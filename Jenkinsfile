@@ -82,10 +82,17 @@ pipeline {
                     cleanWs()
                     checkout scm
                     script {
+                        def img = docker.image(entityd_test_image_id)
+                        img.withRun('--entrypoint=""', 'echo $UID'){ c ->
+                            user_id = sh "docker wait ${c.id}"
+                        }
+
+                        sh 'mkdir results'
+                        sh "chown ${user_id} results"
 
                         runInvoke(entityd_test_image_id, "py.test",
                             'Running unit tests',
-                            '-v /var/run/docker.sock:/var/run/docker.sock -v $WORKSPACE/results:/entityd/results',
+                            '-v /var/run/docker.sock:/var/run/docker.sock -v $WORKSPACE/results:/entityd/results' + " -u ${user_id}",
                             'jenkins_pytest'){
                                 junit "results/test_results.xml"
                                 step([$class: 'CoberturaPublisher', coberturaReportFile: 'results/coverage.xml'])

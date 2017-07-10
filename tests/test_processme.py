@@ -215,6 +215,7 @@ def test_get_process_containers_handles_missing_process(container,
         pids) == {container_top_pid: containerid}
 
 
+@pytest.mark.non_container
 def test_get_container_data_when_no_docker_client(
         container, no_docker_client, procent):   # pylint: disable=unused-argument
     assert procent.get_process_containers({'pid': 1}) == {}

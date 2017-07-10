@@ -42,12 +42,10 @@ COPY deploy/entityd/wrap.sh /usr/local/bin/wrap.sh
 
 ## The tests assume the user doesn't have root privledges so we run
 ## as a standard user
-ARG DOCKER_GID=1001
 RUN useradd --create-home -s /bin/bash user \
     && chown -R user:user /entityd \
     && chown -R user:user /venvs/entityd \
-    && groupadd -g ${DOCKER_GID} docker_host \
-    && usermod -a -G docker,docker_host user
+    && usermod -a -G docker user
 
 USER user
 

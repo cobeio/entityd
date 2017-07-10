@@ -44,12 +44,7 @@ pipeline {
                                 source: 'ssh://hg@bitbucket.org/abilisoft/pylint-abilisoft',
                                 subdir: 'pylint-abilisoft'])
 
-                            docker_gid = sh(returnStdout: true, script: """
-                                    getent group docker | awk -F: '{printf "%d", \$3}'
-                                """)
-
-                            entityd_test_image = docker.build(entityd_test_tag,
-                                "-f entityd-test.Dockerfile --build-arg DOCKER_GID=${docker_gid} .")
+                            entityd_test_image = docker.build(entityd_test_tag, "-f entityd-test.Dockerfile .")
                             entityd_test_image_id = entityd_test_image.id
 
                             withCredentials([string(credentialsId: 'google-cobesaas', variable: 'JSON_FILE')]) {

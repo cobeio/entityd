@@ -83,8 +83,9 @@ pipeline {
                     checkout scm
                     script {
                         def img = docker.image(entityd_test_image_id)
-                        img.withRun('--entrypoint=""', 'echo $UID'){ c ->
-                            user_id = sh "docker wait ${c.id}"
+                        img.withRun('--entrypoint=""', 'id -u'){ c ->
+                            sh "docker wait ${c.id}"
+                            user_id = sh "docker logs ${c.id}"
                         }
 
                         sh 'mkdir results'

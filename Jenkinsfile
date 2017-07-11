@@ -84,8 +84,7 @@ pipeline {
                     script {
 
                         runInvoke(entityd_test_image_id, "py.test",
-                            'Running unit tests',
-                            '-v /var/run/docker.sock:/var/run/docker.sock',
+                            'Running unit tests', '',
                             'jenkins_pytest'){ String container_id ->
                                 sh "docker cp ${container_id}:/entityd/results results"
                                 junit "results/test_results.xml"

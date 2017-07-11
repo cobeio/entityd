@@ -9,7 +9,6 @@ import cobe
 import docker
 import requests
 import pytest
-import sys
 import zmq
 
 import syskit

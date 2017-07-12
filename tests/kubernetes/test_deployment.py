@@ -131,6 +131,11 @@ def test_deployment_entities(deployment, entities, cluster):
     assert entity.attrs.get('kubernetes:meta:link').traits == {'uri'}
     assert entity.attrs.get(
         'kubernetes:meta:uid').value == '7b211c2e-9644-11e6-8a78-42010af00021'
+    assert entity.attrs.get('kubernetes:meta:labels').value == {
+        'label2': 'string2',
+        'label3': 'string2',
+    }
+    assert entity.attrs.get('kubernetes:meta:labels').traits == set()
     assert entity.attrs.get('kubernetes:observed-generation').value == 1
     assert entity.attrs.get('kubernetes:observed-replicas').value == 2
     assert entity.attrs.get('kubernetes:updated-replicas').value == 3

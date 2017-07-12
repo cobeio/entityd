@@ -18,6 +18,8 @@ pipeline {
                 script {
                     change_id = System.getenv("CHANGE_ID")
                     sh "echo Change_id = ${change_id} env change_id = ${CHANGE_ID}"
+                    sh 'echo Actual env change_id $CHANGE_ID'
+                    sh 'printenv'
                     entityd_tag = "${MASTER_DOCKER_REGISTRY}/entityd:${BUILD_TAG}".toLowerCase()
                     entityd_test_tag = "${MASTER_DOCKER_REGISTRY}/entityd-test:${BUILD_TAG}".toLowerCase()
                     kubectl_tag = "${MASTER_DOCKER_REGISTRY}/kubectl-entityd:${BUILD_TAG}".toLowerCase()

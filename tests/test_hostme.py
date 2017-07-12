@@ -84,31 +84,31 @@ def test_bootid_determined_only_once(host_gen):
 
 
 def test_hostname_when_entityd_not_in_container(host_gen, monkeypatch):
-    monkeypatch.setattr(entityd.hostme.os.path, 'isfile', pytest.Mock(
-        return_value=False))
+    monkeypatch.setattr(entityd.hostme.os.path,
+                        'isfile', pytest.Mock(return_value=False))
     entity = next(host_gen.entityd_find_entity(name='Host', attrs=None))
     assert entity.attrs.get('hostname').value == socket.gethostname()
     assert entity.attrs.get('hostname').traits == set()
 
 
 def test_hostname_when_entityd_in_container(host_gen, monkeypatch):
-    monkeypatch.setattr(entityd.hostme.os.path, 'isfile', pytest.Mock(
-        return_value=True))
+    monkeypatch.setattr(entityd.hostme.os.path,
+                        'isfile', pytest.Mock(return_value=True))
     entity = next(host_gen.entityd_find_entity(name='Host', attrs=None))
     assert 'hostname' not in entity.attrs
 
 
 def test_fqdn_when_entityd_not_in_container(host_gen, monkeypatch):
-    monkeypatch.setattr(entityd.hostme.os.path, 'isfile', pytest.Mock(
-        return_value=False))
+    monkeypatch.setattr(entityd.hostme.os.path,
+                        'isfile', pytest.Mock(return_value=False))
     entity = next(host_gen.entityd_find_entity(name='Host', attrs=None))
     assert entity.attrs.get('fqdn').value == socket.getfqdn()
     assert entity.attrs.get('fqdn').traits == set()
 
 
 def test_fqdn_when_entityd_in_container(host_gen, monkeypatch):
-    monkeypatch.setattr(entityd.hostme.os.path, 'isfile', pytest.Mock(
-        return_value=True))
+    monkeypatch.setattr(entityd.hostme.os.path,
+                        'isfile', pytest.Mock(return_value=True))
     entity = next(host_gen.entityd_find_entity(name='Host', attrs=None))
     assert 'fqdn' not in entity.attrs
 

@@ -125,8 +125,7 @@ class BasePlugin(metaclass=ABCMeta):
             'cluster', str(self.cluster_ueid), traits={'entity:id'})
         return update.ueid
 
-    @staticmethod
-    def create_labelselector(resource):
+    def create_labelselector(self, resource):
         """Create the `labelSelector` string from resource's selector labels.
 
         This is suitable for those resources having

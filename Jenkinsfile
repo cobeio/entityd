@@ -53,6 +53,8 @@ pipeline {
                                 """
                                 kubectl_image = docker.build(kubectl_tag, '-f kubectl.Dockerfile .')
                                 kubectl_image_id = kubectl_image.id
+
+                                sh "docker logout https://eu.gcr.io"
                             }
 
                             // Push our built images to the jenkins master registry
@@ -65,12 +67,12 @@ pipeline {
                                 buildName: build_key,
                                 buildDescription: build_desc)
                             throw error
-                        } finally {
-                            bitbucketStatusNotify(buildState: 'SUCCESSFUL',
-                                buildKey: build_key,
-                                buildName: build_key,
-                                buildDescription: build_desc)
                         }
+
+                        bitbucketStatusNotify(buildState: 'SUCCESSFUL',
+                            buildKey: build_key,
+                            buildName: build_key,
+                            buildDescription: build_desc)
                     }
                 }
             }
@@ -130,6 +132,7 @@ pipeline {
                             docker login -u _json_key -p '${JSON_FILE}' https://eu.gcr.io
                             docker push eu.gcr.io/cobesaas/entityd:latest
                             docker push eu.gcr.io/cobesaas/kubectl:latest
+                            docker logout https://eu.gcr.io
                         """
                     }
                 }

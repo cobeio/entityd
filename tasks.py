@@ -17,7 +17,7 @@ import zmq.auth
 @invoke.task
 def pylint(ctx):
     """Invoke pylint on modules and test code."""
-    pylint_path = sys.prefix + "/bin/pylint -f parseable"
+    pylint_cmd = os.path.join(sys.prefix, "bin/pylint") + " -f parseable"
     output_cmd = "| tee -a results/pylint.log ; exit ${PIPESTATUS[0]}"
 
     tasks = [
@@ -32,7 +32,7 @@ def pylint(ctx):
 
     results = list()
     for task in tasks:
-        cmd = pylint_path + " " + task + " " + output_cmd
+        cmd = pylint_cmd + " " + task + " " + output_cmd
         result = ctx.run(cmd, warn=True)
         results.append(result.exited)
 
@@ -41,15 +41,15 @@ def pylint(ctx):
 
 
 @invoke.task
-def pytest(context):
+def pytest(ctx):
     """Run the entire test-suite."""
-    context.run('py.test -q --cov-report=xml tests')
+    ctx.run('py.test -q --cov-report=xml tests')
     tree = etree.parse('coverage.xml')  # Probably should use sax.
     root = tree.getroot()
     total = float(root.get('line-rate', 0))
     print('Test coverage: {:d}%'.format(int(total*100)))
     if total < 1:
-        context.run('false')     # Crappy way of making the task fail
+        ctx.run('false')     # Crappy way of making the task fail
 
 
 @invoke.task
@@ -68,7 +68,7 @@ def jenkins_pytest(ctx):
 
 
 @invoke.task(pre=[pylint, pytest])
-def check(context):  # pylint: disable=unused-argument
+def check(ctx):  # pylint: disable=unused-argument
     """Perform all checks."""
 
 
@@ -79,7 +79,7 @@ def check(context):  # pylint: disable=unused-argument
                               '`<env>/etc/entityd/keys`.',
                    'force': 'Force overwriting of existing keys.',
                    'dry-run': 'Do a dry-run without making any keys.'})
-def certificates(context, dirpath=None, force=False, dry_run=False):  # pylint: disable=unused-argument
+def certificates(ctx, dirpath=None, force=False, dry_run=False):  # pylint: disable=unused-argument
     """Create certificates for ZMQ authentication."""
     dirpath = os.path.expanduser(dirpath) if dirpath else act.fsloc.sysconfdir
     dirpath = pathlib.Path(dirpath).absolute().joinpath('entityd', 'keys')

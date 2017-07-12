@@ -43,8 +43,8 @@ def pylint(ctx):
 @invoke.task
 def pytest(ctx):
     """Run the entire test-suite."""
-    ctx.run('py.test -q --cov-report=xml tests')
-    tree = etree.parse('coverage.xml')  # Probably should use sax.
+    ctx.run('py.test -q --cov-report=xml:results/coverage.xml tests')
+    tree = etree.parse('results/coverage.xml')  # Probably should use sax.
     root = tree.getroot()
     total = float(root.get('line-rate', 0))
     print('Test coverage: {:d}%'.format(int(total*100)))

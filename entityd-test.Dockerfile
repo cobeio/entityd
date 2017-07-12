@@ -27,7 +27,7 @@ COPY ./test_requirements.txt /entityd/test_requirements.txt
 RUN apt-get -y install mercurial \
     && /venvs/entityd/bin/pip3 install -r /entityd/test_requirements.txt \
     && apt-get -y remove mercurial \
-    && apt-get -y autoremove --purge \
+    && apt-get -y autoremove --purge
 
 COPY /pylint-abilisoft /pylint_abilisoft
 RUN /venvs/entityd/bin/pip3 install -e /pylint_abilisoft

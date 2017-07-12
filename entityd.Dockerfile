@@ -12,7 +12,7 @@ RUN virtualenv /venvs/entityd -p python3.4
 COPY ./requirements.txt /entityd/requirements.txt
 
 RUN apt-get -y install mercurial \
-    && /venvs/entityd/bin/pip3 install -r /entityd/requirements.txt
+    && /venvs/entityd/bin/pip3 install -r /entityd/requirements.txt \
     && apt-get -y remove mercurial \
     && apt-get -y autoremove --purge
 

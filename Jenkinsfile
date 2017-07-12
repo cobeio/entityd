@@ -18,7 +18,7 @@ pipeline {
                 script {
                     entityd_tag = "${MASTER_DOCKER_REGISTRY}/entityd:${BUILD_TAG}".toLowerCase()
                     entityd_test_tag = "${MASTER_DOCKER_REGISTRY}/entityd-test:${BUILD_TAG}".toLowerCase()
-                    kubectl_tag = "${MASTER_DOCKER_REGISTRY}/kubectl:${BUILD_TAG}".toLowerCase()
+                    kubectl_tag = "${MASTER_DOCKER_REGISTRY}/kubectl-entityd:${BUILD_TAG}".toLowerCase()
                 }
 
                 node('docker') {
@@ -51,7 +51,7 @@ pipeline {
                                 sh """
                                     docker login -u _json_key -p '${JSON_FILE}' https://eu.gcr.io
                                 """
-                                kubectl_image = docker.build(kubectl_tag, '-f kubectl.Dockerfile .')
+                                kubectl_image = docker.build(kubectl_tag, '-f kubectl-entityd.Dockerfile .')
                                 kubectl_image_id = kubectl_image.id
 
                                 sh "docker logout https://eu.gcr.io"
@@ -125,13 +125,13 @@ pipeline {
                     kubectl_image.pull()
 
                     sh "docker tag ${entityd_image.id} eu.gcr.io/cobesaas/entityd:latest"
-                    sh "docker tag ${kubectl_image.id} eu.gcr.io/cobesaas/kubectl:latest"
+                    sh "docker tag ${kubectl_image.id} eu.gcr.io/cobesaas/kubectl-entityd:latest"
 
                     withCredentials([string(credentialsId: 'google-cobesaas', variable: 'JSON_FILE')]) {
                         sh """
                             docker login -u _json_key -p '${JSON_FILE}' https://eu.gcr.io
                             docker push eu.gcr.io/cobesaas/entityd:latest
-                            docker push eu.gcr.io/cobesaas/kubectl:latest
+                            docker push eu.gcr.io/cobesaas/kubectl-entityd:latest
                             docker logout https://eu.gcr.io
                         """
                     }

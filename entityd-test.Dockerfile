@@ -4,19 +4,6 @@ RUN apt-get -y update \
     && apt-get -y install python3-pip libffi-dev libyaml-dev libzmq3-dev \
     && apt-get -y autoremove --purge
 
-# Install docker-ce so the tests can run
-COPY ./tests/docker-apt-cert /docker-apt-cert
-RUN apt-get -y update \
-    && apt-get -y install apt-transport-https ca-certificates curl gnupg2 software-properties-common \
-    && apt-key add /docker-apt-cert \
-    && add-apt-repository \
-           "deb [arch=amd64] https://download.docker.com/linux/debian \
-           $(lsb_release -cs) \
-           stable" \
-    && apt-get -y update \
-    && apt-get -y install docker-ce \
-    && apt-get -y autoremove --purge
-
 RUN pip3 install virtualenv
 RUN virtualenv /venvs/entityd -p python3.4
 
@@ -46,8 +33,7 @@ COPY deploy/entityd/wrap.sh /usr/local/bin/wrap.sh
 ## as a standard user
 RUN useradd -s /bin/bash user \
     && chown -R user:user /entityd \
-    && chown -R user:user /venvs/entityd \
-    && usermod -a -G docker user
+    && chown -R user:user /venvs/entityd
 
 USER user
 

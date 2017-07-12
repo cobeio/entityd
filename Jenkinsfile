@@ -16,10 +16,6 @@ pipeline {
                 // If we have a change_id then this is a pull request, otherwise it's a change to the main
                 // repo and the image should be stored in docker
                 script {
-                    change_id = System.getenv("CHANGE_ID")
-                    sh "echo Change_id = ${change_id} env change_id = ${CHANGE_ID}"
-                    sh 'echo Actual env change_id $CHANGE_ID'
-                    sh 'printenv'
                     entityd_tag = "${MASTER_DOCKER_REGISTRY}/entityd:${BUILD_TAG}".toLowerCase()
                     entityd_test_tag = "${MASTER_DOCKER_REGISTRY}/entityd-test:${BUILD_TAG}".toLowerCase()
                     kubectl_tag = "${MASTER_DOCKER_REGISTRY}/kubectl-entityd:${BUILD_TAG}".toLowerCase()
@@ -119,7 +115,7 @@ pipeline {
             // If the change id is null, this is a change to the main branch so we need
             // to push the docker image to google
             when {
-                expression { System.getenv("CHANGE_ID") == null }
+                expression { env.CHANGE_ID == null }
             }
             steps{
                 script {

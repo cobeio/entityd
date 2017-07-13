@@ -473,12 +473,10 @@ def zombie_process(request):
     request.addfinalizer(popen.kill)
     t = time.time()
 
-    # Sleep here to make sure the process has been started before we use
-    # syskit to get it's status.
-    time.sleep(0.1)
-
-    while (time.time() - t < 5 and
-           syskit.Process(popen.pid).status != syskit.ProcessStatus.zombie):
+    while (time.time() - t < 5
+           and popen.pid in syskit.Process.enumerate()
+           and syskit.Process(
+               popen.pid).status != syskit.ProcessStatus.zombie):
         time.sleep(0.1)
     if syskit.Process(popen.pid).status != syskit.ProcessStatus.zombie:
         pytest.fail('Failed to create a zombie process for testing.')

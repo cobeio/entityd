@@ -619,8 +619,8 @@ class TestCpuUsage:
         monkeypatch.setattr(cpuusage, '_run',
                             pytest.Mock(side_effect=ZeroDivisionError))
         monkeypatch.setattr(cpuusage, '_log', pytest.Mock())
-        stop = lambda self: monkeypatch.setattr(cpuusage, '_run',
-                                           pytest.Mock())
+        stop = lambda self: monkeypatch.setattr(cpuusage,
+                                                '_run', pytest.Mock())
         cpuusage._log.exception.side_effect = stop
         cpuusage.start()
         cpuusage.join(timeout=2)

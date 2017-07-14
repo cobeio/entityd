@@ -20,7 +20,7 @@ import entityd.pm
 log = logbook.Logger(__name__)
 
 
-class MonitoredEntitySender:
+class MonitoredEntitySender:  # pylint: disable=too-many-instance-attributes
     """Plugin to send entities to modeld."""
 
     def __init__(self):

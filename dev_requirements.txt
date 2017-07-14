@@ -1,0 +1,2 @@
+-r test_requirements.txt # install from test_requirements.txt first
+-e .

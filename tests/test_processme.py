@@ -9,8 +9,9 @@ import cobe
 import docker
 import requests
 import pytest
-import syskit
 import zmq
+
+import syskit
 
 import entityd.hookspec
 import entityd.hostme
@@ -78,7 +79,7 @@ def debian_image():
     images = [image(*l.split()[:3]) for l in out.splitlines()[1:]]
     deb_image = {i for i in images if i.tag == TAG}
     if not deb_image:
-        subprocess.check_call(['gcloud', 'docker', 'pull', IMAGE])
+        subprocess.check_call(['gcloud', 'docker', '--', 'pull', IMAGE])
     return IMAGE
 
 
@@ -190,6 +191,7 @@ def test_entities_have_core_attributes(procent, session, kvstore): # pylint: dis
     assert count
 
 
+@pytest.mark.non_container
 def test_container_entity_has_containerid_attribute(container,
                                                     procent, session, kvstore):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
@@ -202,6 +204,7 @@ def test_container_entity_has_containerid_attribute(container,
         next(entities)
 
 
+@pytest.mark.non_container
 def test_get_process_containers_handles_missing_process(container,
                                                         session, procent):
     procent.entityd_sessionstart(session)
@@ -211,11 +214,13 @@ def test_get_process_containers_handles_missing_process(container,
         pids) == {container_top_pid: containerid}
 
 
+@pytest.mark.non_container
 def test_get_container_data_when_no_docker_client(
         container, no_docker_client, procent):   # pylint: disable=unused-argument
     assert procent.get_process_containers({'pid': 1}) == {}
 
 
+@pytest.mark.non_container
 def test_non_container_entity_has_no_containerid_attr(process_entity):
     with pytest.raises(KeyError):
         process_entity.attrs.get('containerid')
@@ -263,8 +268,11 @@ def test_find_entity_with_unknown_attrs(procent, session, kvstore):  # pylint: d
 
 def test_find_entity_with_binary(procent, session, kvstore):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
+
     entities = procent.entityd_find_entity('Process', {'binary': 'py.test'})
-    proc = next(entities)
+    proc = next(entities, None)
+
+    assert proc
     assert proc.metype == 'Process'
     assert proc.attrs.get('binary').value == 'py.test'
 
@@ -326,6 +334,7 @@ def test_root_process_has_host_parent(procent, session, kvstore, monkeypatch):  
     assert hostueid == hostupdate.ueid
 
 
+@pytest.mark.non_container
 def test_find_single_container_parent(container_entities):
     count = 0
     for entity in container_entities.entities:
@@ -432,6 +441,7 @@ def test_specific_process_deleted(procent, session, kvstore, monkeypatch):  # py
         next(entities)
 
 
+@pytest.mark.non_container
 def test_specific_parent_deleted(procent, session, kvstore, monkeypatch):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
     proc = syskit.Process(os.getpid())
@@ -462,8 +472,11 @@ def zombie_process(request):
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     request.addfinalizer(popen.kill)
     t = time.time()
-    while (time.time() - t < 5 and
-           syskit.Process(popen.pid).status != syskit.ProcessStatus.zombie):
+
+    while (time.time() - t < 5
+           and popen.pid in syskit.Process.enumerate()
+           and syskit.Process(
+               popen.pid).status != syskit.ProcessStatus.zombie):
         time.sleep(0.1)
     if syskit.Process(popen.pid).status != syskit.ProcessStatus.zombie:
         pytest.fail('Failed to create a zombie process for testing.')
@@ -606,8 +619,8 @@ class TestCpuUsage:
         monkeypatch.setattr(cpuusage, '_run',
                             pytest.Mock(side_effect=ZeroDivisionError))
         monkeypatch.setattr(cpuusage, '_log', pytest.Mock())
-        stop = lambda: monkeypatch.setattr(cpuusage, '_run',
-                                           pytest.Mock())
+        stop = lambda self: monkeypatch.setattr(cpuusage,
+                                                '_run', pytest.Mock())
         cpuusage._log.exception.side_effect = stop
         cpuusage.start()
         cpuusage.join(timeout=2)

@@ -1,0 +1,14 @@
+*.pyc
+
+**/__pycache__*
+.coverage
+.project
+*.hg*
+*/.hg*
+.cache
+Jenkinsfile
+*.Dockerfile
+.idea/
+*.egg-info/
+results/
+

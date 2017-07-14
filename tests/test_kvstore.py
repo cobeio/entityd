@@ -13,11 +13,14 @@ def kvstore():
     return entityd.kvstore.KVStore(':memory:')
 
 
-def test_entityd_sessionstart(monkeypatch):
+def test_entityd_sessionstart(monkeypatch, request):
     init = pytest.Mock(return_value=None)
     session = pytest.Mock()
     monkeypatch.setattr(entityd.kvstore.KVStore, '__init__', init)
     entityd.kvstore.entityd_sessionstart(session)
+    request.addfinalizer(
+        lambda: entityd.kvstore.entityd_sessionfinish(session))
+
     dbpath = init.call_args[0][0]
     assert isinstance(dbpath, pathlib.Path)
     assert str(dbpath).endswith('/var/lib/entityd/kvstore/store.db')

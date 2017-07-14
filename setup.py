@@ -3,7 +3,18 @@
 import setuptools
 
 
-__version__ = '0.21.0'
+def get_version():
+    """Retrieve the version number from version.txt."""
+
+    version = None
+    with open('version.txt') as version_file:
+        lines = version_file.readlines()
+        if len(lines) > 0:
+            version = lines[0]
+        else:
+            raise ValueError('Version number not found in version.txt')
+
+    return version
 
 
 with open("README.rst") as fp:
@@ -12,7 +23,7 @@ with open("README.rst") as fp:
 
 setuptools.setup(
     name='entityd',
-    version=__version__,
+    version=get_version(),
     author='cobe.io',
     author_email='info@cobe.io',
     license='LGPLv3',
@@ -37,7 +48,7 @@ setuptools.setup(
         'cobe-act',
         'docker-py',
         # TODO: Fix in python-cobe maybe?
-        'pyzmq >=14.7, <15.0',
+        'pyzmq >=14.7, <=15.2',
         'msgpack-python >=0.4.5, <0.5',
         'voluptuous >=0.8.7, <0.9',
     ],

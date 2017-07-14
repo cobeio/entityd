@@ -15,28 +15,60 @@ import zmq.auth
 
 
 @invoke.task
-def pylint(context):
+def pylint(ctx):
     """Invoke pylint on modules and test code."""
-    context.run('pylint entityd')
-    context.run('cd tests; pylint **/*.py')
-    context.run('pylint setup.py')
-    context.run('pylint tasks.py')
+    pylint_cmd = os.path.join(sys.prefix, "bin/pylint") + " -f parseable"
+    output_cmd = "| tee -a results/pylint.log ; exit ${PIPESTATUS[0]}"
+
+    tasks = [
+        "entityd",
+        "--rcfile tests/pylintrc tests/*.py",
+        "setup.py",
+        "tasks.py",
+    ]
+
+    # Remove the pylint log before running and make sure the results dir exists
+    ctx.run("mkdir -p results && echo "" > results/pylint.log")
+
+    results = list()
+    for task in tasks:
+        cmd = pylint_cmd + " " + task + " " + output_cmd
+        result = ctx.run(cmd, warn=True)
+        results.append(result.exited)
+
+    if max(results) > 0:
+        raise invoke.Exit(code=max(results))
 
 
 @invoke.task
-def pytest(context):
+def pytest(ctx):
     """Run the entire test-suite."""
-    context.run('py.test -q --cov-report=xml tests')
-    tree = etree.parse('coverage.xml')  # Probably should use sax.
+    ctx.run('py.test -q --cov-report=xml:results/coverage.xml tests')
+    tree = etree.parse('results/coverage.xml')  # Probably should use sax.
     root = tree.getroot()
     total = float(root.get('line-rate', 0))
     print('Test coverage: {:d}%'.format(int(total*100)))
     if total < 1:
-        context.run('false')     # Crappy way of making the task fail
+        ctx.run('false')     # Crappy way of making the task fail
+
+
+@invoke.task
+def jenkins_pytest(ctx):
+    """Task jenkins uses to run tests"""
+    pytest_args = [
+        sys.prefix + '/bin/py.test',
+        '-m "not non_container"',
+        '--junitxml=results/test_results.xml',
+        '--cov-report term-missing',
+        '--cov-report xml:results/coverage.xml',
+    ]
+    res = ctx.run(' '.join(pytest_args))
+    if res.exited > 0:
+        raise invoke.Exit(code=res.exited)
 
 
 @invoke.task(pre=[pylint, pytest])
-def check(context):  # pylint: disable=unused-argument
+def check(ctx):  # pylint: disable=unused-argument
     """Perform all checks."""
 
 
@@ -47,7 +79,7 @@ def check(context):  # pylint: disable=unused-argument
                               '`<env>/etc/entityd/keys`.',
                    'force': 'Force overwriting of existing keys.',
                    'dry-run': 'Do a dry-run without making any keys.'})
-def certificates(context, dirpath=None, force=False, dry_run=False):  # pylint: disable=unused-argument
+def certificates(ctx, dirpath=None, force=False, dry_run=False):  # pylint: disable=unused-argument
     """Create certificates for ZMQ authentication."""
     dirpath = os.path.expanduser(dirpath) if dirpath else act.fsloc.sysconfdir
     dirpath = pathlib.Path(dirpath).absolute().joinpath('entityd', 'keys')

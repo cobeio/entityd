@@ -187,3 +187,114 @@ def test_script():
     proc = subprocess.Popen([sys.executable, '-m', 'entityd', '--help'])
     proc.wait()
     assert proc.returncode == 0
+
+
+class TestParseDisabledPlugins:
+
+    def test(self):
+        assert list(main._parse_disabled_plugins(
+            ['--disable', 'foo:bar'])) == ['foo:bar']
+
+    def test_module(self):
+        assert list(main._parse_disabled_plugins(
+            ['--disable', 'foo'])) == ['foo:*', 'foo']
+
+    def test_multiple(self):
+        assert list(main._parse_disabled_plugins([
+            '--disable', 'foo:bar',
+            '--disable', 'baz:qux',
+        ])) == ['foo:bar', 'baz:qux']
+
+    def test_multiple_single_switch(self):
+        assert list(main._parse_disabled_plugins(
+            ['--disable', 'foo:bar', 'baz:qux'])) == ['foo:bar', 'baz:qux']
+
+    def test_multiple_discontinous(self):
+        assert list(main._parse_disabled_plugins([
+            '--disable', 'foo:bar',
+            '--log-level', 'debug',
+            '--disable', 'baz:qux',
+        ])) == ['foo:bar', 'baz:qux']
+
+    def test_ignore_extra(self):
+        assert list(main._parse_disabled_plugins([
+            'extra',
+            '--disable', 'foo:bar',
+            '--arguments', 'ignored',
+        ])) == ['foo:bar']
+
+    def test_followed_by_compact(self):
+        assert list(main._parse_disabled_plugins([
+            '--disable', 'foo:bar',
+            '--disable=baz:qux',
+            'extra',
+        ])) == ['foo:bar', 'baz:qux']
+
+    def test_compact(self):
+        assert list(main._parse_disabled_plugins(
+            ['--disable=foo:bar'])) == ['foo:bar']
+
+    def test_compact_module(self):
+        assert list(main._parse_disabled_plugins(
+            ['--disable=foo'])) == ['foo:*', 'foo']
+
+    def test_compact_multiple(self):
+        assert list(main._parse_disabled_plugins([
+            '--disable=foo:bar',
+            '--disable=baz:qux',
+        ])) == ['foo:bar', 'baz:qux']
+
+    def test_compact_ignore_extra(self):
+        assert list(main._parse_disabled_plugins([
+            'extra',
+            '--disable=foo:bar',
+            'arguments',
+            'ignored',
+        ])) == ['foo:bar']
+
+
+class TestFilterDisabledPlugins:
+
+    def test_object(self):
+        filtered = main._filter_disabled_plugins(
+            ['--disable', 'foo:Bar'],
+            [
+                'entityd.foo:Bar',
+                'entityd.baz:Qux',
+            ],
+        )
+        assert filtered == ['entityd.baz:Qux']
+
+    def test_object_wildcard(self):
+        filtered = main._filter_disabled_plugins(
+            ['--disable', 'foo:*ar'],
+            [
+                'entityd.foo:Bar',
+                'entityd.foo:Par',
+                'entityd.foo:Mars',
+            ],
+        )
+        assert filtered == ['entityd.foo:Mars']
+
+    def test_module(self):
+        filtered = main._filter_disabled_plugins(
+            ['--disable', 'foo'],
+            [
+                'entityd.foo',
+                'entityd.foo:Baz',
+                'entityd.foo:Qux',
+                'entityd.bar',
+            ],
+        )
+        assert filtered == ['entityd.bar']
+
+    def test_module_wildcard(self):
+        filtered = main._filter_disabled_plugins(
+            ['--disable', 'foo*ar'],
+            [
+                'entityd.foobar',
+                'entityd.foopar',
+                'entityd.poohbear',
+            ],
+        )
+        assert filtered == ['entityd.poohbear']

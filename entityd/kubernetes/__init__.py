@@ -269,6 +269,7 @@ class BasePlugin(metaclass=ABCMeta):
         update = entityd.EntityUpdate('Kubernetes:{}'.format(kind))
         update.label = meta.name
         update.attrs.set('kubernetes:kind', kind)
+        update.attrs.set('kubernetes:meta:labels', dict(resource.meta.labels))
         update.attrs.set('kubernetes:meta:name',
                          meta.name, traits={'entity:id'})
         update.attrs.set('kubernetes:meta:namespace',

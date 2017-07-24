@@ -181,6 +181,7 @@ def test_entityd_addoption(capsys):
     assert '--log-level' in stdout
     assert '--trace' in stdout
     assert '--period' in stdout
+    assert '--disable' in stdout
 
 
 def test_entityd_mainloop():

@@ -242,6 +242,7 @@ def apply_meta_update(meta, update):
     :param entityd.EntityUpdate update: the update to apply the attributes to.
     """
     update.attrs.set('kubernetes:meta:name', meta.name, traits={'entity:id'})
+    update.attrs.set('kubernetes:meta:labels', dict(meta.labels))
     if meta.namespace:
         update.attrs.set('kubernetes:meta:namespace',
                          meta.namespace, traits={'entity:id'})
@@ -258,7 +259,6 @@ def apply_meta_update(meta, update):
     # TODO: Maybe convert to absolute URI
     update.attrs.set('kubernetes:meta:link', meta.link, traits={'uri'})
     update.attrs.set('kubernetes:meta:uid', meta.uid)
-    # TODO: Labels
 
 
 def generate_namespaces(cluster):

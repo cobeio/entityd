@@ -38,6 +38,10 @@ def cluster(request):
                 'creationTimestamp': '2016-10-03T12:49:32Z',
                 'selfLink': '/api/v1/nodes/nodename1',
                 'uid': '7b211c2e-9644-11e6-8a78-42010af00021',
+                'labels': {
+                    'label1': 'string1',
+                    'label2': 'string2',
+                },
             },
             'status': {
                 'nodeInfo': {
@@ -50,6 +54,7 @@ def cluster(request):
                 'creationTimestamp': '2016-10-02T15:32:21Z',
                 'selfLink': '/api/v1/nodes/nodename2',
                 'uid': '7895566a-9644-11e6-8a78-42010af00021',
+                'labels': {},
             },
             'status': {
                 'nodeInfo': {
@@ -206,6 +211,11 @@ def test_get_first_entity(entities, node):
     assert entity.attrs.get('kubernetes:meta:link').traits == {'uri'}
     assert entity.attrs.get(
         'kubernetes:meta:uid').value == '7b211c2e-9644-11e6-8a78-42010af00021'
+    assert entity.attrs.get('kubernetes:meta:labels').value == {
+        'label1': 'string1',
+        'label2': 'string2',
+    }
+    assert entity.attrs.get('kubernetes:meta:labels').traits == set()
     assert len(list(entity.children)) == 2
     assert cobe.UEID('a' * 32) in entity.parents
     assert cobe.UEID('847c21eb4c17a4000b539939dca9f654') in entity.children
@@ -222,6 +232,8 @@ def test_get_second_entity(entities, node):
         'bootid').value == 'f5c1d4bf-173f-5c51-bf32-97c4e2eg123e'
     assert entity.attrs.get('bootid').traits == {'entity:id'}
     assert entity.attrs.get('kubernetes:kind').value == 'Node'
+    assert entity.attrs.get('kubernetes:meta:labels').value == {}
+    assert entity.attrs.get('kubernetes:meta:labels').traits == set()
     assert len(list(entity.children)) == 1
     assert cobe.UEID('717405ddc912c6179ea97eb0d0001832') in entity.children
     with pytest.raises(StopIteration):

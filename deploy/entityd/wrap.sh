@@ -2,7 +2,7 @@
 
 set -e
 
-mkdir -p /usr/etc/entityd/keys
-cp /opt/entityd/keys/entityd.key-secret /usr/etc/entityd/keys/entityd.key_secret
-cp /opt/entityd/keys/modeld.key /usr/etc/entityd/keys/modeld.key
+mkdir -p /venvs/entityd/etc/entityd/keys
+cp /opt/entityd/keys/entityd.key-secret /venvs/entityd/etc/entityd/keys/entityd.key_secret
+cp /opt/entityd/keys/modeld.key /venvs/entityd/etc/entityd/keys/modeld.key
 exec /venvs/entityd/bin/entityd "$@"

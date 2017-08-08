@@ -87,6 +87,11 @@ def entityd_addoption(parser):
         type=lambda period: max(0, float(period)),
         help='How often to run periodic entity collection in seconds',
     )
+    parser.add_argument(  # Ignored; used by __main__
+        '--disable',
+        nargs='+',
+        help='Name of a plugin to disable',
+    )
 
 
 @entityd.pm.hookimpl

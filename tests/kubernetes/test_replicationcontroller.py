@@ -23,6 +23,10 @@ def cluster():
                 'creationTimestamp': '2016-10-03T12:49:32Z',
                 'selfLink': 'test_link_path',
                 'uid': '7b211c2e-9644-11e6-8a78-42010af00021',
+                'labels': {
+                    'label2': 'string2',
+                    'label3': 'string2',
+                },
             },
             'status': {
                 'replicas': 1,
@@ -122,6 +126,11 @@ def test_replicationcontroller_entities(
     assert entity.attrs.get('kubernetes:meta:link').traits == {'uri'}
     assert entity.attrs.get(
         'kubernetes:meta:uid').value == '7b211c2e-9644-11e6-8a78-42010af00021'
+    assert entity.attrs.get('kubernetes:meta:labels').value == {
+        'label2': 'string2',
+        'label3': 'string2',
+    }
+    assert entity.attrs.get('kubernetes:meta:labels').traits == set()
     assert entity.attrs.get('kubernetes:observed-replicas').value == 1
     assert entity.attrs.get('kubernetes:observed-generation').value == 2
     assert entity.attrs.get('kubernetes:fully-labeled-replicas').value == 3

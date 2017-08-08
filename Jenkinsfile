@@ -87,7 +87,7 @@ pipeline {
 
                         runInvoke(entityd_test_image_id, "py.test",
                             'Running unit tests', '',
-                            'jenkins_pytest'){ String container_id ->
+                            'jenkins-pytest'){ String container_id ->
                                 sh "docker cp ${container_id}:/entityd/results results"
                                 junit "results/test_results.xml"
                                 step([$class: 'CoberturaPublisher', coberturaReportFile: 'results/coverage.xml'])
@@ -102,7 +102,7 @@ pipeline {
 
                     script {
                         runTestSteps(entityd_test_image_id, "pylint", 'Running linting tests'){
-                                pylint = sh(script:'/venvs/entityd/bin/invoke pylint', returnStatus: true)
+                                pylint = sh(script:'/opt/entityd/bin/invoke pylint', returnStatus: true)
                                 warnings parserConfigurations: [[parserName: 'PyLint', pattern: 'results/pylint.log']]
                                 return pylint
                             }

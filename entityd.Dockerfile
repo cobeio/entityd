@@ -5,14 +5,14 @@ RUN apt-get -y update \
     && apt-get -y autoremove --purge
 
 RUN pip3 install virtualenv
-RUN virtualenv /venvs/entityd -p python3.4
+RUN virtualenv /opt/entityd -p python3.4
 
 ## Work around docker always skipping the cache and running pip each build.
 ## This way it will only run pip install if the requirements change
 COPY ./requirements.txt /entityd/requirements.txt
 
 RUN apt-get -y install mercurial \
-    && /venvs/entityd/bin/pip3 install -r /entityd/requirements.txt \
+    && /opt/entityd/bin/pip3 install -r /entityd/requirements.txt \
     && apt-get -y remove mercurial \
     && apt-get -y autoremove --purge
 
@@ -22,8 +22,9 @@ LABEL entityd=${VERSION} \
 
 COPY ./ /entityd
 WORKDIR /entityd
-RUN /venvs/entityd/bin/pip3 install -e .
+RUN /opt/entityd/bin/pip3 install -e .
 
+ENV PATH $PATH:/opt/entityd/bin
 COPY deploy/entityd/wrap.sh /usr/local/bin/wrap.sh
 ENTRYPOINT ["/usr/local/bin/wrap.sh"]
 CMD ["--help"]

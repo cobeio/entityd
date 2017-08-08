@@ -143,6 +143,7 @@ class NodeEntity:
                          traits={'chrono:rfc3339'})
         update.attrs.set('kubernetes:meta:link', meta.link, traits={'uri'})
         update.attrs.set('kubernetes:meta:uid', meta.uid)
+        update.attrs.set('kubernetes:meta:labels', dict(meta.labels))
         for pod_data in nodepods.get(node_name, []):
             update.children.add(self.create_pod_ueid(pod_data.name,
                                                      pod_data.namespace))

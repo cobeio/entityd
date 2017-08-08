@@ -135,6 +135,11 @@ def test_daemonset_entities(daemonset, entities, cluster):
     assert entity.attrs.get('kubernetes:meta:link').traits == {'uri'}
     assert entity.attrs.get(
         'kubernetes:meta:uid').value == '7b211c2e-9644-11e6-8a78-42010af00021'
+    assert entity.attrs.get('kubernetes:meta:labels').value == {
+        'label2': 'string2',
+        'label3': 'string2',
+    }
+    assert entity.attrs.get('kubernetes:meta:labels').traits == set()
     assert entity.attrs.get('kubernetes:current-number-scheduled').value == 2
     assert entity.attrs.get('kubernetes:number-misscheduled').value == 0
     assert entity.attrs.get('kubernetes:desired-number-scheduled').value == 3

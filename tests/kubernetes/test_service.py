@@ -193,6 +193,11 @@ def test_service_entities_ipv4(service, entities_ipv4, cluster_ipv4):
     assert entity.attrs.get('kubernetes:meta:link').traits == {'uri'}
     assert entity.attrs.get(
         'kubernetes:meta:uid').value == '7b211c2e-9644-11e6-8a78-42010af00021'
+    assert entity.attrs.get('kubernetes:meta:labels').value == {
+        'label1': 'string1',
+        'label2': 'string2',
+    }
+    assert entity.attrs.get('kubernetes:meta:labels').traits == set()
     assert entity.attrs.get(
         'kubernetes:load-balancer-ingress').value == '146.145.27.27'
     assert entity.attrs.get(

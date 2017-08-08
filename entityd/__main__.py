@@ -2,9 +2,9 @@
 
 This module is the main application entrypoint and ties creates a
 plugin manager to drive the rest of the application's execution.
-
 """
 
+import fnmatch
 import functools
 import importlib
 import sys
@@ -48,10 +48,12 @@ def main(argv=None, plugins=None):
 
     This creates a plugin manager, loads the default plugins and runs
     the ``entityd_main()`` hook.
-
     """
+    if argv is None:
+        argv = sys.argv[1:]
     if plugins is None:
         plugins = BUILTIN_PLUGIN_NAMES
+    plugins = _filter_disabled_plugins(argv or [], plugins)
     pluginmanager = entityd.pm.PluginManager()
     if argv and '--trace' in argv:
         pluginmanager.tracer_cb = trace
@@ -115,6 +117,71 @@ def trace(msg):
     This prints trace messages directly to stdout.
     """
     print('TRACE: {}'.format(msg))
+
+
+def _parse_disabled_plugins(arguments):
+    """Parse list of plugins to disable from command line arguments.
+
+    This parses a list of command line arguments looking for --disable
+    switches. Any arguments that follow are treated as plugin to disable,
+    until a new switch is encountered.
+
+    Alternatively, the --disable= prefixed form may be used which only
+    allows for a single plugin to be specified.
+
+    If the disable argument refers to an entire module -- e.g. it doesn't
+    contain a colon -- then it implicitly ignores everything from that
+    module as well. As in, `fileme` is treated as `fileme:*`.
+
+    :param arguments: The raw command line arguments to parse.
+    :type arguments: list of str
+
+    :returns: An iterator of plugins to disable.
+    """
+    accumulate = False
+    for argument in (argument.strip() for argument in arguments):
+        disabled = None
+        if argument.startswith('-'):
+            accumulate = False
+            if argument == '--disable':
+                accumulate = True
+            elif argument.startswith('--disable='):
+                disabled = argument[len('--disable='):]
+        elif accumulate:
+            disabled = argument
+        if disabled is not None:
+            if ':' not in disabled:
+                yield disabled + ':*'
+            yield disabled
+
+
+def _filter_disabled_plugins(arguments, plugins):
+    """Filter out disabled plugins.
+
+    This filters plugins from the given list of plugins based on given
+    --disable arguments.
+
+    The --disable arguments are treated as globs against the plugin names.
+    Any plugin names that match any of the globs are not included in the
+    list of returned plugins.
+
+    Each disable pattern is prefixed with `entityd.`.
+
+    :param arguments: The raw command line arguments to parse.
+    :type arguments: list of str
+    :param plugins: List of all plugin names.
+    :type plugins: list of str
+
+    :returns: A filtered list of plugin names.
+    """
+    plugins_disabled = ['entityd.' + disabled
+                        for disabled in _parse_disabled_plugins(arguments)]
+    plugins_enabled = []
+    for plugin in plugins:
+        if not any(fnmatch.fnmatchcase(
+                plugin, disabled) for disabled in plugins_disabled):
+            plugins_enabled.append(plugin)
+    return plugins_enabled
 
 
 if __name__ == '__main__':      # pragma: no cover

@@ -1,4 +1,6 @@
 -r requirements.txt # install from requirements.txt first
+--extra-index-url http://jenkins-srv.clockhouse:8888/
+--trusted-host jenkins-srv.clockhouse
 pytest
 pytest-cov
 pytest-logbook
@@ -6,3 +8,4 @@ mock
 pylint==1.5.4
 astroid==1.4.4
 invoke
+pylint-abilisoft

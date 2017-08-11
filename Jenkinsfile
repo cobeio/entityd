@@ -44,13 +44,6 @@ pipeline {
                             entityd_image = docker.build(entityd_tag, '-f entityd.Dockerfile .')
                             entityd_image_id = entityd_image.id
 
-                            // A bit of a hack we get this private cobe code here in jenkins to save passing
-                            // security credentials into the docker file
-                            checkout (changelog: false, poll: false, scm: [$class: 'MercurialSCM',
-                                credentialsId: 'bb447d46-4a82-4614-a8d3-52822ca66ea0',
-                                source: 'ssh://hg@bitbucket.org/abilisoft/pylint-abilisoft',
-                                subdir: 'pylint-abilisoft'])
-
                             entityd_test_image = docker.build(entityd_test_tag, "-f entityd-test.Dockerfile .")
                             entityd_test_image_id = entityd_test_image.id
 

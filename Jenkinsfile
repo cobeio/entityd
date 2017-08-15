@@ -90,10 +90,12 @@ pipeline {
                             script {
                                 runInvoke(entityd_test_image_id, "py.test",
                                     'Running unit tests', '',
-                                    'jenkins-pytest'){ String container_id ->
+                                    'jenkins-pytest', 20, true){ String container_id ->
                                         sh "docker cp ${container_id}:/entityd/results results"
-                                        junit "results/test_results.xml"
-                                        step([$class: 'CoberturaPublisher', coberturaReportFile: 'results/coverage.xml'])
+                                        if (fileExists('results/test_results.xml')) {
+                                            junit "results/test_results.xml"
+                                            step([$class: 'CoberturaPublisher', coberturaReportFile: 'results/coverage.xml'])
+                                        }
                                     }
                             }
                         }

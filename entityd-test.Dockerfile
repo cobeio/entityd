@@ -16,9 +16,6 @@ RUN apt-get -y install mercurial \
     && apt-get -y remove mercurial \
     && apt-get -y autoremove --purge
 
-COPY /pylint-abilisoft /pylint_abilisoft
-RUN /opt/entityd/bin/pip3 install -e /pylint_abilisoft
-
 ARG VERSION=0.21.0
 LABEL entityd=${VERSION} \
     image=v1

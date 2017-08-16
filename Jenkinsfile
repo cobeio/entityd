@@ -4,6 +4,13 @@
 pipeline {
     agent any
 
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+        lock('entityd-docker-images')
+        timeout(30)
+    }
+
     environment {
         entityd_image_id = ""
         entityd_test_image_id = ""
@@ -16,15 +23,15 @@ pipeline {
                 // If we have a change_id then this is a pull request, otherwise it's a change to the main
                 // repo and the image should be stored in docker
                 script {
-                    entityd_tag = "${MASTER_DOCKER_REGISTRY}/entityd:${BUILD_TAG}".toLowerCase()
-                    entityd_test_tag = "${MASTER_DOCKER_REGISTRY}/entityd-test:${BUILD_TAG}".toLowerCase()
-                    kubectl_tag = "${MASTER_DOCKER_REGISTRY}/kubectl-entityd:${BUILD_TAG}".toLowerCase()
+                    entityd_tag = "${MASTER_DOCKER_REGISTRY}/entityd:latest".toLowerCase()
+                    entityd_test_tag = "${MASTER_DOCKER_REGISTRY}/entityd-test:latest".toLowerCase()
+                    kubectl_tag = "${MASTER_DOCKER_REGISTRY}/kubectl-entityd:latest".toLowerCase()
                 }
 
                 node('docker') {
                     // Ensure the node has the latest code
                     cleanWs()
-                    checkout scm
+                    checkout changelog:false, scm: scm
                     script {
                         build_key = 'building'
                         build_desc = 'Building docker images'
@@ -36,13 +43,6 @@ pipeline {
                         try {
                             entityd_image = docker.build(entityd_tag, '-f entityd.Dockerfile .')
                             entityd_image_id = entityd_image.id
-
-                            // A bit of a hack we get this private cobe code here in jenkins to save passing
-                            // security credentials into the docker file
-                            checkout (changelog: false, poll: false, scm: [$class: 'MercurialSCM',
-                                credentialsId: 'bb447d46-4a82-4614-a8d3-52822ca66ea0',
-                                source: 'ssh://hg@bitbucket.org/abilisoft/pylint-abilisoft',
-                                subdir: 'pylint-abilisoft'])
 
                             entityd_test_image = docker.build(entityd_test_tag, "-f entityd-test.Dockerfile .")
                             entityd_test_image_id = entityd_test_image.id
@@ -66,6 +66,7 @@ pipeline {
                                 buildKey: build_key,
                                 buildName: build_key,
                                 buildDescription: build_desc)
+                            echo "Caught: ${error}"
                             throw error
                         }
 
@@ -79,35 +80,43 @@ pipeline {
         }
         stage("Test"){
             steps{
-                node('docker'){
-                    // Ensure the node has the latest code
-                    cleanWs()
-                    checkout scm
-                    script {
+                parallel (
+                    "Unit Tests": {
+                        node('docker'){
+                            // Ensure the node has the latest code
+                            cleanWs()
+                            checkout changelog:false, scm: scm
 
-                        runInvoke(entityd_test_image_id, "py.test",
-                            'Running unit tests', '',
-                            'jenkins-pytest'){ String container_id ->
-                                sh "docker cp ${container_id}:/entityd/results results"
-                                junit "results/test_results.xml"
-                                step([$class: 'CoberturaPublisher', coberturaReportFile: 'results/coverage.xml'])
+                            script {
+                                runInvoke(entityd_test_image_id, "py.test",
+                                    'Running unit tests', '',
+                                    'jenkins-pytest', 5, true){ String container_id ->
+                                        sh "docker cp ${container_id}:/entityd/results results"
+                                        if (fileExists('results/test_results.xml')) {
+                                            junit "results/test_results.xml"
+                                            step([$class: 'CoberturaPublisher', coberturaReportFile: 'results/coverage.xml'])
+                                        }
+                                    }
                             }
-                    }
-                }
+                        }
+                    },
 
-                node('docker'){
-                    // Ensure the node has the latest code
-                    cleanWs()
-                    checkout scm
+                    "Linting Tests": {
+                        node('docker'){
+                            // Ensure the node has the latest code
+                            cleanWs()
+                            checkout changelog:false, scm: scm
 
-                    script {
-                        runTestSteps(entityd_test_image_id, "pylint", 'Running linting tests'){
-                                pylint = sh(script:'/opt/entityd/bin/invoke pylint', returnStatus: true)
-                                warnings parserConfigurations: [[parserName: 'PyLint', pattern: 'results/pylint.log']]
-                                return pylint
+                            script {
+                                runTestSteps(entityd_test_image_id, "pylint", 'Running linting tests'){
+                                        pylint = sh(script:'/opt/entityd/bin/invoke pylint', returnStatus: true)
+                                        warnings parserConfigurations: [[parserName: 'PyLint', pattern: 'results/pylint.log']]
+                                        return pylint
+                                    }
                             }
+                        }
                     }
-                }
+                )
             }
         }
 

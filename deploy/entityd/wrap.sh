@@ -10,7 +10,7 @@ do_curl() {
     curl -sS --output /dev/null "$@" || :
 }
 
-BEACON_SCOPE="$COBE_TOPOLOGY_INSTANCE"
+BEACON_SCOPE="$BEACON_SCOPE"
 if [ -z "$BEACON_SCOPE" ]; then
     BEACON_SCOPE=$(uuid -v1)
 fi

@@ -25,8 +25,8 @@ WORKDIR /entityd
 RUN /opt/entityd/bin/pip3 install -e .
 
 ENV PATH $PATH:/opt/entityd/bin
-RUN apt-get install curl
-RUN apt-get install uuid
+RUN apt-get install -y curl
+RUN apt-get install -y uuid
 COPY deploy/entityd/wrap.sh /usr/local/bin/wrap.sh
 ENTRYPOINT ["/usr/local/bin/wrap.sh"]
 CMD ["--help"]

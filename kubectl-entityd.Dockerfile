@@ -8,10 +8,11 @@ ENV KUBE_SRC_URL https://dl.k8s.io/${KUBE_VERSION}/kubernetes-client-linux-amd64
 RUN mkdir -p /usr/local/src \
     && wget -qO /usr/local/src/kubernetes.tar.gz $KUBE_SRC_URL \
     && cd /usr/local/src \
-    && tar -xf kubernetes.tar.gz \
-    && cd - \
-    && cp /usr/local/src/kubernetes/client/bin/kubectl /usr/local/bin/ \
-    && rm -rf /usr/local/src/
+    && tar -xf kubernetes.tar.gz
+
+FROM debian:8.5
+COPY --from=0 /usr/local/src/kubernetes/client/bin/kubectl /usr/local/bin/
+
 EXPOSE 8001
 ENTRYPOINT ["/usr/local/bin/kubectl"]
 CMD ["proxy", "--port=8001"]

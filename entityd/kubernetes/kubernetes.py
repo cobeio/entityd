@@ -21,7 +21,7 @@ log = logbook.Logger(__name__)
 _LOGGED_K8S_UNREACHABLE = False
 _CLUSTER_UEID = None
 ENTITIES_PROVIDED = {
-    'Container': 'generate_containers',
+    'Kubernetes:Container': 'generate_containers',
     'Kubernetes:Namespace': 'generate_namespaces',
     'Kubernetes:Pod': 'generate_pods',
 }
@@ -42,7 +42,7 @@ class Metric:
     :param tuple path: a sequence of object keys that will be used to
         traverse a cAdvisor JSON response to find the metric value. E.g.
         a path of ``('A', 'B')`` is effectively ``response['A']['B']``.
-    :param frozenset traits: a set of string traits to set for the metric's
+    :param Set[str] traits: a set of string traits to set for the metric's
         attribute.
     """
 

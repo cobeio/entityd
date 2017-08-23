@@ -309,7 +309,7 @@ class ProcessEntity:
 
         :returns: A :class:`cobe.UEID` for the container.
         """
-        update = entityd.EntityUpdate('Container')
+        update = entityd.EntityUpdate('Kubernetes:Container')
         update.attrs.set(
             'id', 'docker://' + container_id, traits={'entity:id'})
         return update.ueid

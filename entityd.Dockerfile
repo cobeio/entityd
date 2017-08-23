@@ -1,7 +1,6 @@
 FROM debian:8.5
 RUN apt-get -y update \
-    && apt-get -y upgrade \
-    && apt-get -y install python3-pip libffi-dev libyaml-dev libzmq3-dev \
+    && apt-get -y install python3 python3-pip \
     && apt-get -y autoremove --purge
 
 RUN pip3 install virtualenv

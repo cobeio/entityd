@@ -26,6 +26,7 @@ RUN /opt/cobe-agent/bin/pip3 install -e src/
 ENV PATH $PATH:/opt/cobe-agent/bin
 RUN apk add curl
 # RUN apk add uuid
-COPY deploy/entityd/wrap.sh /usr/local/bin/wrap.sh
-ENTRYPOINT ["/usr/local/bin/wrap.sh"]
+RUN mkdir /opt/entityd/
+RUN ln -s /opt/cobe-agent/src/cobe-agent.sh /opt/cobe-agent/bin/
+ENTRYPOINT ["/opt/cobe-agent/bin/cobe-agent.sh"]
 CMD ["--help"]

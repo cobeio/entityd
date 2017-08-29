@@ -22,7 +22,6 @@ BEACON_ID=$(uuid 4)
 BEACON="A:$BEACON_SCOPE:$BEACON_ID"
 BEACON_URL="https://beacon.cobe.io/$BEACON"
 echo "BEACON: $BEACON_URL"
-exit
 entityd "$@" &
 AGENT_PID=$!
 trap "kill $AGENT_PID" INT TERM EXIT

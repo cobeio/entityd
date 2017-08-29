@@ -23,6 +23,7 @@ RUN /opt/cobe-agent/bin/pip3 install -e src/
 FROM python:3.4-alpine3.4
 COPY --from=0 /opt/cobe-agent/ /opt/cobe-agent/
 ENV PATH $PATH:/opt/cobe-agent/bin
+RUN apk add --no-cache libzmq
 RUN apk add --no-cache curl
 # RUN apk add uuid
 # Legacy agent location used for API keys.

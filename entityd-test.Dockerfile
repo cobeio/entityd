@@ -31,6 +31,5 @@ RUN adduser -D -s /bin/bash user \
 USER user
 WORKDIR /entityd
 ENV PATH $PATH:/opt/entityd/bin
-RUN /opt/entityd/bin/invoke pytest
 ENTRYPOINT ["/opt/entityd/bin/invoke"]
 CMD ["--help"]

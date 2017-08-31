@@ -17,15 +17,20 @@ class ReplicaSetEntity(entityd.kubernetes.BasePlugin):
 
     def find_entities(self):
         """Find Kubernetes Replica Set entities."""
+        parented_rs = set()
+        for deployment in self.cluster.deployments:
+            parented_rs.update(
+                self.find_deployment_rs_children(
+                    deployment, self.cluster.replicasets.api_path))
         try:
             for resource in self.cluster.replicasets:
-                yield self.create_entity(resource)
+                yield self.create_entity(resource, parented_rs)
         except requests.ConnectionError:
             self.log_api_server_unreachable()
         else:
             self.logged_k8s_unreachable = False
 
-    def create_entity(self, resource):
+    def create_entity(self, resource, parented_rs):
         """Create an entity representing a Kubernetes Replica Set.
 
         If the replica set is managed by a deployment, then the created
@@ -34,6 +39,9 @@ class ReplicaSetEntity(entityd.kubernetes.BasePlugin):
 
         :param resource: kube replica set item.
         :type resource: kube._replicaset.ReplicaSetItem
+        :param parented_rs: set of replicasets' UEIDs which have
+            deployments as parents.
+        :type parented_rs: set of cobe.UEID
         """
         pods = self.find_resource_pod_children(
             resource, self.cluster.pods.api_path)
@@ -55,11 +63,7 @@ class ReplicaSetEntity(entityd.kubernetes.BasePlugin):
             update.attrs.set('kubernetes:replicas-desired', spec['replicas'])
         except KeyError:
             update.attrs.delete('kubernetes:replicas-desired')
-        for deployment in self.cluster.deployments:
-            possible_rs = self.find_deployment_rs_children(
-                deployment, self.cluster.replicasets.api_path)
-            if update.ueid in possible_rs:
-                update.parents.discard(
-                    self.create_namespace_ueid(resource.meta.namespace))
-                break
+        if update.ueid in parented_rs:
+            update.parents.discard(
+                self.create_namespace_ueid(resource.meta.namespace))
         return update

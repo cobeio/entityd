@@ -1,38 +1,35 @@
-FROM debian:8.5
-RUN apt-get -y update \
-    && apt-get -y upgrade \
-    && apt-get -y install python3-pip libffi-dev libyaml-dev libzmq3-dev \
-    && apt-get -y autoremove --purge
-
+FROM python:3.4-alpine3.4
+RUN apk update
+RUN apk add build-base
+RUN apk add libffi-dev
+RUN apk add yaml-dev
+RUN apk add zeromq-dev
+RUN apk add mercurial
 RUN pip3 install virtualenv
-RUN virtualenv /opt/entityd -p python3.4
-
-# Work around docker always skipping the cache and running pip each build.
-# This way it will only run pip install if the requirements change
+RUN virtualenv /opt/entityd/ -p python3.4
 COPY ./requirements.txt /entityd/requirements.txt
 COPY ./test_requirements.txt /entityd/test_requirements.txt
-RUN apt-get -y install mercurial \
-    && /opt/entityd/bin/pip3 install -r /entityd/test_requirements.txt \
-    && apt-get -y remove mercurial \
-    && apt-get -y autoremove --purge
-
+RUN /opt/entityd/bin/pip3 install -r /entityd/test_requirements.txt
 ARG VERSION=0.21.0
 LABEL entityd=${VERSION} \
     image=v1
-
 COPY ./ /entityd
 WORKDIR /entityd
 RUN /opt/entityd/bin/pip install -e .
 
-COPY deploy/entityd/wrap.sh /usr/local/bin/wrap.sh
-
+# Final image; only test-time dependencies.
+FROM python:3.4-alpine3.4
+COPY --from=0 /entityd/ /entityd/
+COPY --from=0 /opt/entityd/ /opt/entityd/
+RUN apk add --no-cache bash
+RUN apk add --no-cache libzmq
 ## The tests assume the user doesn't have root privledges so we run
 ## as a standard user
-RUN useradd -s /bin/bash user \
+RUN adduser -D -s /bin/bash user \
     && chown -R user:user /entityd \
     && chown -R user:user /opt/entityd
-
 USER user
-
+WORKDIR /entityd
+ENV PATH $PATH:/opt/entityd/bin
 ENTRYPOINT ["/opt/entityd/bin/invoke"]
 CMD ["--help"]

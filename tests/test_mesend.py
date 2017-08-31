@@ -99,10 +99,15 @@ def test_option_default():
     args = parser.parse_args([])
     assert args.dest == 'tcp://127.0.0.1:25010'
     assert args.stream_write is None
-
+    assert args.key == \
+        act.fsloc.sysconfdir.joinpath('entityd', 'keys', 'entityd.key_secret')
+    assert args.key_server == \
+        act.fsloc.sysconfdir.joinpath('entityd', 'keys', 'modeld.key')
 
 def test_addoption(tmpdir):
     tmpdir = pathlib.Path(str(tmpdir))
+    key_1 = tmpdir / 'key_1'
+    key_2 = tmpdir / 'key_2'
     parser = argparse.ArgumentParser()
     entityd.mesend.MonitoredEntitySender().entityd_addoption(parser)
     args = parser.parse_args([
@@ -110,9 +115,15 @@ def test_addoption(tmpdir):
         'tcp://192.168.0.1:7890',
         '--stream-write',
         str(tmpdir),
+        '--key',
+        str(key_1),
+        '--key-server',
+        str(key_2),
     ])
     assert args.dest == 'tcp://192.168.0.1:7890'
     assert args.stream_write == tmpdir
+    assert args.key == key_1
+    assert args.key_server == key_2
 
 
 @pytest.mark.parametrize('optimised', [True, False])

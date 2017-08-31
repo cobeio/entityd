@@ -131,7 +131,35 @@ def hookrec(request, pm):
     return rec
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture
+def certificate_directory(tmpdir):
+    directory = pathlib.Path(str(tmpdir))
+    zmq.auth.create_certificates(str(directory), 'modeld')
+    zmq.auth.create_certificates(str(directory), 'entityd')
+    return directory
+
+
+@pytest.fixture
+def certificate_server_public(certificate_directory):
+    return certificate_directory / 'modeld.key'
+
+
+@pytest.fixture
+def certificate_server_private(certificate_directory):
+    return certificate_directory / 'modeld.key_secret'
+
+
+@pytest.fixture
+def certificate_client_public(certificate_directory):
+    return certificate_directory / 'entityd.key'
+
+
+@pytest.fixture
+def certificate_client_private(certificate_directory):
+    return certificate_directory / 'entityd.key_secret'
+
+
+@pytest.fixture
 def certificates(request):
     """Generate auth certificates that can be used for testing.
 

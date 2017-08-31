@@ -23,6 +23,11 @@ log = logbook.Logger(__name__)
 class MonitoredEntitySender:  # pylint: disable=too-many-instance-attributes
     """Plugin to send entities to modeld."""
 
+    _DEFAULT_KEY_CLIENT = \
+        act.fsloc.sysconfdir.joinpath('entityd', 'keys', 'entityd.key_secret')
+    _DEFAULT_KEY_SERVER = \
+        act.fsloc.sysconfdir.joinpath('entityd', 'keys', 'modeld.key')
+
     def __init__(self):
         self.context = None
         self.session = None
@@ -45,29 +50,43 @@ class MonitoredEntitySender:  # pylint: disable=too-many-instance-attributes
         if not self._socket:
             log.debug("Creating new socket to {}",
                       self.session.config.args.dest)
-            keydir = self.session.config.keydir
-            modeld_public, _ = zmq.auth.load_certificate(
-                str(keydir.joinpath('modeld.key')))
-            entityd_public, entityd_secret = zmq.auth.load_certificate(
-                str(keydir.joinpath('entityd.key_secret')))
+            log.debug('Using client key: {}', self.session.config.args.key)
+            key_server, _ = zmq.auth.load_certificate(
+                str(self.session.config.args.key_server))
+            log.debug(
+                'Using server key: {}', self.session.config.args.key_server)
+            key_public, key_private = zmq.auth.load_certificate(
+                str(self.session.config.args.key))
             self._socket = self.context.socket(zmq.PUSH)
             self._socket.SNDHWM = 500
             self._socket.LINGER = 0
-            self._socket.CURVE_PUBLICKEY = entityd_public
-            self._socket.CURVE_SECRETKEY = entityd_secret
-            self._socket.CURVE_SERVERKEY = modeld_public
+            self._socket.CURVE_PUBLICKEY = key_public
+            self._socket.CURVE_SECRETKEY = key_private
+            self._socket.CURVE_SERVERKEY = key_server
             self._socket.connect(self.session.config.args.dest)
         return self._socket
 
-    @staticmethod
     @entityd.pm.hookimpl
-    def entityd_addoption(parser):
+    def entityd_addoption(cls, parser):
         """Add the required options to the command line."""
         parser.add_argument(
             '--dest',                         # XXX choose a better name
             default='tcp://127.0.0.1:25010',  # XXX should not have a default
             type=str,
             help='ZeroMQ address of modeld destination.',
+        )
+        parser.add_argument(
+            '--key',
+            type=pathlib.Path,
+            default=cls._DEFAULT_KEY_CLIENT,
+            help=('Public-private key pair used to encrypt '
+                  'communication with the configured receiver.'),
+        )
+        parser.add_argument(
+            '--key-server',
+            type=pathlib.Path,
+            default=cls._DEFAULT_KEY_SERVER,
+            help='Public key used to identify the configured receiver.',
         )
         parser.add_argument(
             '--stream-write',
@@ -87,12 +106,6 @@ class MonitoredEntitySender:  # pylint: disable=too-many-instance-attributes
                   'using optimised Streaming API format. '
                   'Otherwise this option is ignored.'),
         )
-
-    @staticmethod
-    @entityd.pm.hookimpl
-    def entityd_configure(config):
-        """Add the key directory to the config."""
-        config.keydir = act.fsloc.sysconfdir.joinpath('entityd', 'keys')
 
     @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):

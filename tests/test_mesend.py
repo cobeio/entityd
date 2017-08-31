@@ -16,7 +16,7 @@ import entityd
 import entityd.mesend
 
 
-def get_receiver(endpoint, request, keydir):
+def get_receiver(endpoint, request, key, key_public):
     # Create a receiver socket, initialise it with default options and
     # authentication if a key directory has been provided. Install finalizers
     # to clean everything up at the end then wait for the socket to be fully
@@ -24,20 +24,17 @@ def get_receiver(endpoint, request, keydir):
     context = zmq.Context()
     sock = context.socket(zmq.PULL)
     sock.LINGER = 300
-    if keydir:
-        server_public, server_secret = zmq.auth.load_certificate(
-            keydir.join('modeld.key_secret').strpath)
-        auth = zmq.auth.thread.ThreadAuthenticator(context)
-        auth.start()
-        auth.configure_curve(domain='*', location=keydir.strpath)
-        sock.CURVE_PUBLICKEY = server_public
-        sock.CURVE_SECRETKEY = server_secret
-        sock.CURVE_SERVER = True
+    server_public, server_secret = zmq.auth.load_certificate(str(key))
+    auth = zmq.auth.thread.ThreadAuthenticator(context)
+    auth.start()
+    auth.configure_curve(domain='*', location=str(key_public.parent))
+    sock.CURVE_PUBLICKEY = server_public
+    sock.CURVE_SECRETKEY = server_secret
+    sock.CURVE_SERVER = True
 
     # Must call sock.close first, else context.term will block.
     def term():
-        if keydir:
-            auth.stop()
+        auth.stop()
         sock.close(linger=0)
         context.term()
     request.addfinalizer(term)
@@ -52,16 +49,21 @@ def get_receiver(endpoint, request, keydir):
 
 
 @pytest.fixture
-def receiver(request, certificates):
-    keydir = certificates.join('modeld', 'keys')
-    return get_receiver('tcp://*:*', request, keydir)
+def receiver(request, certificate_server_private, certificate_client_public):
+    return get_receiver(
+        'tcp://*:*',
+        request,
+        certificate_server_private,
+        certificate_client_public,
+    )
 
 
-def get_sender(endpoint, keydir):
+def get_sender(endpoint, certificate_client, certificate_server):
     session = pytest.Mock()
     sender = entityd.mesend.MonitoredEntitySender()
     session.config.args.dest = endpoint
-    session.config.keydir = pathlib.Path(str(keydir))
+    session.config.args.key = certificate_client
+    session.config.args.key_server = certificate_server
     session.config.args.stream_optimise = False
     session.config.args.stream_optimise_frequency = 1
     sender.entityd_sessionstart(session)
@@ -69,16 +71,26 @@ def get_sender(endpoint, keydir):
 
 
 @pytest.fixture
-def sender(certificates):
-    keydir = certificates.join('entityd', 'keys')
-    return get_sender('tcp://127.0.0.1:25010', keydir)
+def sender(certificate_client_private, certificate_server_public):
+    return get_sender(
+        'tcp://127.0.0.1:25010',
+        certificate_client_private,
+        certificate_server_public,
+    )
 
 
 @pytest.fixture
-def sender_receiver(certificates, receiver):
+def sender_receiver(
+        receiver, certificate_client_private, certificate_server_public):
     """Get an ME Sender with a matched receiving socket with random port."""
-    keydir = certificates.join('entityd', 'keys')
-    return get_sender(receiver.LAST_ENDPOINT, keydir), receiver
+    return (
+        get_sender(
+            receiver.LAST_ENDPOINT,
+            certificate_client_private,
+            certificate_server_public,
+        ),
+        receiver,
+    )
 
 
 def test_option_default():
@@ -101,11 +113,6 @@ def test_addoption(tmpdir):
     ])
     assert args.dest == 'tcp://192.168.0.1:7890'
     assert args.stream_write == tmpdir
-
-
-def test_configure(sender, config):
-    sender.entityd_configure(config)
-    assert config.keydir == act.fsloc.sysconfdir.joinpath('entityd', 'keys')
 
 
 @pytest.mark.parametrize('optimised', [True, False])
@@ -210,16 +217,10 @@ def test_send_label_unset(sender_receiver, deleted):
     assert 'label' not in message
 
 
-def test_wrong_server_certificate(sender_receiver, request, certificates):
-    keypath = certificates.join('entityd/keys')
-    keypath.join('modeld.key').rename(keypath.join('modeld.bkp'))
-    keypath.join('entityd.key').rename(keypath.join('modeld.key'))
-
-    def fin():
-        keypath.join('modeld.key').rename(keypath.join('entityd.key'))
-        keypath.join('modeld.bkp').rename(keypath.join('modeld.key'))
-    request.addfinalizer(fin)
-
+def test_wrong_server_certificate(sender_receiver, request,
+                                  certificate_client_public,
+                                  certificate_server_public):
+    certificate_client_public.rename(certificate_server_public)
     sender, receiver = sender_receiver
     entity = entityd.EntityUpdate('MeType')
     entity.label = 'entity label'
@@ -228,30 +229,21 @@ def test_wrong_server_certificate(sender_receiver, request, certificates):
     assert receiver.poll(100) == 0
 
 
-def test_unknown_client(request, certificates):
-    keypath = certificates.join('modeld/keys')
-    keypath.join('entityd.key').rename(keypath.join('entityd.bkp'))
-
-    def fin():
-        keypath.join('entityd.bkp').rename(keypath.join('entityd.key'))
-    request.addfinalizer(fin)
-
-    receiver = get_receiver('tcp://*:*', request, keypath)
+def test_unknown_client(request,
+                        certificate_client_public, certificate_client_private,
+                        certificate_server_public, certificate_server_private):
+    certificate_client_public.unlink()
+    receiver = get_receiver(
+        'tcp://*:*',
+        request,
+        certificate_server_private,
+        certificate_client_public,
+    )
     sender = get_sender(
         receiver.LAST_ENDPOINT,
-        pathlib.Path(str(certificates.join('entityd/keys')))
-        )
-    entity = entityd.EntityUpdate('MeType')
-    entity.label = 'entity label'
-    sender.entityd_send_entity(entity)
-    assert sender._socket is not None
-    assert receiver.poll(100) == 0
-
-
-def test_no_auth(request, certificates):
-    receiver = get_receiver('tcp://*:*', request, keydir=None)
-    keydir = certificates.join('entityd', 'keys')
-    sender = get_sender(receiver.LAST_ENDPOINT, keydir)
+        certificate_client_private,
+        certificate_server_public,
+    )
     entity = entityd.EntityUpdate('MeType')
     entity.label = 'entity label'
     sender.entityd_send_entity(entity)
@@ -300,10 +292,11 @@ class TestStreamWrite:
         return path
 
     @pytest.yield_fixture
-    def sender(self, certificates, stream_path):
+    def sender(self, certificate_client_private,
+               certificate_server_public, stream_path):
         session = pytest.Mock()
-        session.config.keydir = pathlib.Path(
-            str(certificates.join('entityd', 'keys')))
+        session.config.args.key = certificate_client_private
+        session.config.args.key_server = certificate_server_public
         session.config.args.dest = 'tcp://127.0.0.1:25010'
         session.config.args.stream_write = stream_path
         session.config.args.stream_optimise = False

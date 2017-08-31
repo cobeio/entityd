@@ -86,7 +86,7 @@ def debian_image():
 @pytest.yield_fixture(scope='module')
 def container(debian_image):
     """Run a container."""
-    docker_client = docker.Client(base_url='unix://var/run/docker.sock')
+    docker_client = docker.APIClient(base_url='unix://var/run/docker.sock')
     try:
         container = docker_client.create_container(
             image=debian_image,
@@ -106,8 +106,8 @@ def container(debian_image):
 def container_entities(procent, session, container):
     """Give all process entities and container id/pid if container running."""
     container_top_pid, container_id = container
-    update = entityd.EntityUpdate('Kubernetes:Container')
-    update.attrs.set('id', 'docker://' + container_id, traits={'entity:id'})
+    update = entityd.EntityUpdate('Docker:Container')
+    update.attrs.set('id', container_id, traits={'entity:id'})
     container_ueid = update.ueid
     procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', None)
@@ -144,7 +144,7 @@ def syskit_user_error(monkeypatch):
 @pytest.fixture
 def no_docker_client(monkeypatch):
     """Mock out docker Client to test no docker client being available."""
-    monkeypatch.setattr(docker, 'Client',
+    monkeypatch.setattr(docker, 'DockerClient',
                         pytest.Mock(side_effect=docker.errors.DockerException))
 
 

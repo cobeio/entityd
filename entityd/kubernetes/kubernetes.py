@@ -15,7 +15,7 @@ import requests
 
 import entityd.kubernetes
 import entityd.pm
-
+from entityd.docker.docker import DockerContainer
 
 log = logbook.Logger(__name__)
 _LOGGED_K8S_UNREACHABLE = False
@@ -406,6 +406,10 @@ def container_update(container, pod, update):
     else:
         for attribute in ('exit-code', 'signal', 'message', 'finished-at'):
             update.attrs.delete('state:' + attribute)
+
+    docker_id = container.id[len('docker://'):]
+    update.children.add(DockerContainer.get_ueid(docker_id))
+
     container_resources(container, pod, update)
 
 

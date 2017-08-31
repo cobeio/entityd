@@ -9,5 +9,26 @@ infrastructure and perform alerting and reporting on this..
 
 # Include EntityUpdate in entityd namespace until entityd_namespace is
 # implemented.
+from syskit._process import Process
+
 from . import entityupdate
 EntityUpdate = entityupdate.EntityUpdate
+
+
+
+from mock import patch, MagicMock
+
+
+class Bob:
+    def __init__(self, num):
+        self.num = num
+
+def test_bob():
+    with patch('entityd.Process') as bobby:
+        bobby.side_effect = [MagicMock(num=2), MagicMock(num=3)]
+
+        bob = Process(1)
+        assert bob.num == 2
+
+        bob = Process(5)
+        assert bob.num == 3

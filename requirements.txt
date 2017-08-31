@@ -7,4 +7,4 @@ requests>=2.11.1
 python-cobe
 pyyaml
 kube
-docker-py
+docker

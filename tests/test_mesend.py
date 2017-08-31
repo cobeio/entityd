@@ -63,7 +63,7 @@ def get_sender(endpoint, certificate_client, certificate_server):
     sender = entityd.mesend.MonitoredEntitySender()
     session.config.args.dest = endpoint
     session.config.args.key = certificate_client
-    session.config.args.key_server = certificate_server
+    session.config.args.key_receiver = certificate_server
     session.config.args.stream_optimise = False
     session.config.args.stream_optimise_frequency = 1
     sender.entityd_sessionstart(session)
@@ -101,7 +101,7 @@ def test_option_default():
     assert args.stream_write is None
     assert args.key == \
         act.fsloc.sysconfdir.joinpath('entityd', 'keys', 'entityd.key_secret')
-    assert args.key_server == \
+    assert args.key_receiver == \
         act.fsloc.sysconfdir.joinpath('entityd', 'keys', 'modeld.key')
 
 def test_addoption(tmpdir):
@@ -117,13 +117,13 @@ def test_addoption(tmpdir):
         str(tmpdir),
         '--key',
         str(key_1),
-        '--key-server',
+        '--key-receiver',
         str(key_2),
     ])
     assert args.dest == 'tcp://192.168.0.1:7890'
     assert args.stream_write == tmpdir
     assert args.key == key_1
-    assert args.key_server == key_2
+    assert args.key_receiver == key_2
 
 
 @pytest.mark.parametrize('optimised', [True, False])
@@ -307,7 +307,7 @@ class TestStreamWrite:
                certificate_server_public, stream_path):
         session = pytest.Mock()
         session.config.args.key = certificate_client_private
-        session.config.args.key_server = certificate_server_public
+        session.config.args.key_receiver = certificate_server_public
         session.config.args.dest = 'tcp://127.0.0.1:25010'
         session.config.args.stream_write = stream_path
         session.config.args.stream_optimise = False

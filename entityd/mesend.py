@@ -51,18 +51,18 @@ class MonitoredEntitySender:  # pylint: disable=too-many-instance-attributes
             log.debug("Creating new socket to {}",
                       self.session.config.args.dest)
             log.debug('Using client key: {}', self.session.config.args.key)
-            key_server, _ = zmq.auth.load_certificate(
-                str(self.session.config.args.key_server))
-            log.debug(
-                'Using server key: {}', self.session.config.args.key_server)
             key_public, key_private = zmq.auth.load_certificate(
                 str(self.session.config.args.key))
+            log.debug(
+                'Using server key: {}', self.session.config.args.key_receiver)
+            key_receiver, _ = zmq.auth.load_certificate(
+                str(self.session.config.args.key_receiver))
             self._socket = self.context.socket(zmq.PUSH)
             self._socket.SNDHWM = 500
             self._socket.LINGER = 0
             self._socket.CURVE_PUBLICKEY = key_public
             self._socket.CURVE_SECRETKEY = key_private
-            self._socket.CURVE_SERVERKEY = key_server
+            self._socket.CURVE_SERVERKEY = key_receiver
             self._socket.connect(self.session.config.args.dest)
         return self._socket
 
@@ -83,7 +83,7 @@ class MonitoredEntitySender:  # pylint: disable=too-many-instance-attributes
                   'communication with the configured receiver.'),
         )
         parser.add_argument(
-            '--key-server',
+            '--key-receiver',
             type=pathlib.Path,
             default=cls._DEFAULT_KEY_SERVER,
             help='Public key used to identify the configured receiver.',

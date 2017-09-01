@@ -9,7 +9,5 @@ infrastructure and perform alerting and reporting on this..
 
 # Include EntityUpdate in entityd namespace until entityd_namespace is
 # implemented.
-from syskit._process import Process
-
 from . import entityupdate
 EntityUpdate = entityupdate.EntityUpdate

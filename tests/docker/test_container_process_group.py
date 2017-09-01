@@ -7,7 +7,6 @@ from mock import Mock, patch, MagicMock
 
 from entityd.docker.docker import (
     DockerContainerProcessGroup,
-    DockerDaemon,
     DockerContainer)
 
 
@@ -80,7 +79,7 @@ def test_get_missed_process():
 
 
 @patch('entityd.docker.docker.DockerClient')
-@patch('entityd.docker.docker.Process', name="help")
+@patch('entityd.docker.docker.Process')
 def test_generate_updates(syskit_process, client, session, running_container, container_process_group):
     client_instance = client.return_value
     client_instance.info.return_value = {'ID': 'foo'}

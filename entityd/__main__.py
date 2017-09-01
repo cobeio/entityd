@@ -40,8 +40,7 @@ BUILTIN_PLUGIN_NAMES = ['entityd.' + n for n in
                          'declentity:DeclarativeEntity',
                          'docker.docker:DockerContainer',
                          'docker.docker:DockerDaemon',
-                         'docker.docker:DockerContainerProcessGroup',
-                         ]]
+                         'docker.docker:DockerContainerProcessGroup',]]
 
 
 log = logbook.Logger('entityd.bootstrap')

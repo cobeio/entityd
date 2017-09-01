@@ -289,8 +289,8 @@ class ProcessEntity:
         """
         if not self._docker_client:
             return {}
-        containerids = {
-            container.id for container in self._docker_client.containers.list()}
+        containerids = {container.id for container in
+                        self._docker_client.containers.list()}
         containers = {}
         for pid in pids:
             try:

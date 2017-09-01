@@ -407,8 +407,9 @@ def container_update(container, pod, update):
         for attribute in ('exit-code', 'signal', 'message', 'finished-at'):
             update.attrs.delete('state:' + attribute)
 
-    docker_id = container.id[len('docker://'):]
-    update.children.add(DockerContainer.get_ueid(docker_id))
+    runtime, container_id = container.id.split('://', 1)
+    if runtime == 'docker':
+        update.children.add(DockerContainer.get_ueid(container_id))
 
     container_resources(container, pod, update)
 

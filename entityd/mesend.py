@@ -29,7 +29,6 @@ class MonitoredEntitySender:  # pylint: disable=too-many-instance-attributes
         self.packed_protocol_version = b'streamapi/5'
         self._socket = None
         self._stream_file = None
-        self._stream_dot_file = None
         self._optimised = False
         self._optimised_cycles = {}  # ueid : count
         self._optimised_cycles_max = 1
@@ -76,11 +75,6 @@ class MonitoredEntitySender:  # pylint: disable=too-many-instance-attributes
             type=pathlib.Path,
         )
         parser.add_argument(
-            '--stream-dot-write',
-            default=None,
-            type=pathlib.Path,
-        )
-        parser.add_argument(
             '--stream-optimise',
             action='store_true',
             help='Use optimised Streaming API format.',
@@ -108,10 +102,6 @@ class MonitoredEntitySender:  # pylint: disable=too-many-instance-attributes
         if self.session.config.args.stream_write:
             self._stream_file = \
                 self.session.config.args.stream_write.open("ab")
-        if self.session.config.args.stream_dot_write:
-            self._stream_dot_file = \
-                self.session.config.args.stream_dot_write.open("w")
-            self._stream_dot_file.write("digraph G {\n")
         self._optimised = self.session.config.args.stream_optimise
         self._optimised_cycles_max = \
             max(1, self.session.config.args.stream_optimise_frequency)
@@ -129,10 +119,6 @@ class MonitoredEntitySender:  # pylint: disable=too-many-instance-attributes
         self.session = None
         if self._stream_file:
             self._stream_file.close()
-        if self._stream_dot_file:
-            self._stream_dot_file.write("}")
-            self._stream_dot_file.close()
-
 
     @entityd.pm.hookimpl
     def entityd_send_entity(self, entity):
@@ -153,9 +139,6 @@ class MonitoredEntitySender:  # pylint: disable=too-many-instance-attributes
         if self._stream_file:
             self._stream_file.write(
                 struct.pack('<I', len(packed_entity)) + packed_entity)
-        if self._stream_dot_file:
-            self._stream_dot_file.write(self.get_dot_string(entity))
-
         try:
             self.socket.send_multipart([self.packed_protocol_version,
                                         packed_entity],
@@ -291,14 +274,4 @@ class MonitoredEntitySender:  # pylint: disable=too-many-instance-attributes
         if not update.exists:
             self._seen_attributes[ueid].clear()
 
-    def get_dot_string(self, entity):
-        if isinstance(entity, entityd.EntityUpdate):
-            entity_def = '"{}" [label="{}\\n{}"];\n'.format(entity.ueid, entity.metype, entity.label)
-            relationships = ""
-            for parent_ueid in entity.parents:
-                relationships += '"{}" -> "{}";\n'.format(parent_ueid, entity.ueid)
-            for child_ueid in entity.children:
-                relationships += '"{}" -> "{}";\n'.format(entity.ueid, child_ueid)
-
-            return entity_def + relationships
 

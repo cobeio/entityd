@@ -25,9 +25,9 @@ def running_container():
         image=image, attrs=attrs)
     container.configure_mock(name="running_container", should_exist=True)
     container.top.return_value = {
-        "Titles": ["CMD", "PID"],
+        "Titles": ["PID"],
         "Processes": [
-            ['foo', '123'], ['bar','456']
+            ['123'], ['456']
         ]
     }
 

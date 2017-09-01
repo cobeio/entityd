@@ -1,9 +1,12 @@
+import logbook
 from docker import DockerClient
 from docker.errors import DockerException
 from syskit._process import Process
 
 import entityd
 from entityd.mixins import HostUEID
+
+log = logbook.Logger(__name__)
 
 
 class Client:
@@ -17,6 +20,7 @@ class Client:
                     base_url='unix://var/run/docker.sock',
                     timeout=5, version='auto')
             except DockerException:
+                log.debug("Docker client not available")
                 cls._client = None
 
         return cls._client
@@ -69,17 +73,21 @@ class DockerContainer:
             update.attrs.set('image:name', container.image.tags)
             update.attrs.set('labels', container.labels)
 
-            update.attrs.set('state:exit-code', attrs['State']['ExitCode'])
-            update.attrs.set('state:error', attrs['State']['Error'])
             update.attrs.set('state:started-at', attrs['State']['StartedAt'],
-                             traits={'chrono:rfc3339'})
-            update.attrs.set('state:finished-at', attrs['State']['FinishedAt'],
                              traits={'chrono:rfc3339'})
 
             if container.status == "exited" or container.status == "dead":
                 update.exists = False
+                update.attrs.set('state:exit-code', attrs['State']['ExitCode'])
+                update.attrs.set('state:error', attrs['State']['Error'])
+                update.attrs.set('state:finished-at',
+                                 attrs['State']['FinishedAt'],
+                                 traits={'chrono:rfc3339'})
             else:
                 update.exists = True
+                update.attrs.set('state:exit-code', None)
+                update.attrs.set('state:error', None)
+                update.attrs.set('state:finished-at', None)
 
             update.parents.add(daemon_ueid)
 
@@ -87,7 +95,7 @@ class DockerContainer:
 
 
 class DockerContainerProcessGroup(HostUEID):
-    name = "Cobe:Group"
+    name = "Group"
 
     @entityd.pm.hookimpl
     def entityd_configure(cls, config):
@@ -141,21 +149,17 @@ class DockerContainerProcessGroup(HostUEID):
                 update.children.add(DockerContainer.get_ueid(container.id))
 
                 top_results = container.top(ps_args="-o pid")
-                pid_index = 0
-                for title in top_results['Titles']:
-                    if title == "PID":
-                        break
-                    pid_index += 1
 
                 added_pids = set()
                 processes = top_results['Processes']
                 for process in processes:
-                    added_pids.add(int(process[pid_index]))
-                    update.children.add(self.get_process_ueid(process[pid_index]))
+                    pid = int(process[0])
+                    added_pids.add(pid)
+                    update.children.add(self.get_process_ueid(pid))
 
                 if processes:
                     for missed_pid in self.get_missed_process_children(
-                            processes[0][pid_index], added_pids):
+                            processes[0][0], added_pids):
                         update.children.add(
                             self.get_process_ueid(missed_pid))
                         added_pids.add(missed_pid)
@@ -193,10 +197,10 @@ class DockerDaemon(HostUEID):
             update = entityd.EntityUpdate(self.name)
             update.label = dd_info['Name']
             update.attrs.set('id', dd_info['ID'], traits={'entity:id'})
-            update.attrs.set('containers', dd_info['Containers'])
-            update.attrs.set('containers-paused', dd_info['ContainersPaused'])
-            update.attrs.set('containers-running', dd_info['ContainersRunning'])
-            update.attrs.set('containers-stopped', dd_info['ContainersStopped'])
+            update.attrs.set('containers:total', dd_info['Containers'])
+            update.attrs.set('containers:paused', dd_info['ContainersPaused'])
+            update.attrs.set('containers:running', dd_info['ContainersRunning'])
+            update.attrs.set('containers:stopped', dd_info['ContainersStopped'])
             update.parents.add(self.host_ueid)
 
             yield update

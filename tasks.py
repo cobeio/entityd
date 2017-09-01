@@ -57,7 +57,7 @@ def jenkins_pytest(ctx):
     """Task jenkins uses to run tests"""
     pytest_args = [
         sys.prefix + '/bin/py.test',
-        '-m "not non_container"',
+        '-v -m "not non_container"',
         '--junitxml=results/test_results.xml',
         '--cov-report term-missing',
         '--cov-report xml:results/coverage.xml',

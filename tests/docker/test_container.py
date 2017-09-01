@@ -49,10 +49,11 @@ def test_find_entities(client, session, docker_container,
 
     docker_container.entityd_configure(session.config)
     entities = docker_container.entityd_find_entity(DockerContainer.name)
+    entities = list(entities)
+    assert len(entities) == 2
 
-    container_index = 0
-    for entity in entities:
-        container = containers[container_index]
+    for entity, container in zip(entities, containers):
+        assert daemon_ueid in entity.parents
         assert entity.exists == container.should_exist
         assert entity.attrs.get('name').value == container.name
         assert entity.attrs.get('id').value == container.id
@@ -60,14 +61,18 @@ def test_find_entities(client, session, docker_container,
         assert entity.attrs.get('labels').value == container.labels
         assert entity.attrs.get('image:id').value == container.image.id
         assert entity.attrs.get('image:name').value == container.image.tags
-        assert entity.attrs.get('state:exit-code').value == \
-            container.attrs['State']['ExitCode']
-        assert entity.attrs.get('state:error').value == \
-            container.attrs['State']['Error']
         assert entity.attrs.get('state:started-at').value == \
             container.attrs['State']['StartedAt']
-        assert entity.attrs.get('state:finished-at').value == \
-            container.attrs['State']['FinishedAt']
-        assert daemon_ueid in entity.parents
+        if entity.exists:
+            assert entity.attrs.get('state:exit-code').value is None
+            assert entity.attrs.get('state:error').value is None
+            assert entity.attrs.get('state:finished-at').value is None
+        else:
+            assert entity.attrs.get('state:exit-code').value == \
+                container.attrs['State']['ExitCode']
+            assert entity.attrs.get('state:error').value == \
+                container.attrs['State']['Error']
+            assert entity.attrs.get('state:finished-at').value == \
+                container.attrs['State']['FinishedAt']
 
-        container_index += 1
+

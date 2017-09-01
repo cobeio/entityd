@@ -10,7 +10,6 @@ def docker_daemon(pm, host_entity_plugin):  # pylint: disable=unused-argument
 
     The plugin will be registered with the PluginManager but no hooks
     will have been called.
-
     """
     dd = DockerDaemon()
     pm.register(dd, 'entityd.docker.docker.DockerDaemon')
@@ -57,15 +56,17 @@ def test_find_entities(client, session, docker_daemon):
     docker_daemon.entityd_sessionstart(session)
     docker_daemon.entityd_configure(session.config)
     entities = docker_daemon.entityd_find_entity(DockerDaemon.name)
+    entities = list(entities)
+    assert len(entities) == 1
 
-    for entity in entities:
-        assert entity.exists == True
-        assert entity.attrs.get('id').value == client_info['ID']
-        assert (entity.attrs.get('containers').value ==
-                client_info['Containers'])
-        assert (entity.attrs.get('containers-paused').value ==
-                client_info['ContainersPaused'])
-        assert (entity.attrs.get('containers-running').value ==
-                client_info['ContainersRunning'])
-        assert (entity.attrs.get('containers-stopped').value ==
-                client_info['ContainersStopped'])
+    entity = entities[0]
+    assert entity.exists == True
+    assert entity.attrs.get('id').value == client_info['ID']
+    assert (entity.attrs.get('containers:total').value ==
+            client_info['Containers'])
+    assert (entity.attrs.get('containers:paused').value ==
+            client_info['ContainersPaused'])
+    assert (entity.attrs.get('containers:running').value ==
+            client_info['ContainersRunning'])
+    assert (entity.attrs.get('containers:stopped').value ==
+            client_info['ContainersStopped'])

@@ -1,7 +1,12 @@
+"""Mixins.
+
+A place for commonly needed Mixins to live
+"""
 import entityd
 
 
 class HostUEID:
+    """Mixin to help get the host UEID"""
 
     def __init__(self):
         self._host_ueid = None
@@ -13,7 +18,7 @@ class HostUEID:
         self.session = session
 
     @property
-    def host_ueid(self):  # pragma: no cover
+    def host_ueid(self):
         """Get and store the host ueid.
 
         :raises LookupError: If a host UEID cannot be found.

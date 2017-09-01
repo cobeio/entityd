@@ -5,8 +5,10 @@ import pytest
 from docker.errors import DockerException
 from mock import Mock, patch, MagicMock
 
-from entityd.docker.docker import DockerContainerProcessGroup, DockerDaemon, \
-    DockerContainer
+from entityd.docker.docker import (
+    DockerContainerProcessGroup,
+    DockerDaemon,
+    DockerContainer)
 
 
 @pytest.fixture
@@ -15,25 +17,25 @@ def container_process_group(pm, host_entity_plugin):  # pylint: disable=unused-a
 
     The plugin will be registered with the PluginManager but no hooks
     will have been called.
-
     """
     dcpg = DockerContainerProcessGroup()
     pm.register(dcpg, 'entityd.docker.docker.DockerContainerProcessGroup')
     return dcpg
 
+@patch('entityd.docker.docker.DockerClient')
+def test_docker_not_available(docker_client):
+    docker_client.side_effect = DockerException
 
-def test_docker_not_available():
-    with patch('entityd.docker.docker.DockerClient') as docker_client:
-        docker_client.side_effect = DockerException
-        group = DockerContainerProcessGroup()
-
-        assert not list(group.entityd_find_entity(group.name))
+    group = DockerContainerProcessGroup()
+    assert not list(group.entityd_find_entity(group.name))
 
 
 def test_attrs_raises_exception():
+    group = DockerContainerProcessGroup()
     with pytest.raises(LookupError):
-        group = DockerContainerProcessGroup()
-        group.entityd_find_entity(DockerContainerProcessGroup.name, attrs="foo")
+        group.entityd_find_entity(
+            DockerContainerProcessGroup.name,
+            attrs="foo")
 
 
 def test_not_provided():
@@ -77,7 +79,6 @@ def test_get_missed_process():
         assert results == {procs[1].pid, procs[2].pid}
 
 
-
 @patch('entityd.docker.docker.DockerClient')
 @patch('entityd.docker.docker.Process', name="help")
 def test_generate_updates(syskit_process, client, session, running_container, container_process_group):
@@ -113,6 +114,8 @@ def test_generate_updates(syskit_process, client, session, running_container, co
     proc3.ueid = container_process_group.get_process_ueid(proc3.pid)
 
     entities = container_process_group.entityd_find_entity(DockerContainerProcessGroup.name)
+    entities = list(entities)
+    assert len(entities) == 1
 
     for entity in entities:
         assert entity.label == running_container.name

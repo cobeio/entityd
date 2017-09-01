@@ -153,8 +153,9 @@ def certificates(request):
 
 
 @pytest.yield_fixture(autouse=True)
-def _check_only_one_thread_present_on_tests_completion():
-    """Ensure at the end of each test that there is only one thread."""
+def _check_same_number_of_threads_present_on_tests_completion():
+    """Ensure at the end of each test that there is the same
+    number of threads running as we started with."""
     starting_thread_count = len(threading.enumerate())
     yield
     assert len(threading.enumerate()) == starting_thread_count

@@ -1,7 +1,7 @@
 -r requirements.txt # install from requirements.txt first
 --extra-index-url http://jenkins-srv.clockhouse:8888/
 --trusted-host jenkins-srv.clockhouse
-pytest==3.2.1
+pytest
 pytest-cov
 pytest-logbook
 mock

@@ -292,13 +292,19 @@ class MonitoredEntitySender:  # pylint: disable=too-many-instance-attributes
             self._seen_attributes[ueid].clear()
 
     def get_dot_string(self, entity):
+        """create a dot notation string for the entity"""
         if isinstance(entity, entityd.EntityUpdate):
-            entity_def = '"{}" [label="{}\\n{}"];\n'.format(entity.ueid, entity.metype, entity.label)
+            entity_def = '"{}" [label="{}\\n{}"];\n'.format(
+                entity.ueid, entity.metype, entity.label)
+
             relationships = ""
             for parent_ueid in entity.parents:
-                relationships += '"{}" -> "{}";\n'.format(parent_ueid, entity.ueid)
+                relationships += '"{}" -> "{}";\n'.format(
+                    parent_ueid, entity.ueid)
+
             for child_ueid in entity.children:
-                relationships += '"{}" -> "{}";\n'.format(entity.ueid, child_ueid)
+                relationships += '"{}" -> "{}";\n'.format(
+                    entity.ueid, child_ueid)
 
             return entity_def + relationships
 

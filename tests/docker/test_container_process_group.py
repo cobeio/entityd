@@ -1,13 +1,15 @@
 import os
 from datetime import datetime
 
+import docker
 import pytest
+import syskit
 from docker.errors import DockerException
 from mock import Mock, patch, MagicMock
 
 from entityd.docker.docker import (
     DockerContainerProcessGroup,
-    DockerContainer)
+    DockerContainer, Client)
 
 
 @pytest.fixture
@@ -21,9 +23,10 @@ def container_process_group(pm, host_entity_plugin):  # pylint: disable=unused-a
     pm.register(dcpg, 'entityd.docker.docker.DockerContainerProcessGroup')
     return dcpg
 
-@patch('entityd.docker.docker.DockerClient')
-def test_docker_not_available(docker_client):
-    docker_client.side_effect = DockerException
+
+def test_docker_not_available( monkeypatch):
+    monkeypatch.setattr(docker, 'DockerClient',
+                        Mock(side_effect=DockerException))
 
     group = DockerContainerProcessGroup()
     assert not list(group.entityd_find_entity(group.name))
@@ -78,39 +81,45 @@ def test_get_missed_process():
         assert results == {procs[1].pid, procs[2].pid}
 
 
-@patch('entityd.docker.docker.DockerClient')
-@patch('entityd.docker.docker.Process')
-def test_generate_updates(syskit_process, client, session, running_container, container_process_group):
-    client_instance = client.return_value
-    client_instance.info.return_value = {'ID': 'foo'}
-
-    proc = MagicMock(name="bob", pid=123)
-    proc.start_time.timestamp.return_value = datetime.utcnow().timestamp()
-
-    proc2 = MagicMock(name="steve", pid=456)
-    proc2.start_time.timestamp.return_value = datetime.utcnow().timestamp()
-
-    proc3 = MagicMock(name="jon", pid=789)
-    proc3.start_time.timestamp.return_value = datetime.utcnow().timestamp()
-
-    proc.children.return_value = iter([proc2])
-    proc2.children.return_value = iter([proc3])
-
-    # We add the three procs to the side_effect twice because we want to
-    # generate the ueid here to make sure they get into the
-    # children of the group
-    syskit_process.side_effect = [proc, proc2, proc3, proc, proc2, proc, proc2, proc3]
+def test_generate_updates(monkeypatch, session, running_container, container_process_group):
 
     containers = [running_container]
 
+    get_client = MagicMock()
+    client_instance = get_client.return_value
+    client_instance.info.return_value = {'ID': 'foo'}
     client_instance.containers.list.return_value = iter(containers)
+    monkeypatch.setattr(Client, "get_client", get_client)
+
+    procs = {}
+    for x in range(5):
+        name = "proc" + str(x)
+        proc = MagicMock(name=name, pid=x)
+        proc.start_time.timestamp.return_value = datetime.utcnow().timestamp()
+        procs[x] = proc
+
+    # 0
+    # ├── 1
+    # │   ├── 2
+    # │   └── 3
+    # └── 4
+
+    procs[0].children.return_value = iter([procs[1], procs[4]])
+    procs[1].children.return_value = iter([procs[2], procs[3]])
+
+    # We monkey patch over the syskit get process to return a
+    # process from our dict
+    def get_proc(pid):
+        return procs[pid]
+
+    monkeypatch.setattr(syskit, "Process", get_proc)
 
     container_process_group.entityd_sessionstart(session)
     container_process_group.entityd_configure(session.config)
 
-    proc.ueid = container_process_group.get_process_ueid(proc.pid)
-    proc2.ueid = container_process_group.get_process_ueid(proc2.pid)
-    proc3.ueid = container_process_group.get_process_ueid(proc3.pid)
+    # Add the ueid to the mocked processes to help with the loop below
+    for proc in procs.values():
+        proc.ueid = container_process_group.get_process_ueid(proc.pid)
 
     entities = container_process_group.entityd_find_entity(DockerContainerProcessGroup.name)
     entities = list(entities)
@@ -123,8 +132,7 @@ def test_generate_updates(syskit_process, client, session, running_container, co
 
         assert entity.attrs.get('ownerUEID').value == container_ueid
         assert container_ueid in entity.children
-        assert proc.ueid in entity.children
-        assert proc2.ueid in entity.children
-        assert proc3.ueid in entity.children
+        for proc in procs.values():
+            assert proc.ueid in entity.children
 
 

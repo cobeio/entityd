@@ -1,8 +1,9 @@
+import docker
 import pytest
 from docker.errors import DockerException
 from mock import patch, MagicMock, Mock
 
-from entityd.docker.docker import DockerContainer, DockerDaemon
+from entityd.docker.docker import DockerContainer, DockerDaemon, Client
 
 
 @pytest.fixture
@@ -36,16 +37,18 @@ def test_not_provided():
     assert dc.entityd_find_entity('foo') is None
 
 
-@patch('entityd.docker.docker.DockerClient')
-def test_find_entities(client, session, docker_container,
+def test_find_entities(monkeypatch, session, docker_container,
                        running_container, finished_container):
-    client_instance = client.return_value
-    client_instance.info.return_value = {'ID': 'foo'}
-    daemon_ueid = DockerDaemon.get_ueid('foo')
 
     containers = [running_container, finished_container]
 
+    get_client = MagicMock()
+    client_instance = get_client.return_value
+    client_instance.info.return_value = {'ID': 'foo'}
     client_instance.containers.list.return_value = iter(containers)
+    monkeypatch.setattr(Client, "get_client", get_client)
+
+    daemon_ueid = DockerDaemon.get_ueid('foo')
 
     docker_container.entityd_configure(session.config)
     entities = docker_container.entityd_find_entity(DockerContainer.name)

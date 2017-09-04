@@ -1,8 +1,9 @@
 import pytest
 from docker.errors import DockerException
-from mock import patch
+from mock import patch, MagicMock
 
-from entityd.docker.docker import DockerDaemon
+from entityd.docker.docker import DockerDaemon, Client
+
 
 @pytest.fixture
 def docker_daemon(pm, host_entity_plugin):  # pylint: disable=unused-argument
@@ -40,8 +41,7 @@ def test_get_ueid():
     assert ueid
 
 
-@patch('entityd.docker.docker.DockerClient')
-def test_find_entities(client, session, docker_daemon):
+def test_find_entities(monkeypatch, session, docker_daemon):
     client_info = {
         'ID': 'foo',
         'Name': 'bar',
@@ -50,8 +50,11 @@ def test_find_entities(client, session, docker_daemon):
         'ContainersRunning': 3,
         'ContainersStopped': 2,
     }
-    client_instance = client.return_value
+
+    get_client = MagicMock()
+    client_instance = get_client.return_value
     client_instance.info.return_value = client_info
+    monkeypatch.setattr(Client, "get_client", get_client)
 
     docker_daemon.entityd_sessionstart(session)
     docker_daemon.entityd_configure(session.config)

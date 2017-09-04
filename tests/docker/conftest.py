@@ -27,7 +27,7 @@ def running_container():
     container.top.return_value = {
         "Titles": ["PID"],
         "Processes": [
-            ['123'], ['456']
+            ['0'], ['1'], ['3']
         ]
     }
 

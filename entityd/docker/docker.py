@@ -173,8 +173,7 @@ class DockerContainerProcessGroup(HostUEID):
             update.attrs.set(
                 'kind', DockerContainer.name, traits={'entity:id'})
             container_ueid = DockerContainer.get_ueid(container.id)
-            update.attrs.set(
-                'ownerUEID', container_ueid, traits={'entity:id'})
+            update.attrs.set('id', str(container_ueid), traits={'entity:id'})
             update.children.add(DockerContainer.get_ueid(container.id))
 
             top_results = container.top(ps_args="-o pid")

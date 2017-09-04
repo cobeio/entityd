@@ -130,7 +130,7 @@ def test_generate_updates(monkeypatch, session, running_container, container_pro
         assert entity.attrs.get('kind').value == DockerContainer.name
         container_ueid = DockerContainer.get_ueid(running_container.id)
 
-        assert entity.attrs.get('ownerUEID').value == container_ueid
+        assert entity.attrs.get('id').value == str(container_ueid)
         assert container_ueid in entity.children
         for proc in procs.values():
             assert proc.ueid in entity.children

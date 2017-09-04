@@ -12,7 +12,6 @@ def docker_container(pm, host_entity_plugin):  # pylint: disable=unused-argument
 
     The plugin will be registered with the PluginManager but no hooks
     will have been called.
-
     """
     dc = DockerContainer()
     pm.register(dc, 'entityd.docker.docker.DockerContainer')

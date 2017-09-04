@@ -273,5 +273,3 @@ class MonitoredEntitySender:  # pylint: disable=too-many-instance-attributes
             update.attrs.clear(attribute_name)
         if not update.exists:
             self._seen_attributes[ueid].clear()
-
-

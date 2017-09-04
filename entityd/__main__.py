@@ -37,7 +37,10 @@ BUILTIN_PLUGIN_NAMES = ['entityd.' + n for n in
                          'replicationcontroller:ReplicationControllerEntity',
                          'kubernetes.daemonset:DaemonSetEntity',
                          'kubernetes.kubernetes',
-                         'declentity:DeclarativeEntity']]
+                         'declentity:DeclarativeEntity',
+                         'docker.docker:DockerContainer',
+                         'docker.docker:DockerDaemon',
+                         'docker.docker:DockerContainerProcessGroup',]]
 
 
 log = logbook.Logger('entityd.bootstrap')
@@ -69,18 +72,18 @@ def main(argv=None, plugins=None):
         try:
             mod = importlib.import_module(modname)
         except Exception:       # pylint: disable=broad-except
-            log.exception('Failed to import plugin module: {}', name)
+            print('Failed to import plugin module: {}'.format(name))
             continue
         if classname:
             try:
                 cls = getattr(mod, classname)
             except AttributeError:
-                log.exception('Failed to get plugin class: {}', name)
+                print('Failed to get plugin class: {}'.format(name))
                 continue
             try:
                 plugin = cls()
             except Exception:  # pylint: disable=broad-except
-                log.exception('Failed to instantiate class: {}', name)
+                print('Failed to instantiate class: {}'.format(name))
                 continue
             name = '.'.join([plugin.__module__, cls.__name__])
         else:
@@ -89,7 +92,7 @@ def main(argv=None, plugins=None):
         try:
             pluginmanager.register(plugin, name=name)
         except Exception:       # pylint: disable=broad-except
-            log.exception('Failed to register plugin: {}', name)
+            print('Failed to register plugin: {}'.format(name))
     return pluginmanager.hooks.entityd_main(
         pluginmanager=pluginmanager,
         argv=argv,

@@ -140,7 +140,7 @@ class ProcessEntity:
         self.cpu_usage_thread = None
         self.cpu_usage_sock = None
         try:
-            self._docker_client = docker.Client(
+            self._docker_client = docker.DockerClient(
                 base_url='unix://var/run/docker.sock',
                 timeout=3, version='auto')
         except docker.errors.DockerException:
@@ -209,6 +209,7 @@ class ProcessEntity:
         entity.attrs.set('starttime', proc.start_time.timestamp(),
                          traits={'entity:id'})
         entity.attrs.set('host', str(self.host_ueid), traits={'entity:id'})
+
         return entity.ueid
 
     def get_parents(self, proc, procs):
@@ -288,8 +289,8 @@ class ProcessEntity:
         """
         if not self._docker_client:
             return {}
-        containerids = {
-            container['Id'] for container in self._docker_client.containers()}
+        containerids = {container.id for container in
+                        self._docker_client.containers.list()}
         containers = {}
         for pid in pids:
             try:
@@ -309,9 +310,9 @@ class ProcessEntity:
 
         :returns: A :class:`cobe.UEID` for the container.
         """
-        update = entityd.EntityUpdate('Container')
+        update = entityd.EntityUpdate('Docker:Container')
         update.attrs.set(
-            'id', 'docker://' + container_id, traits={'entity:id'})
+            'id', container_id, traits={'entity:id'})
         return update.ueid
 
     @staticmethod

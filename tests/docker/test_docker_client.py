@@ -12,10 +12,12 @@ def test_docker_not_available():
         assert Client.client_available() == False
 
 
+@pytest.mark.non_container
 def test_docker_is_available():
     assert Client.client_available()
 
 
+@pytest.mark.non_container
 def test_docker_client():
     client = Client.get_client()
     info = client.info()

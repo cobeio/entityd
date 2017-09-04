@@ -58,9 +58,9 @@ class DockerContainer:
             return self.generate_updates()
 
     @entityd.pm.hookimpl
-    def entityd_configure(cls, config):
+    def entityd_configure(self, config):
         """Register the Process Monitored Entity."""
-        config.addentity(cls.name, 'entityd.docker.docker.DockerContainer')
+        config.addentity(self.name, 'entityd.docker.docker.DockerContainer')
 
     @classmethod
     def get_ueid(cls, container_id):
@@ -115,9 +115,9 @@ class DockerContainerProcessGroup(HostUEID):
     name = "Group"
 
     @entityd.pm.hookimpl
-    def entityd_configure(cls, config):
+    def entityd_configure(self, config):
         """Register the Process Monitored Entity."""
-        config.addentity(cls.name,
+        config.addentity(self.name,
                          'entityd.docker.docker.DockerContainerProcessGroup')
 
     @entityd.pm.hookimpl
@@ -197,25 +197,29 @@ class DockerDaemon(HostUEID):
     name = "Docker:Daemon"
 
     @entityd.pm.hookimpl
-    def entityd_configure(cls, config):
+    def entityd_configure(self, config):
         """Register the Process Monitored Entity."""
-        config.addentity(cls.name, 'entityd.docker.docker.DockerDaemon')
+        config.addentity(self.name, 'entityd.docker.docker.DockerDaemon')
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs=None,
                             include_ondemand=False):  # pylint: disable=unused-argument
+        """Find the docker daemon entity"""
+
         if name == self.name:
             if attrs is not None:
                 raise LookupError('Attribute based filtering not supported')
             return self.generate_updates()
 
     @classmethod
-    def get_ueid(cls, id):
+    def get_ueid(cls, docker_daemon_id):
+        """Create a ueid for a docker daemon"""
         entity = entityd.EntityUpdate(cls.name)
-        entity.attrs.set('id', id, traits={'entity:id'})
+        entity.attrs.set('id', docker_daemon_id, traits={'entity:id'})
         return entity.ueid
 
     def generate_updates(self):
+        """Generates the entity updates for the docker daemon"""
         if Client.client_available():
             client = Client.get_client()
             dd_info = client.info()

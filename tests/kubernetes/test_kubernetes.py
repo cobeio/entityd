@@ -1077,3 +1077,23 @@ class TestContainerMetrics:
         assert not metrics[0].called
         assert not metrics[1].called
         assert not metrics[2].called
+
+
+class Spam():
+    spam = "egg"
+
+def foo(x, bar):
+    bar.spam = "spam" + str(x)
+
+def beans():
+    for x in range(5):
+        bill = yield
+        foo(x, bill)
+
+def test_wierd_yield():
+    generator = beans()
+    print(next(generator))
+    for x in range(5):
+        sausage = Spam()
+        generator.send(sausage)
+        print(sausage.spam)

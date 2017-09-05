@@ -67,7 +67,7 @@ class MonitoredEntitySender:  # pylint: disable=too-many-instance-attributes
         return self._socket
 
     @entityd.pm.hookimpl
-    def entityd_addoption(cls, parser):
+    def entityd_addoption(self, parser):
         """Add the required options to the command line."""
         parser.add_argument(
             '--dest',                         # XXX choose a better name
@@ -78,14 +78,14 @@ class MonitoredEntitySender:  # pylint: disable=too-many-instance-attributes
         parser.add_argument(
             '--key',
             type=pathlib.Path,
-            default=cls._DEFAULT_KEY_CLIENT,
+            default=self._DEFAULT_KEY_CLIENT,
             help=('Public-private key pair used to encrypt '
                   'communication with the configured receiver.'),
         )
         parser.add_argument(
             '--key-receiver',
             type=pathlib.Path,
-            default=cls._DEFAULT_KEY_SERVER,
+            default=self._DEFAULT_KEY_SERVER,
             help='Public key used to identify the configured receiver.',
         )
         parser.add_argument(

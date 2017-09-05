@@ -228,7 +228,7 @@ def test_send_label_unset(sender_receiver, deleted):
     assert 'label' not in message
 
 
-def test_wrong_server_certificate(sender_receiver, request,
+def test_wrong_server_certificate(sender_receiver,
                                   certificate_client_public,
                                   certificate_server_public):
     certificate_client_public.rename(certificate_server_public)

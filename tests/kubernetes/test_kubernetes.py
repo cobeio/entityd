@@ -1,3 +1,4 @@
+import cobe
 import collections        # pylint: disable=too-many-lines
 import datetime
 import socket
@@ -258,6 +259,7 @@ class TestNamespaces:
                 },
             }),
         ]
+        kubernetes._CLUSTER_UEID = cobe.UEID('abcd' * 8)
         cluster.namespaces.__iter__.return_value = iter(namespace_resources)
         namespaces = list(
             kubernetes.entityd_find_entity('Kubernetes:Namespace'))

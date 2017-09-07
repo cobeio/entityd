@@ -55,7 +55,7 @@ def test_get_process_ueid(session, container_process_group):
 
 
 def test_get_missed_process():
-    with patch('entityd.docker.docker.Process') as mock:
+    with patch('entityd.docker.docker.syskit.Process') as mock:
         # Create some mock process objects
         procs = list()
         for x in range(2,7):
@@ -71,14 +71,11 @@ def test_get_missed_process():
             iter([procs[2], procs[3], procs[4]]),
             iter([])]
 
-        # These are the procs we say have already been added
-        already_added = {procs[0].pid, procs[3].pid, procs[4].pid}
-
         temp = DockerContainerProcessGroup()
-        results = temp.get_missed_process_children(1, already_added)
+        results = temp.get_missed_process_children(1)
         results = set(results)
         # Check we got the remaining processes from the function
-        assert results == {procs[1].pid, procs[2].pid}
+        assert results == {x.pid for x in procs}
 
 
 def test_generate_updates(monkeypatch, session, running_container, container_process_group):

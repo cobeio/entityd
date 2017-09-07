@@ -205,19 +205,21 @@ class TestConfig:
     def test_addentity(self, pm, config):
         plugin = pm.register(object(), 'foo')
         config.addentity('foo', plugin)
-        assert config.entities['foo'] is plugin
+        assert plugin in config.entities['foo']
 
     def test_addentity_duplicate(self, pm, config):
         plugin_a = pm.register(object(), 'foo')
         plugin_b = pm.register(object(), 'bar')
         config.addentity('foo', plugin_a)
-        with pytest.raises(KeyError):
-            config.addentity('foo', plugin_b)
+        config.addentity('foo', plugin_a)
+        config.addentity('foo', plugin_b)
+        assert plugin_a in config.entities['foo']
+        assert plugin_b in config.entities['foo']
 
     def test_removeentity(self, pm, config):
         plugin = pm.register(object(), 'foo')
         config.addentity('foo', plugin)
-        assert config.entities['foo'] is plugin
+        assert plugin in config.entities['foo']
         config.removeentity('foo', plugin)
         assert 'foo' not in config.entities.keys()
 

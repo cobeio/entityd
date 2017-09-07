@@ -3,6 +3,7 @@ import datetime
 import socket
 import types
 
+import cobe
 import kube
 import pytest
 import requests
@@ -34,13 +35,13 @@ def meta_update(monkeypatch):
 def test_entityd_configure(pm, config):
     plugin = pm.register(kubernetes)
     kubernetes.entityd_configure(config)
-    assert set(config.entities.keys()) == set((
+    assert set(config.entities.keys()) == {
         'Kubernetes:Container',
         'Kubernetes:Pod',
         'Kubernetes:Namespace',
-    ))
-    for entity_plugin in config.entities.values():
-        assert entity_plugin is plugin
+    }
+    for entity_plugins in config.entities.values():
+        assert plugin in entity_plugins
 
 
 def test_sessionstart():
@@ -80,7 +81,7 @@ class TestFindEntity:
         generator = kubernetes.entityd_find_entity(type_)
         assert generator is generate_updates.return_value
         assert generate_updates.call_args[0] == (
-            getattr(kubernetes, generator_function),)
+            getattr(kubernetes, generator_function), None)
 
     def test_not_provided(self):
         assert kubernetes.entityd_find_entity('Foo') is None
@@ -116,17 +117,17 @@ def unreachable_cluster(monkeypatch):
 
 @pytest.mark.parametrize(
     'update_generator', kubernetes.ENTITIES_PROVIDED.values())
-def test_cluster_unreachable(unreachable_cluster, update_generator):  # pylint: disable=unused-argument
+def test_cluster_unreachable(unreachable_cluster, update_generator, session):  # pylint: disable=unused-argument
     generator = kubernetes.generate_updates(
-        getattr(kubernetes, update_generator))
+        getattr(kubernetes, update_generator), session)
     assert list(generator) == []
 
 
 @pytest.mark.parametrize(
     'update_generator', kubernetes.ENTITIES_PROVIDED.values())
-def test_uncaught_status_error(update_generator):
+def test_uncaught_status_error(update_generator, session):
 
-    def generator(_):
+    def generator(_, session):
         update = yield
         update.label = 'first'
         update = yield
@@ -136,15 +137,16 @@ def test_uncaught_status_error(update_generator):
         update.label = 'third'
 
     generator.__name__ = update_generator
-    generator = kubernetes.generate_updates(generator)
+    generator = kubernetes.generate_updates(generator, session)
     updates = list(generator)
     assert len(updates) == 1
     assert updates[0].label == 'first'
 
 
+@pytest.mark.usefixtures("cluster_ueid")
 class TestApplyMetaUpdate:
 
-    def test(self):
+    def test(self, session):
         meta = kube.ObjectMeta(pytest.Mock(raw={
             'metadata': {
                 'name': 'star',
@@ -160,7 +162,7 @@ class TestApplyMetaUpdate:
             },
         }))
         update = entityd.entityupdate.EntityUpdate('Foo')
-        kubernetes.apply_meta_update(meta, update)
+        kubernetes.apply_meta_update(meta, update, session)
         assert update.attrs.get('kubernetes:meta:name').value == 'star'
         assert update.attrs.get(
             'kubernetes:meta:name').traits == {'entity:id'}
@@ -186,7 +188,7 @@ class TestApplyMetaUpdate:
         }
         assert update.attrs.get('kubernetes:meta:labels').traits == set()
 
-    def test_missing_namespace(self):
+    def test_missing_namespace(self, session):
         meta = kube.ObjectMeta(pytest.Mock(raw={
             'metadata': {
                 'name': 'star',
@@ -198,7 +200,7 @@ class TestApplyMetaUpdate:
             },
         }))
         update = entityd.entityupdate.EntityUpdate('Foo')
-        kubernetes.apply_meta_update(meta, update)
+        kubernetes.apply_meta_update(meta, update, session)
         assert {attribute.name for attribute in update.attrs} == {
             'kubernetes:meta:name',
             'kubernetes:meta:version',
@@ -209,7 +211,7 @@ class TestApplyMetaUpdate:
             'cluster'
         }
 
-    def test_missing_labels(self):
+    def test_missing_labels(self, session):
         meta = kube.ObjectMeta(pytest.Mock(raw={
             'metadata': {
                 'name': 'star',
@@ -221,7 +223,7 @@ class TestApplyMetaUpdate:
             },
         }))
         update = entityd.entityupdate.EntityUpdate('Foo')
-        kubernetes.apply_meta_update(meta, update)
+        kubernetes.apply_meta_update(meta, update, session)
         assert {attribute.name for attribute in update.attrs} == {
             'kubernetes:meta:name',
             'kubernetes:meta:namespace',
@@ -258,6 +260,7 @@ class TestNamespaces:
                 },
             }),
         ]
+        kubernetes._CLUSTER_UEID = cobe.UEID('abcd' * 8)
         cluster.namespaces.__iter__.return_value = iter(namespace_resources)
         namespaces = list(
             kubernetes.entityd_find_entity('Kubernetes:Namespace'))
@@ -274,11 +277,11 @@ class TestNamespaces:
             'phase').traits == {'kubernetes:namespace-phase'}
         assert meta_update.call_count == 2
         assert meta_update.call_args_list[0][0] == (
-            namespace_resources[0].meta, namespaces[0])
+            namespace_resources[0].meta, namespaces[0], None)
         assert meta_update.call_args_list[1][0] == (
-            namespace_resources[1].meta, namespaces[1])
+            namespace_resources[1].meta, namespaces[1], None)
 
-
+@pytest.mark.usefixtures("cluster_ueid")
 class TestPods:
 
     @pytest.fixture
@@ -343,11 +346,11 @@ class TestPods:
         assert pods[1].attrs.get('ip').traits == {'ipaddr:v4'}
         assert meta_update.call_count == 2
         assert meta_update.call_args_list[0][0] == (
-            pod_resources[0].meta, pods[0])
+            pod_resources[0].meta, pods[0], None)
         assert meta_update.call_args_list[1][0] == (
-            pod_resources[1].meta, pods[1])
+            pod_resources[1].meta, pods[1], None)
 
-    def test_no_ip_attribute(self, cluster):
+    def test_no_ip_attribute(self, cluster, session):
         pod = kube.PodItem(
             cluster, {
                 'metadata': {
@@ -367,7 +370,7 @@ class TestPods:
         update = entityd.entityupdate.EntityUpdate('Foo', ueid='a' * 32)
         update.attrs.set('ip', 'test')
         assert 'ip' in update.attrs._attrs
-        update = kubernetes.pod_update(pod, update)
+        update = kubernetes.pod_update(pod, update, session)
         assert 'ip' not in update.attrs._attrs
 
     def test_with_message(self, cluster, meta_update):
@@ -394,7 +397,7 @@ class TestPods:
         assert pods[0].attrs.get('message').traits == set()
         assert meta_update.call_count == 1
         assert meta_update.call_args_list[0][0] == (
-            pod_resources[0].meta, pods[0])
+            pod_resources[0].meta, pods[0], None)
 
     def test_with_reason(self, cluster, meta_update):
         pod_resources = [
@@ -420,7 +423,7 @@ class TestPods:
         assert pods[0].attrs.get('reason').traits == set()
         assert meta_update.call_count == 1
         assert meta_update.call_args_list[0][0] == (
-            pod_resources[0].meta, pods[0])
+            pod_resources[0].meta, pods[0], None)
 
     def test_ipv6(self, cluster, meta_update):
         pod_resources = [
@@ -445,9 +448,10 @@ class TestPods:
         assert pods[0].attrs.get('ip').traits == {'ipaddr:v6'}
         assert meta_update.call_count == 1
         assert meta_update.call_args_list[0][0] == (
-            pod_resources[0].meta, pods[0])
+            pod_resources[0].meta, pods[0], None)
 
 
+@pytest.mark.usefixtures("cluster_ueid")
 class TestContainers:
 
     @pytest.fixture
@@ -601,7 +605,6 @@ class TestContainers:
         assert containers[0].attrs.get(
             'resources:limits:cpu').traits == {'unit:percent'}
         assert loghandler.has_error() is False
-
 
     def test_resources_errors(self, cluster, raw_pod_resource, loghandler):
         resources = {
@@ -1077,23 +1080,3 @@ class TestContainerMetrics:
         assert not metrics[0].called
         assert not metrics[1].called
         assert not metrics[2].called
-
-
-class Spam():
-    spam = "egg"
-
-def foo(x, bar):
-    bar.spam = "spam" + str(x)
-
-def beans():
-    for x in range(5):
-        bill = yield
-        foo(x, bill)
-
-def test_wierd_yield():
-    generator = beans()
-    print(next(generator))
-    for x in range(5):
-        sausage = Spam()
-        generator.send(sausage)
-        print(sausage.spam)

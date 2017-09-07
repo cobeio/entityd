@@ -67,7 +67,11 @@ class Monitor:
         this_batch = collections.defaultdict(set)
         for metype in types:
             results = self.session.pluginmanager.hooks.entityd_find_entity(
-                name=metype, attrs=None, include_ondemand=True)
+                name=metype,
+                attrs=None,
+                include_ondemand=True,
+                session=self.session,
+            )
             for result in results:
                 for entity in result:
                     entityd.health.heartbeat()

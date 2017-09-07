@@ -7,7 +7,7 @@ import kube
 import logbook
 
 import entityd.entityupdate
-
+from entityd.kubernetes.group import NamespaceGroup
 
 RFC_3339_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 log = logbook.Logger(__name__)
@@ -285,6 +285,11 @@ class BasePlugin(metaclass=ABCMeta):
         for child in children:
             update.children.add(child)
         update.parents.add(self.create_namespace_ueid(meta.namespace))
+
+        namespace_group_ueid = NamespaceGroup.get_ueid(
+            meta.namespace, self.session)
+        update.parents.add(namespace_group_ueid)
+
         return update
 
 

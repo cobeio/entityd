@@ -161,7 +161,7 @@ def test_no_docker_client(no_docker_client, procent):   # pylint: disable=unused
 
 def test_configure(procent, config):
     procent.entityd_configure(config)
-    assert config.entities['Process'].obj is procent
+    assert procent in (x.obj for x in config.entities['Process'])
 
 
 def test_find_entity(procent, session, kvstore):  # pylint: disable=unused-argument

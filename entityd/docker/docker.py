@@ -28,7 +28,7 @@ class Client:
             try:
                 cls._client = DockerClient(
                     base_url='unix://var/run/docker.sock',
-                    timeout=5, version='auto')
+                    timeout=10, version='auto')
             except DockerException:
                 log.debug("Docker client not available")
                 cls._client = None

@@ -37,6 +37,8 @@ BUILTIN_PLUGIN_NAMES = ['entityd.' + n for n in
                          'replicationcontroller:ReplicationControllerEntity',
                          'kubernetes.daemonset:DaemonSetEntity',
                          'kubernetes.kubernetes',
+                         'kubernetes.group',
+                         'kubernetes.group:NamespaceGroup',
                          'declentity:DeclarativeEntity',
                          'docker.docker:DockerContainer',
                          'docker.docker:DockerDaemon',

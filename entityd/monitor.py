@@ -63,7 +63,10 @@ class Monitor:
     def collect_entities(self):
         """Collect and send all Monitored Entities."""
         log.info('Starting entity collection')
+        self.session.pluginmanager.hooks.entityd_collection_before(
+            session=self.session)
         types = set(self.config.entities) | set(self.last_batch)
+        updates = []
         this_batch = collections.defaultdict(set)
         for metype in types:
             results = self.session.pluginmanager.hooks.entityd_find_entity(
@@ -73,6 +76,7 @@ class Monitor:
                     entityd.health.heartbeat()
                     self.session.pluginmanager.hooks.entityd_send_entity(
                         session=self.session, entity=entity)
+                    updates.append(entity)
                     this_batch[entity.metype].add(entity.ueid)
             if this_batch[metype]:
                 log.debug('Sent {} {} entity updates.',
@@ -85,9 +89,13 @@ class Monitor:
                 update.set_not_exists()
                 self.session.pluginmanager.hooks.entityd_send_entity(
                     session=self.session, entity=update)
+                updates.append(update)
             if non_existent_ueids:
                 log.debug('Sent {} {} entity deletions.',
                           len(non_existent_ueids), metype)
             if not this_batch[metype]:
                 del this_batch[metype]
         self.last_batch = this_batch
+        self.session.pluginmanager.hooks.entityd_collection_after(
+            session=self.session, updates=tuple(updates))
+        updates.clear()

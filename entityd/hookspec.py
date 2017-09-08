@@ -123,3 +123,22 @@ def entityd_find_entity(name, attrs=None, include_ondemand=False):
 @entityd.pm.hookdef
 def entityd_send_entity(session, entity):
     """Send a Monitored Entity to a modeld destination."""
+
+
+@entityd.pm.hookdef
+def entityd_collection_before(session):
+    """Perform any pre-collection set-up."""
+
+
+@entityd.pm.hookdef
+def entityd_collection_after(session, updates):
+    """Perform any operations after an entity collection cycle.
+
+    This is invoked after entity updates are collected from all
+    plugins and after they have been sent using :func:`entity_send_entity`.
+
+    :param session: Session that was active for the entity collection cycle.
+    :type session: entityd.core.Session
+    :param entities: All the entity updates that were collected.
+    :type entities: tuple of entity.EntityUpdate
+    """

@@ -1,14 +1,16 @@
-import kube
+"""Plugin providing namespace groups entities"""
+
 import logbook
 import requests
 
 import entityd
-import entityd.kubernetes
 
 log = logbook.Logger(__name__)
 
 
-class NamespaceGroup():
+class NamespaceGroup:
+    """Entity for Kubernetes Namespace Groups"""
+
     name = "Group"
     kind = "Kubernetes:Namespace"
     _cluster_ueid = None
@@ -30,13 +32,13 @@ class NamespaceGroup():
 
     @entityd.pm.hookimpl
     def entityd_configure(self, config):
-        """Register the Process Monitored Entity."""
+        """Register the namespace group entity."""
         config.addentity(self.name,
                          'entityd.kubernetes.group.NamespaceGroup')
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs=None, include_ondemand=False):  # pylint: disable=unused-argument
-        """Find the docker container process group entities"""
+        """Find the namespace group group entities"""
         if name == self.name:
             if attrs is not None:
                 raise LookupError('Attribute based filtering not supported')
@@ -83,6 +85,7 @@ class NamespaceGroup():
 
     @classmethod
     def get_ueid(cls, namespace_name, session):
+        """Get the ueid for a namespace group"""
         entity = entityd.EntityUpdate(cls.name)
         entity.attrs.set('kind', cls.kind, traits={'entity:id'})
         id_ueid = cls.create_namespace_ueid(namespace_name, session)
@@ -102,8 +105,6 @@ class NamespaceGroup():
         :param namespace: kube namespace item.
         :type namespace: kube._namespace.NamespaceItem
         """
-        print('Creating namespace group')
-
         id_ueid = self.create_namespace_ueid(namespace.meta.name, self.session)
 
         update = entityd.EntityUpdate(self.name)

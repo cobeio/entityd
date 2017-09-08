@@ -88,6 +88,7 @@ pipeline {
                             checkout changelog:false, scm: scm
 
                             script {
+                                sh "docker pull ${entityd_test_image_id}"
                                 runInvoke(entityd_test_image_id, "py.test",
                                     'Running unit tests', '',
                                     'jenkins-pytest', 5, true){ String container_id ->
@@ -108,6 +109,7 @@ pipeline {
                             checkout changelog:false, scm: scm
 
                             script {
+                                sh "docker pull ${entityd_test_image_id}"
                                 runTestSteps(entityd_test_image_id, "pylint", 'Running linting tests'){
                                         pylint = sh(script:'/opt/entityd/bin/invoke pylint', returnStatus: true)
                                         warnings parserConfigurations: [[parserName: 'PyLint', pattern: 'results/pylint.log']]

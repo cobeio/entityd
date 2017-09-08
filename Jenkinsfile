@@ -31,7 +31,7 @@ pipeline {
                 node('docker') {
                     // Ensure the node has the latest code
                     cleanWs()
-                    checkout changelog:false, scm: scm
+                    checkout scm
                     script {
                         build_key = 'building'
                         build_desc = 'Building docker images'

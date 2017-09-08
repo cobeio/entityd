@@ -18,10 +18,13 @@ class ReplicaSetEntity(entityd.kubernetes.BasePlugin):
     def find_entities(self):
         """Find Kubernetes Replica Set entities."""
         parented_rs = set()
-        for deployment in self.cluster.deployments:
-            parented_rs.update(
-                self.find_deployment_rs_children(
-                    deployment, self.cluster.replicasets.api_path))
+        try:
+            for deployment in self.cluster.deployments:
+                parented_rs.update(
+                    self.find_deployment_rs_children(
+                        deployment, self.cluster.replicasets.api_path))
+        except requests.ConnectionError:
+            self.log_api_server_unreachable()
         try:
             for resource in self.cluster.replicasets:
                 yield self.create_entity(resource, parented_rs)

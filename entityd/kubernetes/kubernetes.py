@@ -349,7 +349,7 @@ def generate_containers(cluster, session):
                 try:
                     update.parents.add(pod_update)
                     container_metrics(container, update)
-                    container_update(container, pod, update)
+                    container_update(container, pod, update, session)
                 # todo: tidy this approach to handling no containerId from kube
                 except KeyError as err:
                     update.exception = True
@@ -359,7 +359,7 @@ def generate_containers(cluster, session):
                     update.exception = False
 
 
-def container_update(container, pod, update):
+def container_update(container, pod, update, session):
     """Populate update with attributes for a container.
 
     :param kube.Container container: the container to set attributes for.
@@ -415,6 +415,10 @@ def container_update(container, pod, update):
     runtime, container_id = container.id.split('://', 1)
     if runtime == 'docker':
         update.children.add(DockerContainer.get_ueid(container_id))
+
+    namespace_group_ueid = entityd.kubernetes.group.NamespaceGroup.get_ueid(
+        pod.meta.namespace, session)
+    update.parents.add(namespace_group_ueid)
 
     container_resources(container, pod, update)
 

@@ -20,6 +20,19 @@ SYMBOLS = {
 }
 
 
+@entityd.pm.hookimpl
+def entityd_sessionstart(session):
+    """Store the session for later usage."""
+    print("Adding kube_cluster service to session")
+    session.addservice('kube_cluster', kube.Cluster())
+
+
+@entityd.pm.hookimpl
+def entityd_sessionfinish(session):
+    """Safely terminate the plugin."""
+    session.svc.kube_cluster.close()
+
+
 class BasePlugin(metaclass=ABCMeta):
     """Base plugin class supporting creation of Kubernetes entities."""
 

@@ -58,8 +58,7 @@ def cluster(session, active_namespace, namespace_group, terminating_namespace):
     session.addservice("kube_cluster", cluster)
     namespace_group.entityd_sessionstart(session)
     namespace_group.entityd_configure(session.config)
-    yield cluster
-    namespace_group.entityd_sessionfinish()
+    return cluster
 
 
 def test_attrs_raises_exception():
@@ -73,13 +72,6 @@ def test_attrs_raises_exception():
 def test_not_provided():
     group = NamespaceGroup()
     assert group.entityd_find_entity('foo') is None
-
-
-def test_sessionfinish(cluster, namespace_group):
-    mock = Mock()
-    namespace_group.cluster = mock
-    namespace_group.entityd_sessionfinish()
-    mock.close.assert_called_once_with()
 
 
 def test_find_entity_with_attrs_not_none(namespace_group):

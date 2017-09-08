@@ -45,14 +45,8 @@ class NamespaceGroup():
     @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
         """Store the session for later usage."""
-        session.addservice('kube_cluster', kube.Cluster())
         self.session = session
         self.cluster = session.svc.kube_cluster
-
-    @entityd.pm.hookimpl
-    def entityd_sessionfinish(self):
-        """Safely terminate the plugin."""
-        self.cluster.close()
 
     @classmethod
     def get_cluster_ueid(cls, session):

@@ -24,8 +24,8 @@ def container_process_group(pm, host_entity_plugin):  # pylint: disable=unused-a
     return dcpg
 
 
-def test_docker_not_available( monkeypatch):
-    monkeypatch.setattr(docker, 'DockerClient',
+def test_docker_not_available(monkeypatch):
+    monkeypatch.setattr('entityd.docker.docker.DockerClient',
                         Mock(side_effect=DockerException))
 
     group = DockerContainerProcessGroup()
@@ -52,30 +52,6 @@ def test_get_process_ueid(session, container_process_group):
     pid = os.getpid()
     ueid = container_process_group.get_process_ueid(pid)
     assert ueid
-
-
-def test_get_missed_process():
-    with patch('entityd.docker.docker.syskit.Process') as mock:
-        # Create some mock process objects
-        procs = list()
-        for x in range(2,7):
-            mock_proc = Mock()
-            mock_proc.pid = x
-            procs.append(mock_proc)
-
-        # Set the side effects of syskit.Process to
-        # return iterators of our processes
-        instance = mock.return_value
-        instance.children.side_effect = [
-            iter([procs[0], procs[1]]),
-            iter([procs[2], procs[3], procs[4]]),
-            iter([])]
-
-        temp = DockerContainerProcessGroup()
-        results = temp.get_missed_process_children(1)
-        results = set(results)
-        # Check we got the remaining processes from the function
-        assert results == {x.pid for x in procs}
 
 
 def test_generate_updates(monkeypatch, session, running_container, container_process_group):
@@ -105,9 +81,14 @@ def test_generate_updates(monkeypatch, session, running_container, container_pro
     procs[1].children.return_value = iter([procs[2], procs[3]])
 
     # We monkey patch over the syskit get process to return a
-    # process from our dict
+    # process from our dict and an exception if it's not present
     def get_proc(pid):
-        return procs[pid]
+        if pid in procs:
+            return procs[pid]
+        else:
+            raise syskit.NoSuchProcessError
+
+    del procs[3]
 
     monkeypatch.setattr(syskit, "Process", get_proc)
 
@@ -131,5 +112,3 @@ def test_generate_updates(monkeypatch, session, running_container, container_pro
         assert container_ueid in entity.children
         for proc in procs.values():
             assert proc.ueid in entity.children
-
-

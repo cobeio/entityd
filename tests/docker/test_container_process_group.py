@@ -24,6 +24,17 @@ def container_process_group(pm, host_entity_plugin):  # pylint: disable=unused-a
     return dcpg
 
 
+@pytest.fixture
+def docker_client(monkeypatch):
+    def make_docker_client(containers):
+        get_client = MagicMock()
+        client_instance = get_client.return_value
+        client_instance.info.return_value = {'ID': 'foo'}
+        client_instance.containers.list.return_value = iter(containers)
+        monkeypatch.setattr(Client, "get_client", get_client)
+
+    return make_docker_client
+
 def test_docker_not_available(monkeypatch):
     monkeypatch.setattr('entityd.docker.docker.DockerClient',
                         Mock(side_effect=DockerException))
@@ -54,15 +65,52 @@ def test_get_process_ueid(session, container_process_group):
     assert ueid
 
 
-def test_generate_updates(monkeypatch, session, running_container, container_process_group):
+def test_non_runnning_containers(session, container_process_group,
+                                 docker_client, running_container,
+                                 finished_container):
+    containers = [running_container, finished_container]
+
+    docker_client(containers)
+
+    container_process_group.entityd_sessionstart(session)
+    container_process_group.entityd_configure(session.config)
+
+    entities = container_process_group.entityd_find_entity(DockerContainerProcessGroup.name)
+    entities = list(entities)
+
+    assert len(entities) == 1
+
+    for entity in entities:
+        assert entity.label == running_container.name
+        assert entity.attrs.get('kind').value == DockerContainer.name
+        container_ueid = DockerContainer.get_ueid(running_container.id)
+        assert entity.attrs.get('id').value == str(container_ueid)
+
+
+def test_empty_processes_from_top(session, container_process_group,
+                                  docker_client, running_container):
+
+    running_container.top.return_value = {"Processes": None}
+    containers = [running_container]
+
+    docker_client(containers)
+
+    container_process_group.entityd_sessionstart(session)
+    container_process_group.entityd_configure(session.config)
+
+    entities = container_process_group.entityd_find_entity(
+        DockerContainerProcessGroup.name)
+    entities = list(entities)
+
+    assert len(entities) == 0
+
+
+def test_generate_updates(monkeypatch, session, docker_client,
+                          running_container, container_process_group):
 
     containers = [running_container]
 
-    get_client = MagicMock()
-    client_instance = get_client.return_value
-    client_instance.info.return_value = {'ID': 'foo'}
-    client_instance.containers.list.return_value = iter(containers)
-    monkeypatch.setattr(Client, "get_client", get_client)
+    docker_client(containers)
 
     procs = {}
     for x in range(5):

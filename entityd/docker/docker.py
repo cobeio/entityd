@@ -165,7 +165,12 @@ class DockerContainerProcessGroup(HostUEID):
 
         client = Client.get_client()
         for container in client.containers.list():
-            if container.status != "running" and not container.top():
+            if container.status != "running":
+                continue
+
+            top_results = container.top(ps_args="-o pid")
+            processes = top_results['Processes']
+            if not processes:
                 continue
 
             update = entityd.EntityUpdate(self.name)
@@ -176,17 +181,13 @@ class DockerContainerProcessGroup(HostUEID):
             update.attrs.set('id', str(container_ueid), traits={'entity:id'})
             update.children.add(DockerContainer.get_ueid(container.id))
 
-            top_results = container.top(ps_args="-o pid")
-
-            processes = top_results['Processes']
             for process in processes:
                 update.children.add(self.get_process_ueid(int(process[0])))
 
-            if processes:
-                for missed_pid in self.get_missed_process_children(
-                        processes[0][0]):
-                    update.children.add(
-                        self.get_process_ueid(missed_pid))
+            for missed_pid in self.get_missed_process_children(
+                    processes[0][0]):
+                update.children.add(
+                    self.get_process_ueid(missed_pid))
 
             yield update
 

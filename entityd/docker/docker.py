@@ -135,15 +135,18 @@ class DockerContainerProcessGroup(HostUEID):
 
         :returns: A :class:`cobe.UEID` for the given process.
         """
-        proc = syskit.Process(int(pid))
+        try:
+            proc = syskit.Process(int(pid))
+        except syskit.NoSuchProcessError as error:
+            log.warning("Process ({}) not found {}", pid, error)
+        else:
+            entity = entityd.EntityUpdate('Process')
+            entity.attrs.set('pid', proc.pid, traits={'entity:id'})
+            entity.attrs.set('starttime', proc.start_time.timestamp(),
+                             traits={'entity:id'})
+            entity.attrs.set('host', str(self.host_ueid), traits={'entity:id'})
 
-        entity = entityd.EntityUpdate('Process')
-        entity.attrs.set('pid', proc.pid, traits={'entity:id'})
-        entity.attrs.set('starttime', proc.start_time.timestamp(),
-                         traits={'entity:id'})
-        entity.attrs.set('host', str(self.host_ueid), traits={'entity:id'})
-
-        return entity.ueid
+            return entity.ueid
 
     def get_missed_process_children(self, pid):
         """Use the process tree to get any PID's that might of been
@@ -153,10 +156,17 @@ class DockerContainerProcessGroup(HostUEID):
 
         :returns a generator of found pid's
         """
-        proc = syskit.Process(int(pid))
-        for child_proc in proc.children():
-            yield child_proc.pid
-            yield from self.get_missed_process_children(child_proc.pid)
+        missed_processes = []
+        try:
+            proc = syskit.Process(int(pid))
+        except syskit.NoSuchProcessError as error:
+            log.warning("Process ({}) not found {}", pid, error)
+        else:
+            for child_proc in proc.children():
+                missed_processes.append(child_proc.pid)
+                missed_processes.extend(
+                    self.get_missed_process_children(child_proc.pid))
+        return missed_processes
 
     def generate_updates(self):
         """Generates the entity updates for the process group"""
@@ -165,7 +175,12 @@ class DockerContainerProcessGroup(HostUEID):
 
         client = Client.get_client()
         for container in client.containers.list():
-            if container.status != "running" and not container.top():
+            if container.status != "running":
+                continue
+
+            top_results = container.top(ps_args="-o pid")
+            processes = top_results['Processes']
+            if not processes:
                 continue
 
             update = entityd.EntityUpdate(self.name)
@@ -176,17 +191,16 @@ class DockerContainerProcessGroup(HostUEID):
             update.attrs.set('id', str(container_ueid), traits={'entity:id'})
             update.children.add(DockerContainer.get_ueid(container.id))
 
-            top_results = container.top(ps_args="-o pid")
-
-            processes = top_results['Processes']
             for process in processes:
-                update.children.add(self.get_process_ueid(int(process[0])))
+                process_ueid = self.get_process_ueid(int(process[0]))
+                if process_ueid:
+                    update.children.add(process_ueid)
 
-            if processes:
-                for missed_pid in self.get_missed_process_children(
-                        processes[0][0]):
-                    update.children.add(
-                        self.get_process_ueid(missed_pid))
+            for missed_pid in self.get_missed_process_children(
+                    processes[0][0]):
+                process_ueid = self.get_process_ueid(missed_pid)
+                if process_ueid:
+                    update.children.add(process_ueid)
 
             yield update
 

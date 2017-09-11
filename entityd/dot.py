@@ -14,31 +14,48 @@ import logbook
 log = logbook.Logger(__name__)
 
 
-_COLOUR_PALETTE = [
-    '#FFC86C',
-    '#EA8279',
-    '#8850A4',
-    '#8EBFEF',
-    '#F29C9C',
-    '#AC98B6',
-    '#AEAEAE',
-    '#C2F488',
-]
+class Palette:
+    """A palette of colours."""
 
+    def __init__(self, colours):
+        self._colours = tuple(colours)
 
-def _colour(string, *, exclude=None):
-    """Select a colour from the palette.
+    def __getitem__(self, key):
+        """Select a colour from the palette.
 
-    :param string: A string to use to select a colour.
-    :type string: str:
-    :param exclude: Colours to exclude from the palette.
-    :type exclude: iterable of str
-    """
-    hash_ = hashlib.sha1(string.encode())
-    hash_value = int(hash_.hexdigest(), 16)
-    palette = [colour for colour
-               in _COLOUR_PALETTE if colour not in (exclude or ())]
-    return _COLOUR_PALETTE[hash_value % len(_COLOUR_PALETTE)]
+        :param key: A string to use to select a colour.
+        :type key: str:
+
+        :returns: A colour selected from the palette.
+        """
+        hash_ = hashlib.sha1(key.encode())
+        hash_value = int(hash_.hexdigest(), 16)
+        return self._colours[hash_value % len(self._colours)]
+
+    @classmethod
+    def default(cls):
+        """The default palette."""
+        return cls([
+            '#FFC86C',
+            '#EA8279',
+            '#8850A4',
+            '#8EBFEF',
+            '#F29C9C',
+            '#AC98B6',
+            '#AEAEAE',
+            '#C2F488',
+        ])
+
+    def exclude(self, *colours):
+        """Exclude colours from the palette.
+
+        This creates a new palette with the exlcuded colours removed.
+
+        :param colours: Colours to exclude from the palette.
+        :type colours: iterable of str
+        """
+        return self.__class__([colour for colour
+                               in self._colours if colour not in colours])
 
 
 class ForeignEntity(enum.Enum):
@@ -102,22 +119,22 @@ def entityd_collection_after(session, updates):
 
 # TODO: Refactor this mess
 def _process_foreign_references(method, entities, relationships):
-    if session.config.args.dot_foreign is ForeignEntity.EXCLUDE:
+    if method is ForeignEntity.EXCLUDE:
         foreigners = set()
         for relationship, _ in _foreign_references(entities, relationships):
             foreigners.add(relationship)
         relationships -= foreigners
-    elif session.config.args.dot_foreign is ForeignEntity.DEFAULT:
+    elif method is ForeignEntity.DEFAULT:
         for _, relation in _foreign_references(entities, relationships):
             entity = entityd.entityupdate.EntityUpdate('', relation)
             entity.label = '?'
             entities[entity.ueid] = entity
-    elif session.config.args.dot_foreign is ForeignEntity.UEID:
+    elif method is ForeignEntity.UEID:
         for _, relation in _foreign_references(entities, relationships):
             entity = entityd.entityupdate.EntityUpdate('', relation)
             entity.label = str(relation)
             entities[entity.ueid] = entity
-    elif session.config.args.dot_foreign is ForeignEntity.UEID_SHORT:
+    elif method is ForeignEntity.UEID_SHORT:
         for _, relation in _foreign_references(entities, relationships):
             entity = entityd.entityupdate.EntityUpdate('', relation)
             entity.label = str(relation)[:6]
@@ -164,9 +181,10 @@ def _write_dot_entities(entities):
     for entity in entities:
         namespace = entity.metype.rsplit(':', 1)[0]
         type_ = entity.metype[len(namespace) + 1:]
-        colour_border = _colour(namespace)
+        palette = Palette.default()
+        colour_border = palette[namespace]
         if type_:
-            colour_background = _colour(type_, exclude={colour_border})
+            colour_background = palette.exclude(colour_border)[type_]
         else:
             colour_background = "#ffffff"
         label = "{0}\\n{1}".format(entity.metype, entity.label or '')

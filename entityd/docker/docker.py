@@ -9,7 +9,7 @@ for dispatching to the correct generator function.
 import logbook
 import syskit
 from docker import DockerClient
-from docker.errors import DockerException
+from docker.errors import DockerException, ImageNotFound
 
 import entityd
 from entityd.mixins import HostUEID
@@ -85,12 +85,16 @@ class DockerContainer:
             update.attrs.set('id', container.id, traits={'entity:id'})
             update.attrs.set('name', container.name)
             update.attrs.set('state:status', container.status)
-            update.attrs.set('image:id', container.image.id)
-            update.attrs.set('image:name', container.image.tags)
             update.attrs.set('labels', container.labels)
 
             update.attrs.set('state:started-at', attrs['State']['StartedAt'],
                              traits={'chrono:rfc3339'})
+
+            try:
+                update.attrs.set('image:id', container.image.id)
+                update.attrs.set('image:name', container.image.tags)
+            except ImageNotFound:
+                log.debug("Docker image ({}) not found", container.attrs['Image'])
 
             if container.status == "exited" or container.status == "dead":
                 update.exists = False

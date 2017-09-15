@@ -94,7 +94,8 @@ class DockerContainer:
                 update.attrs.set('image:id', container.image.id)
                 update.attrs.set('image:name', container.image.tags)
             except ImageNotFound:
-                log.debug("Docker image ({}) not found", container.attrs['Image'])
+                log.debug("Docker image ({}) not found",
+                          container.attrs['Image'])
 
             if container.status == "exited" or container.status == "dead":
                 update.exists = False

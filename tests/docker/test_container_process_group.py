@@ -1,60 +1,60 @@
 import os
 from datetime import datetime
 
-import docker
 import pytest
 import syskit
 from docker.errors import DockerException
-from mock import Mock, patch, MagicMock
+from mock import Mock, MagicMock
 
-from entityd.docker.docker import (
-    DockerContainerProcessGroup,
-    DockerContainer, Client)
+from entityd.docker.client import DockerClient
+from entityd.docker.container import DockerContainer
+from entityd.docker.container_group import DockerContainerGroup
 
 
 @pytest.fixture
-def container_process_group(pm, host_entity_plugin):  # pylint: disable=unused-argument
-    """A DockerContainerProcessGroup instance.
+def container_group(pm, host_entity_plugin):  # pylint: disable=unused-argument
+    """A DockerContainerGroup instance.
 
     The plugin will be registered with the PluginManager but no hooks
     will have been called.
     """
-    dcpg = DockerContainerProcessGroup()
-    pm.register(dcpg, 'entityd.docker.docker.DockerContainerProcessGroup')
+    dcpg = DockerContainerGroup()
+    pm.register(dcpg, 'entityd.docker.container_group.DockerContainerGroup')
     return dcpg
 
 
 def test_docker_not_available(monkeypatch):
-    monkeypatch.setattr('entityd.docker.docker.DockerClient',
+    monkeypatch.setattr('entityd.docker.client.DockerClient',
                         Mock(side_effect=DockerException))
 
-    group = DockerContainerProcessGroup()
+    group = DockerContainerGroup()
     assert not list(group.entityd_find_entity(group.name))
 
 
 def test_attrs_raises_exception():
-    group = DockerContainerProcessGroup()
+    group = DockerContainerGroup()
     with pytest.raises(LookupError):
         group.entityd_find_entity(
-            DockerContainerProcessGroup.name,
+            DockerContainerGroup.name,
             attrs="foo")
 
 
 def test_not_provided():
-    group = DockerContainerProcessGroup()
+    group = DockerContainerGroup()
     assert group.entityd_find_entity('foo') is None
 
 
-def test_get_process_ueid(session, container_process_group):
-    container_process_group.entityd_sessionstart(session)
-    container_process_group.entityd_configure(session.config)
+def test_get_process_ueid(session, container_group):
+    container_group.entityd_sessionstart(session)
+    container_group.entityd_configure(session.config)
 
     pid = os.getpid()
-    ueid = container_process_group.get_process_ueid(pid)
+    ueid = container_group.get_process_ueid(pid)
     assert ueid
 
 
-def test_generate_updates(monkeypatch, session, running_container, container_process_group):
+def test_generate_updates(monkeypatch, session,
+                          running_container, container_group):
 
     containers = [running_container]
 
@@ -62,7 +62,7 @@ def test_generate_updates(monkeypatch, session, running_container, container_pro
     client_instance = get_client.return_value
     client_instance.info.return_value = {'ID': 'foo'}
     client_instance.containers.list.return_value = iter(containers)
-    monkeypatch.setattr(Client, "get_client", get_client)
+    monkeypatch.setattr(DockerClient, "get_client", get_client)
 
     procs = {}
     for x in range(5):
@@ -92,14 +92,14 @@ def test_generate_updates(monkeypatch, session, running_container, container_pro
 
     monkeypatch.setattr(syskit, "Process", get_proc)
 
-    container_process_group.entityd_sessionstart(session)
-    container_process_group.entityd_configure(session.config)
+    container_group.entityd_sessionstart(session)
+    container_group.entityd_configure(session.config)
 
     # Add the ueid to the mocked processes to help with the loop below
     for proc in procs.values():
-        proc.ueid = container_process_group.get_process_ueid(proc.pid)
+        proc.ueid = container_group.get_process_ueid(proc.pid)
 
-    entities = container_process_group.entityd_find_entity(DockerContainerProcessGroup.name)
+    entities = container_group.entityd_find_entity(DockerContainerGroup.name)
     entities = list(entities)
     assert len(entities) == 1
 

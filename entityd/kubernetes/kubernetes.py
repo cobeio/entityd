@@ -15,7 +15,7 @@ import requests
 
 import entityd.kubernetes
 import entityd.pm
-from entityd.docker.docker import DockerContainer
+from entityd.docker.container import DockerContainer
 
 log = logbook.Logger(__name__)
 _LOGGED_K8S_UNREACHABLE = False

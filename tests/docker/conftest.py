@@ -1,13 +1,13 @@
 import pytest
 from mock import MagicMock, Mock
 
-from entityd.docker.docker import Client
+from entityd.docker.client import DockerClient
 
 
 @pytest.fixture(autouse=True)
 def clear_client():
     yield
-    Client._client = None
+    DockerClient._client = None
 
 
 @pytest.fixture
@@ -47,6 +47,6 @@ def finished_container():
     container = Mock(
         id="bar", name="finished_container", status="exited", labels=["label"],
         image=image, attrs=attrs)
-    container.configure_mock(name="finished_container", should_exist=False)
+    container.configure_mock(name="finished_container", should_exist=True)
 
     return container

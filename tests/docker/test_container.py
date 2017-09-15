@@ -3,7 +3,9 @@ import pytest
 from docker.errors import DockerException
 from mock import patch, MagicMock, Mock
 
-from entityd.docker.docker import DockerContainer, DockerDaemon, Client
+from entityd.docker.client import DockerClient
+from entityd.docker.container import DockerContainer
+from entityd.docker.daemon import DockerDaemon
 
 
 @pytest.fixture
@@ -14,12 +16,12 @@ def docker_container(pm, host_entity_plugin):  # pylint: disable=unused-argument
     will have been called.
     """
     dc = DockerContainer()
-    pm.register(dc, 'entityd.docker.docker.DockerContainer')
+    pm.register(dc, 'entityd.docker.container.DockerContainer')
     return dc
 
 
 def test_docker_not_available(docker_container):
-    with patch('entityd.docker.docker.DockerClient') as docker_client:
+    with patch('entityd.docker.client.DockerClient') as docker_client:
         docker_client.side_effect = DockerException
 
         assert len(list(docker_container.entityd_find_entity(docker_container.name))) == 0
@@ -45,7 +47,7 @@ def test_find_entities(monkeypatch, session, docker_container,
     client_instance = get_client.return_value
     client_instance.info.return_value = {'ID': 'foo'}
     client_instance.containers.list.return_value = iter(containers)
-    monkeypatch.setattr(Client, "get_client", get_client)
+    monkeypatch.setattr(DockerClient, "get_client", get_client)
 
     daemon_ueid = DockerDaemon.get_ueid('foo')
 
@@ -65,7 +67,8 @@ def test_find_entities(monkeypatch, session, docker_container,
         assert entity.attrs.get('image:name').value == container.image.tags
         assert entity.attrs.get('state:started-at').value == \
             container.attrs['State']['StartedAt']
-        if entity.exists:
+
+        if container.status in ["exited", "dead"]:
             assert entity.attrs.get('state:exit-code').value is None
             assert entity.attrs.get('state:error').value is None
             assert entity.attrs.get('state:finished-at').value is None

@@ -38,9 +38,9 @@ BUILTIN_PLUGIN_NAMES = ['entityd.' + n for n in
                          'kubernetes.daemonset:DaemonSetEntity',
                          'kubernetes.kubernetes',
                          'declentity:DeclarativeEntity',
-                         'docker.docker:DockerContainer',
-                         'docker.docker:DockerDaemon',
-                         'docker.docker:DockerContainerProcessGroup',]]
+                         'docker.container:DockerContainer',
+                         'docker.daemon:DockerDaemon',
+                         'docker.container_group:DockerContainerGroup',]]
 
 
 log = logbook.Logger('entityd.bootstrap')

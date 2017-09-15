@@ -2,7 +2,8 @@ import pytest
 from docker.errors import DockerException
 from mock import patch, MagicMock
 
-from entityd.docker.docker import DockerDaemon, Client
+from entityd.docker.client import DockerClient
+from entityd.docker.daemon import DockerDaemon
 
 
 @pytest.fixture
@@ -13,12 +14,12 @@ def docker_daemon(pm, host_entity_plugin):  # pylint: disable=unused-argument
     will have been called.
     """
     dd = DockerDaemon()
-    pm.register(dd, 'entityd.docker.docker.DockerDaemon')
+    pm.register(dd, 'entityd.docker.daemon.DockerDaemon')
     return dd
 
 
 def test_docker_not_available():
-    with patch('entityd.docker.docker.DockerClient') as docker_client:
+    with patch('entityd.docker.client.DockerClient') as docker_client:
         docker_client.side_effect = DockerException
         docker_daemon = DockerDaemon()
 
@@ -54,7 +55,7 @@ def test_find_entities(monkeypatch, session, docker_daemon):
     get_client = MagicMock()
     client_instance = get_client.return_value
     client_instance.info.return_value = client_info
-    monkeypatch.setattr(Client, "get_client", get_client)
+    monkeypatch.setattr(DockerClient, "get_client", get_client)
 
     docker_daemon.entityd_sessionstart(session)
     docker_daemon.entityd_configure(session.config)

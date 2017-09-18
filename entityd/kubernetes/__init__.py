@@ -23,7 +23,6 @@ SYMBOLS = {
 @entityd.pm.hookimpl
 def entityd_sessionstart(session):
     """Store the session for later usage."""
-    print("Adding kube_cluster service to session")
     session.addservice('kube_cluster', kube.Cluster())
 
 

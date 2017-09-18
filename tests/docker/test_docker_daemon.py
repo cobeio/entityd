@@ -65,6 +65,7 @@ def test_find_entities(monkeypatch, session, docker_daemon):
     entity = entities[0]
     assert entity.exists == True
     assert entity.attrs.get('id').value == client_info['ID']
+    assert entity.attrs.get('id').traits == {"entity:id"}
     assert (entity.attrs.get('containers:total').value ==
             client_info['Containers'])
     assert (entity.attrs.get('containers:paused').value ==

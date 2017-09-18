@@ -76,15 +76,17 @@ def test_non_runnning_containers(session, container_process_group,
     container_process_group.entityd_configure(session.config)
 
     entities = container_process_group.entityd_find_entity(DockerContainerProcessGroup.name)
-    entities = list(entities)
+    entities_list = list(entities)
 
-    assert len(entities) == 1
+    assert len(entities_list) == 1
 
-    for entity in entities:
+    for entity in entities_list:
         assert entity.label == running_container.name
         assert entity.attrs.get('kind').value == DockerContainer.name
+        assert entity.attrs.get('kind').traits == {'entity:id'}
         container_ueid = DockerContainer.get_ueid(running_container.id)
         assert entity.attrs.get('id').value == str(container_ueid)
+        assert entity.attrs.get('id').traits == {'entity:id'}
 
 
 def test_empty_processes_from_top(session, container_process_group,
@@ -148,15 +150,17 @@ def test_generate_updates(monkeypatch, session, docker_client,
         proc.ueid = container_process_group.get_process_ueid(proc.pid)
 
     entities = container_process_group.entityd_find_entity(DockerContainerProcessGroup.name)
-    entities = list(entities)
-    assert len(entities) == 1
+    entities_list = list(entities)
+    assert len(entities_list) == 1
 
-    for entity in entities:
-        assert entity.label == running_container.name
-        assert entity.attrs.get('kind').value == DockerContainer.name
-        container_ueid = DockerContainer.get_ueid(running_container.id)
+    entity = entities_list[0]
+    container_ueid = DockerContainer.get_ueid(running_container.id)
 
-        assert entity.attrs.get('id').value == str(container_ueid)
-        assert container_ueid in entity.children
-        for proc in procs.values():
-            assert proc.ueid in entity.children
+    assert entity.label == running_container.name
+    assert entity.attrs.get('kind').value == DockerContainer.name
+    assert entity.attrs.get('kind').traits == {'entity:id'}
+    assert entity.attrs.get('id').value == str(container_ueid)
+    assert entity.attrs.get('id').traits == {'entity:id'}
+    assert container_ueid in entity.children
+    for proc in procs.values():
+        assert proc.ueid in entity.children

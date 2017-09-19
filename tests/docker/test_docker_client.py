@@ -6,7 +6,7 @@ from entityd.docker.client import DockerClient
 
 
 def test_docker_not_available():
-    with patch('entityd.docker.client.DockerClient') as docker_client:
+    with patch('entityd.docker.client.docker.DockerClient') as docker_client:
         docker_client.side_effect = DockerException
 
         assert DockerClient.client_available() == False

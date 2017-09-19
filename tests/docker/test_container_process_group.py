@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 
+import docker
 import pytest
 import syskit
 from docker.errors import DockerException
@@ -23,8 +24,20 @@ def container_group(pm, host_entity_plugin):  # pylint: disable=unused-argument
     return dcpg
 
 
+@pytest.fixture
+def docker_client(monkeypatch):
+    def make_docker_client(containers):
+        get_client = MagicMock()
+        client_instance = get_client.return_value
+        client_instance.info.return_value = {'ID': 'foo'}
+        client_instance.containers.list.return_value = iter(containers)
+        monkeypatch.setattr(DockerClient, "get_client", get_client)
+
+    return make_docker_client
+
+
 def test_docker_not_available(monkeypatch):
-    monkeypatch.setattr('entityd.docker.client.DockerClient',
+    monkeypatch.setattr('entityd.docker.client.docker.DockerClient',
                         Mock(side_effect=DockerException))
 
     group = DockerContainerGroup()
@@ -53,8 +66,49 @@ def test_get_process_ueid(session, container_group):
     assert ueid
 
 
-def test_generate_updates(monkeypatch, session,
-                          running_container, container_group):
+def test_non_runnning_containers(session, container_group,
+                                 docker_client, running_container,
+                                 finished_container):
+    containers = [running_container, finished_container]
+
+    docker_client(containers)
+
+    container_group.entityd_sessionstart(session)
+    container_group.entityd_configure(session.config)
+
+    entities = container_group.entityd_find_entity(DockerContainerGroup.name)
+    entities_list = list(entities)
+
+    assert len(entities_list) == 1
+
+    for entity in entities_list:
+        assert entity.label == running_container.name
+        assert entity.attrs.get('kind').value == DockerContainer.name
+        assert entity.attrs.get('kind').traits == {'entity:id'}
+        container_ueid = DockerContainer.get_ueid(running_container.id)
+        assert entity.attrs.get('id').value == str(container_ueid)
+        assert entity.attrs.get('id').traits == {'entity:id'}
+
+
+def test_empty_processes_from_top(session, container_group,
+                                  docker_client, running_container):
+
+    running_container.top.return_value = {"Processes": None}
+    containers = [running_container]
+
+    docker_client(containers)
+
+    container_group.entityd_sessionstart(session)
+    container_group.entityd_configure(session.config)
+
+    entities = container_group.entityd_find_entity(
+        DockerContainerGroup.name)
+    entities = list(entities)
+
+    assert len(entities) == 0
+
+
+def test_generate_updates(monkeypatch, session, running_container, container_group):
 
     containers = [running_container]
 
@@ -100,15 +154,17 @@ def test_generate_updates(monkeypatch, session,
         proc.ueid = container_group.get_process_ueid(proc.pid)
 
     entities = container_group.entityd_find_entity(DockerContainerGroup.name)
-    entities = list(entities)
-    assert len(entities) == 1
+    entities_list = list(entities)
+    assert len(entities_list) == 1
 
-    for entity in entities:
-        assert entity.label == running_container.name
-        assert entity.attrs.get('kind').value == DockerContainer.name
-        container_ueid = DockerContainer.get_ueid(running_container.id)
+    entity = entities_list[0]
+    container_ueid = DockerContainer.get_ueid(running_container.id)
 
-        assert entity.attrs.get('id').value == str(container_ueid)
-        assert container_ueid in entity.children
-        for proc in procs.values():
-            assert proc.ueid in entity.children
+    assert entity.label == running_container.name
+    assert entity.attrs.get('kind').value == DockerContainer.name
+    assert entity.attrs.get('kind').traits == {'entity:id'}
+    assert entity.attrs.get('id').value == str(container_ueid)
+    assert entity.attrs.get('id').traits == {'entity:id'}
+    assert container_ueid in entity.children
+    for proc in procs.values():
+        assert proc.ueid in entity.children

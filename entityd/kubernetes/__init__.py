@@ -7,7 +7,7 @@ import kube
 import logbook
 
 import entityd.entityupdate
-
+from entityd.kubernetes.group import NamespaceGroup
 
 RFC_3339_FORMAT = '%Y-%m-%dT%H:%M:%SZ'
 log = logbook.Logger(__name__)
@@ -18,6 +18,18 @@ SYMBOLS = {
     'Ti': 1024**4, 'Pi': 1024**5, 'Ei': 1024**6, 'K': 1000,
     'M': 1000**2, 'G': 1000**3, 'T': 1000**4, 'P': 1000**5, 'E': 1000**6,
 }
+
+
+@entityd.pm.hookimpl
+def entityd_sessionstart(session):
+    """Store the session for later usage."""
+    session.addservice('kube_cluster', kube.Cluster())
+
+
+@entityd.pm.hookimpl
+def entityd_sessionfinish(session):
+    """Safely terminate the plugin."""
+    session.svc.kube_cluster.close()
 
 
 class BasePlugin(metaclass=ABCMeta):
@@ -285,6 +297,11 @@ class BasePlugin(metaclass=ABCMeta):
         for child in children:
             update.children.add(child)
         update.parents.add(self.create_namespace_ueid(meta.namespace))
+
+        namespace_group_ueid = NamespaceGroup.get_ueid(
+            meta.namespace, self.session)
+        update.parents.add(namespace_group_ueid)
+
         return update
 
 

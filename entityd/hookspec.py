@@ -99,7 +99,8 @@ def entityd_unconfigure(config):
 
 
 @entityd.pm.hookdef
-def entityd_find_entity(name, attrs=None, include_ondemand=False):
+def entityd_find_entity(name, attrs=None,
+                        include_ondemand=False, session=None):
     """Return an iterator of Monitored Entities.
 
     If there are no entities matching the provided name or attributes

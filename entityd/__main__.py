@@ -28,15 +28,16 @@ BUILTIN_PLUGIN_NAMES = ['entityd.' + n for n in
                          'mysqlme:MySQLEntity',
                          'postgresme:PostgreSQLEntity',
                          'fileme:FileEntity',
+                         'kubernetes',
                          'kubernetes.node:NodeEntity',
                          'kubernetes.cluster:ClusterEntity',
                          'kubernetes.deployment:DeploymentEntity',
                          'kubernetes.service:ServiceEntity',
                          'kubernetes.replicaset:ReplicaSetEntity',
-                         'kubernetes.'
-                         'replicationcontroller:ReplicationControllerEntity',
+                         'kubernetes.replicationcontroller:ReplicationControllerEntity', # pylint: disable=line-too-long
                          'kubernetes.daemonset:DaemonSetEntity',
                          'kubernetes.kubernetes',
+                         'kubernetes.group:NamespaceGroup',
                          'declentity:DeclarativeEntity',
                          'docker.container:DockerContainer',
                          'docker.daemon:DockerDaemon',
@@ -91,8 +92,8 @@ def main(argv=None, plugins=None):
             name = mod.__name__
         try:
             pluginmanager.register(plugin, name=name)
-        except Exception:       # pylint: disable=broad-except
-            print('Failed to register plugin: {}'.format(name))
+        except Exception as error:       # pylint: disable=broad-except
+            print('Failed to register plugin: {} {}'.format(name, error))
     return pluginmanager.hooks.entityd_main(
         pluginmanager=pluginmanager,
         argv=argv,

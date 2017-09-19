@@ -1,9 +1,14 @@
 """
 Plugin to provide entities for docker containers
 """
+import logbook
+from docker.errors import ImageNotFound
+
 import entityd
 from entityd.docker.client import DockerClient
 from entityd.docker.daemon import DockerDaemon
+
+log = logbook.Logger(__name__)
 
 
 class DockerContainer:
@@ -47,14 +52,17 @@ class DockerContainer:
             update.attrs.set('id', container.id, traits={'entity:id'})
             update.attrs.set('name', container.name)
             update.attrs.set('state:status', container.status)
+            update.attrs.set('labels', container.labels)
+            update.attrs.set('state:started-at', attrs['State']['StartedAt'],
+                             traits={'chrono:rfc3339'})
             try:
                 update.attrs.set('image:id', container.image.id)
                 update.attrs.set('image:name', container.image.tags)
-
-            update.attrs.set('labels', container.labels)
-
-            update.attrs.set('state:started-at', attrs['State']['StartedAt'],
-                             traits={'chrono:rfc3339'})
+            except ImageNotFound:
+                log.debug("Docker image ({}) not found",
+                          container.attrs['Image'])
+                update.attrs.set('image:id', None)
+                update.attrs.set('image:name', None)
 
             if container.status in ["exited", "dead"]:
                 update.attrs.set('state:exit-code', None)

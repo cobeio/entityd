@@ -62,7 +62,7 @@ def conn(local_socket):  # pylint: disable=unused-argument
 
 def test_configure(endpoint_gen, config):
     endpoint_gen.entityd_configure(config)
-    assert config.entities['Endpoint'].obj is endpoint_gen
+    assert endpoint_gen in (x.obj for x in config.entities['Endpoint'])
 
 
 def test_find_entity_with_attrs(endpoint_gen):

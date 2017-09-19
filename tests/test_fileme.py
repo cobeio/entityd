@@ -20,7 +20,7 @@ def fileent(pm, host_entity_plugin):  # pylint: disable=unused-argument
 
 def test_configure(fileent, config):
     fileent.entityd_configure(config)
-    assert config.entities['File'].obj is fileent
+    assert fileent in (x.obj for x in config.entities['File'])
 
 
 def test_find_entity(tmpdir, session, fileent):

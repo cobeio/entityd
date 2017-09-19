@@ -21,7 +21,7 @@ def docker_container(pm, host_entity_plugin):  # pylint: disable=unused-argument
 
 
 def test_docker_not_available(docker_container):
-    with patch('entityd.docker.client.DockerClient') as docker_client:
+    with patch('entityd.docker.client.docker.DockerClient') as docker_client:
         docker_client.side_effect = DockerException
 
         assert len(list(docker_container.entityd_find_entity(docker_container.name))) == 0
@@ -61,6 +61,7 @@ def test_find_entities(monkeypatch, session, docker_container,
         assert entity.exists == container.should_exist
         assert entity.attrs.get('name').value == container.name
         assert entity.attrs.get('id').value == container.id
+        assert entity.attrs.get('id').traits == {"entity:id"}
         assert entity.attrs.get('state:status').value == container.status
         assert entity.attrs.get('labels').value == container.labels
         assert entity.attrs.get('image:id').value == container.image.id

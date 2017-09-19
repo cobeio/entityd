@@ -19,7 +19,7 @@ def docker_daemon(pm, host_entity_plugin):  # pylint: disable=unused-argument
 
 
 def test_docker_not_available():
-    with patch('entityd.docker.client.DockerClient') as docker_client:
+    with patch('entityd.docker.client.docker.DockerClient') as docker_client:
         docker_client.side_effect = DockerException
         docker_daemon = DockerDaemon()
 
@@ -66,6 +66,7 @@ def test_find_entities(monkeypatch, session, docker_daemon):
     entity = entities[0]
     assert entity.exists == True
     assert entity.attrs.get('id').value == client_info['ID']
+    assert entity.attrs.get('id').traits == {"entity:id"}
     assert (entity.attrs.get('containers:total').value ==
             client_info['Containers'])
     assert (entity.attrs.get('containers:paused').value ==

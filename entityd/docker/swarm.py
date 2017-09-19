@@ -2,7 +2,7 @@ import entityd
 from entityd.docker.client import DockerClient
 
 
-class DockerSwarm(HostUEID):
+class DockerSwarm():
     """An entity for the docker daemon"""
     name = "Docker:Swarm"
 
@@ -28,22 +28,54 @@ class DockerSwarm(HostUEID):
         entity.attrs.set('id', docker_swarm_id, traits={'entity:id'})
         return entity.ueid
 
-    def generate_updates(self):
-        """Generates the entity updates for the docker daemon"""
+    @classmethod
+    def swarm_exists(cls):
         if DockerClient.client_available():
             client = DockerClient.get_client()
-            if client.swarm.id:
-                swarm_attrs = client.swarm.attrs
+            client_info = client.info()
+            if client_info['Swarm']['LocalNodeState'] == "active":
+                return True
+        return False
 
-                update = entityd.EntityUpdate(self.name)
-                update.label = client.swarm.short_id
-                update.attrs.set('id', swarm_attrs['ID'], traits={'entity:id'})
-                update.attrs.set('containers:total', dd_info['Containers'])
-                update.attrs.set('containers:paused', dd_info['ContainersPaused'])
-                update.attrs.set(
-                    'containers:running', dd_info['ContainersRunning'])
-                update.attrs.set(
-                    'containers:stopped', dd_info['ContainersStopped'])
-                update.parents.add(self.host_ueid)
 
-                yield update
+    def generate_updates(self):
+        """Generates the entity updates for the docker daemon"""
+        if self.swarm_exists():
+            client = DockerClient.get_client()
+            client_info = client.info()
+
+            swarm_attrs = client_info['Swarm']
+            swarm_spec = swarm_attrs['Cluster']['Spec']
+            swarm_spec_raft = swarm_spec['Raft']
+
+            update = entityd.EntityUpdate(self.name)
+            update.label = client.swarm.short_id
+            update.attrs.set('id', client.swarm.id, traits={'entity:id'})
+            update.attrs.set('control-available',
+                             swarm_attrs['ControlAvailable'])
+
+            update.attrs.set('error', swarm_attrs['Error'])
+
+            update.attrs.set('nodes:total', swarm_attrs['Nodes'],
+                             traits={'metric:gauge'})
+            update.attrs.set('nodes:managers', swarm_attrs['Managers'],
+                             traits={'metric:gauge'})
+
+            update.attrs.set('specification:name', swarm_spec['Name'])
+            update.attrs.set(
+                'specification:auto-lock-managers',
+                swarm_spec['EncryptionConfig']['AutoLockManagers'])
+
+            update.attrs.set('specification:raft:election-tick',
+                             swarm_spec_raft['ElectionTick'])
+            update.attrs.set('specification:raft:heartbeat-tick',
+                             swarm_spec_raft['HeartbeatTick'])
+            update.attrs.set('specification:raft:keep-old-snapshots',
+                             swarm_spec_raft['KeepOldSnapshots'])
+            update.attrs.set(
+                'specification:raft:log-entries-for-slow-followers',
+                swarm_spec_raft['LogEntriesForSlowFollowers'])
+            update.attrs.set('specification:raft:snapshot-interval',
+                             swarm_spec_raft['SnapshotInterval'])
+
+            yield update

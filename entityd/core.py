@@ -11,6 +11,7 @@ then runs the application by calling this hook.
 """
 
 import argparse
+import collections
 import contextlib
 import threading
 import time
@@ -119,7 +120,7 @@ class Config:
     def __init__(self, pluginmanager, args):
         self.args = args
         self.pluginmanager = pluginmanager
-        self.entities = dict()
+        self.entities = collections.defaultdict(set)
 
     def addentity(self, name, plugin):
         """Register a plugin as providing a Monitored Entity.
@@ -144,11 +145,8 @@ class Config:
             keep it simple for now.
 
         """
-        if name in self.entities:
-            raise KeyError(
-                'Monitored Entity already registered: {}'.format(name))
         plugin = self.pluginmanager.getplugin(plugin)
-        self.entities[name] = plugin
+        self.entities[name].add(plugin)
 
     def removeentity(self, name, plugin):
         """Unregister a plugin as providing a Monitored Entity.
@@ -167,11 +165,13 @@ class Config:
             raise KeyError(
                 'Monitored Entity not registered: {}'.format(name))
         plugin = self.pluginmanager.getplugin(plugin)
-        if self.entities[name] != plugin:
+        if plugin not in self.entities[name]:
             raise KeyError(
                 'Unregistering plugin {} does not match registered plugin {}'
                 .format(plugin, self.entities[name]))
-        del self.entities[name]
+        self.entities[name].remove(plugin)
+        if not self.entities[name]:
+            del self.entities[name]
 
 
 class Session:

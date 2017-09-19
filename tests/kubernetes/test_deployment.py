@@ -110,7 +110,8 @@ def test_find_entity_with_attrs_not_none(deployment):
             'Kubernetes:Deployment', {'attr': 'foo-entity-bar'})
 
 
-def test_deployment_entities(deployment, entities, cluster):
+def test_deployment_entities(deployment, entities, cluster,
+                             namespace_group_ueid):
     entity = next(entities)
     assert cluster.proxy.get.call_args_list[0][1]['labelSelector'] in [
         'pod-template-hash=1268107570,label1=string1,tier in (cache),'
@@ -143,8 +144,9 @@ def test_deployment_entities(deployment, entities, cluster):
     assert entity.attrs.get('kubernetes:unavailable-replicas').value == 6
     assert entity.attrs.get('kubernetes:replicas-desired').value == 4
     assert len(list(entity.children)) == 1
-    assert len(list(entity.parents)) == 1
+    assert len(list(entity.parents)) == 2
     assert cobe.UEID('ff290adeb112ae377e8fca009ca4fd9f') in entity.parents
+    assert namespace_group_ueid in entity.parents
     assert cobe.UEID('7535ca32b5337aeaf4e7d14b15a0b052') in entity.children
     with pytest.raises(StopIteration):
         next(entities)

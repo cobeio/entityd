@@ -132,7 +132,8 @@ def entityd_configure(config):
 
 
 @entityd.pm.hookimpl
-def entityd_find_entity(name, attrs=None, include_ondemand=False):  # pylint: disable=unused-argument
+def entityd_find_entity(name, attrs=None,
+                        include_ondemand=False, session=None):  # pylint: disable=unused-argument
     """Find Kubernetes entities.
 
     :raises LookupError: if ``attrs`` is given.
@@ -140,7 +141,7 @@ def entityd_find_entity(name, attrs=None, include_ondemand=False):  # pylint: di
     if name in ENTITIES_PROVIDED:
         if attrs is not None:
             raise LookupError('Attribute based filtering not supported')
-        return generate_updates(globals()[ENTITIES_PROVIDED[name]])
+        return generate_updates(globals()[ENTITIES_PROVIDED[name]], session)
 
 
 @entityd.pm.hookimpl
@@ -166,7 +167,7 @@ def get_cluster_ueid(session):
         raise LookupError('Could not find the Cluster UEID')
 
 
-def generate_updates(generator_function):
+def generate_updates(generator_function, session):
     """Wrap an entity update generator function.
 
     This function wraps around any entity update generator and
@@ -195,7 +196,7 @@ def generate_updates(generator_function):
             in ENTITIES_PROVIDED.items()}[generator_function.__name__]
     with kube.Cluster() as cluster:
         try:
-            generator = generator_function(cluster)
+            generator = generator_function(cluster, session)
             next(generator)
             while True:
                 update = entityd.EntityUpdate(name)
@@ -228,7 +229,7 @@ def generate_updates(generator_function):
             _LOGGED_K8S_UNREACHABLE = False
 
 
-def apply_meta_update(meta, update):
+def apply_meta_update(meta, update, session):
     """Apply update attributes for a :class:`kube.ObjectMeta`.
 
     This sets attributes on the ``update`` that match the corresponding
@@ -246,6 +247,10 @@ def apply_meta_update(meta, update):
     if meta.namespace:
         update.attrs.set('kubernetes:meta:namespace',
                          meta.namespace, traits={'entity:id'})
+
+        namespace_group_ueid = entityd.kubernetes.NamespaceGroup.get_ueid(
+            meta.namespace, session)
+        update.parents.add(namespace_group_ueid)
     else:
         update.attrs.delete('kubernetes:meta:namespace')
     update.attrs.set('cluster', str(_CLUSTER_UEID),
@@ -261,13 +266,13 @@ def apply_meta_update(meta, update):
     update.attrs.set('kubernetes:meta:uid', meta.uid)
 
 
-def generate_namespaces(cluster):
+def generate_namespaces(cluster, session):
     """Generate updates for namespaces."""
     for namespace in cluster.namespaces:
-        namespace_update(namespace, (yield))
+        namespace_update(namespace, (yield), session)
 
 
-def namespace_update(namespace, update):
+def namespace_update(namespace, update, session):
     """Populate update with attributes for a namespace.
 
     This will apply metadata attributes as well as a ``phase`` attribute
@@ -277,21 +282,21 @@ def namespace_update(namespace, update):
     :param entityd.EntityUpdate update: the update to set the attributes on.
     """
     update.label = namespace.meta.name
-    apply_meta_update(namespace.meta, update)
+    apply_meta_update(namespace.meta, update, session)
     update.attrs.set(
         'phase', namespace.phase.value, traits={'kubernetes:namespace-phase'})
     update.parents.add(_CLUSTER_UEID)
 
 
-def generate_pods(cluster):
+def generate_pods(cluster, session):
     """Generate updates for pods."""
     # TODO: Set parent to namespace if pod has no controller
     for pod in cluster.pods:
         update = yield
-        pod_update(pod, update)
+        pod_update(pod, update, session)
 
 
-def pod_update(pod, update):
+def pod_update(pod, update, session):
     """Populate update with attributes for a pod.
 
     :param kube.Pod pod: the pod to set attributes for.
@@ -300,7 +305,7 @@ def pod_update(pod, update):
     :returns: the ``update`` with additional attributes.
     """
     update.label = pod.meta.name
-    apply_meta_update(pod.meta, update)
+    apply_meta_update(pod.meta, update, session)
     update.attrs.set('kubernetes:kind', 'Pod')
     update.attrs.set(
         'phase', pod.phase.value, traits={'kubernetes:pod-phase'})
@@ -323,12 +328,12 @@ def pod_update(pod, update):
     return update
 
 
-def generate_containers(cluster):
+def generate_containers(cluster, session):
     """Generate updates for containers.
 
     :returns: a generator of :class:`entityd.EntityUpdate`s.
     """
-    for pod_update in generate_updates(generate_pods):  # pylint: disable=redefined-outer-name
+    for pod_update in generate_updates(generate_pods, session):  # pylint: disable=redefined-outer-name
         try:
             namespace = cluster.namespaces.fetch(
                 pod_update.attrs.get('kubernetes:meta:namespace').value)
@@ -344,7 +349,7 @@ def generate_containers(cluster):
                 try:
                     update.parents.add(pod_update)
                     container_metrics(container, update)
-                    container_update(container, pod, update)
+                    container_update(container, pod, update, session)
                 # todo: tidy this approach to handling no containerId from kube
                 except KeyError as err:
                     update.exception = True
@@ -354,7 +359,7 @@ def generate_containers(cluster):
                     update.exception = False
 
 
-def container_update(container, pod, update):
+def container_update(container, pod, update, session):
     """Populate update with attributes for a container.
 
     :param kube.Container container: the container to set attributes for.
@@ -410,6 +415,10 @@ def container_update(container, pod, update):
     runtime, container_id = container.id.split('://', 1)
     if runtime == 'docker':
         update.children.add(DockerContainer.get_ueid(container_id))
+
+    namespace_group_ueid = entityd.kubernetes.group.NamespaceGroup.get_ueid(
+        pod.meta.namespace, session)
+    update.parents.add(namespace_group_ueid)
 
     container_resources(container, pod, update)
 

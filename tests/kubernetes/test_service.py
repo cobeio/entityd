@@ -173,7 +173,8 @@ def test_find_entity_with_attrs_not_none(service):
             'Kubernetes:Service', {'attr': 'foo-entity-bar'})
 
 
-def test_service_entities_ipv4(service, entities_ipv4, cluster_ipv4):
+def test_service_entities_ipv4(service, entities_ipv4, cluster_ipv4,
+                               namespace_group_ueid):
     # Test with service having IPv4 ingress point.
     entity = next(entities_ipv4)
     assert cluster_ipv4.proxy.get.call_args_list[0][1]['labelSelector'] in [
@@ -203,8 +204,9 @@ def test_service_entities_ipv4(service, entities_ipv4, cluster_ipv4):
     assert entity.attrs.get(
         'kubernetes:load-balancer-ingress').traits == {'ipaddr:v4'}
     assert len(list(entity.children)) == 2
-    assert len(list(entity.parents)) == 1
+    assert len(list(entity.parents)) == 2
     assert cobe.UEID('ff290adeb112ae377e8fca009ca4fd9f') in entity.parents
+    assert namespace_group_ueid in entity.parents
     assert cobe.UEID('04b7f2f17b8067afd71fd4c40d930149') in entity.children
     assert cobe.UEID('8281b9ac13e96fc6af3471cad4047813') in entity.children
     with pytest.raises(StopIteration):

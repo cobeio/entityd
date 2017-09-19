@@ -67,7 +67,7 @@ def test_load_files(declent, session, config, tmpdir):
     declent.entityd_sessionstart(session)
     declent._update_entities()
     assert 'test' in declent._conf_attrs.keys()
-    assert config.entities['test'].obj is declent
+    assert declent in (x.obj for x in config.entities['test'])
 
 
 def test_load_incorrect_file(declent, config, tmpdir, loghandler):

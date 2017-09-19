@@ -170,7 +170,8 @@ def test_find_entity_with_attrs_not_none(replicaset):
             'Kubernetes:ReplicaSet', {'attr': 'foo-entity-bar'})
 
 
-def test_replicaset_entities(replicaset, entities, cluster):
+def test_replicaset_entities(replicaset, entities, cluster,
+                             namespace_group_ueid):
     entity = next(entities)
     assert cluster.proxy.get.call_args_list[0][1]['labelSelector'] in [
         'pod-template-hash=1268107570,label1=string1,tier in (cache),'
@@ -203,8 +204,9 @@ def test_replicaset_entities(replicaset, entities, cluster):
     assert entity.attrs.get('kubernetes:available-replicas').value == 6
     assert entity.attrs.get('kubernetes:replicas-desired').value == 4
     assert len(list(entity.children)) == 2
-    assert len(list(entity.parents)) == 1
+    assert len(list(entity.parents)) == 2
     assert cobe.UEID('ff290adeb112ae377e8fca009ca4fd9f') in entity.parents
+    assert namespace_group_ueid in entity.parents
     assert cobe.UEID('04b7f2f17b8067afd71fd4c40d930149') in entity.children
     assert cobe.UEID('8281b9ac13e96fc6af3471cad4047813') in entity.children
     with pytest.raises(StopIteration):
@@ -213,7 +215,7 @@ def test_replicaset_entities(replicaset, entities, cluster):
 
 
 def test_replicaset_has_deployment(
-        monkeypatch, replicaset, deployment, cluster):  # pylint: disable=unused-argument
+        monkeypatch, replicaset, deployment, cluster, namespace_group_ueid):  # pylint: disable=unused-argument
     replicaset.cluster = cluster
     ueid = next(replicaset.entityd_find_entity(
         name='Kubernetes:ReplicaSet',
@@ -230,7 +232,8 @@ def test_replicaset_has_deployment(
         attrs=None,
         include_ondemand=False,
     ))
-    assert len(entity.parents) == 0
+    assert len(entity.parents) == 1
+    assert namespace_group_ueid in entity.parents
 
 
 def test_missing_attributes_handled(replicaset, cluster):

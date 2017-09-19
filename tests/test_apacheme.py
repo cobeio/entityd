@@ -197,7 +197,7 @@ def apache():
 
 def test_configure(entitygen, config):
     entitygen.entityd_configure(config)
-    assert config.entities['Apache'].obj is entitygen
+    assert entitygen in (x.obj for x in config.entities['Apache'])
 
 
 @running_apache

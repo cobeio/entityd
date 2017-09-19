@@ -106,7 +106,7 @@ def test_find_entity_with_attrs_not_none(replicationcontroller):
 
 
 def test_replicationcontroller_entities(
-        replicationcontroller, entities, cluster):
+        replicationcontroller, entities, cluster, namespace_group_ueid):
     entity = next(entities)
     assert cluster.proxy.get.call_args_list[0][1]['labelSelector'] in [
         'label1=string1,label2=string2',
@@ -138,8 +138,9 @@ def test_replicationcontroller_entities(
     assert entity.attrs.get('kubernetes:available-replicas').value == 6
     assert entity.attrs.get('kubernetes:replicas-desired').value == 4
     assert len(list(entity.children)) == 2
-    assert len(list(entity.parents)) == 1
+    assert len(list(entity.parents)) == 2
     assert cobe.UEID('ff290adeb112ae377e8fca009ca4fd9f') in entity.parents
+    assert namespace_group_ueid in entity.parents
     assert cobe.UEID('04b7f2f17b8067afd71fd4c40d930149') in entity.children
     assert cobe.UEID('8281b9ac13e96fc6af3471cad4047813') in entity.children
     with pytest.raises(StopIteration):

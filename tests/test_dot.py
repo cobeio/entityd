@@ -84,8 +84,9 @@ class TestCommandLineOptions:
 
     def test_dot_foreign_bad_choice(self, parser):
         with pytest.raises(SystemExit) as exception:
-            arguments = parser.parse_args(['--dot-foreign', 'boris'])
-        assert 'invalid _ForeignEntity value' in str(exception.value.__context__)
+            parser.parse_args(['--dot-foreign', 'boris'])
+        assert ('invalid _ForeignEntity value'
+                in str(exception.value.__context__))
 
     def test_dot_pretty_default(self, parser):
         arguments = parser.parse_args([])
@@ -335,12 +336,12 @@ class TestCollectionAfter:
         assert ('"716eec5f78bfa9b97ff69ccda90c7f7a" '
                 '-> "31f596aa85f36577720cf361cd8715d1"' in dot)
         assert entityd.dot._write_dot.call_args[0] == (
-                path,
-                {entity_a, entity_b, entity_c},
-                {
-                    (entity_a.ueid, entity_b.ueid),
-                    (entity_c.ueid, entity_a.ueid),
-                },
+            path,
+            {entity_a, entity_b, entity_c},
+            {
+                (entity_a.ueid, entity_b.ueid),
+                (entity_c.ueid, entity_a.ueid),
+            },
         )
         assert entityd.dot._write_dot.call_args[1] == {'pretty': pretty}
         assert entityd.dot._process_foreign_references.call_args[0] == (

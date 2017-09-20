@@ -5,10 +5,10 @@ import hashlib
 import itertools
 import pathlib
 
+import logbook
+
 import entityd.entityupdate
 import entityd.pm
-
-import logbook
 
 
 log = logbook.Logger(__name__)
@@ -91,6 +91,7 @@ class _ForeignEntity(enum.Enum):
 
 @entityd.pm.hookimpl
 def entityd_addoption(parser):
+    """Add command line options for DOT file generation."""
     parser.add_argument(
         '--dot',
         default=None,

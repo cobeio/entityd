@@ -116,6 +116,11 @@ def entityd_addoption(parser):
             'each foreign entity with a question mark.'
         ),
     )
+    parser.add_argument(
+        '--dot-pretty',
+        action='store_true',
+        help='Use pretty formatting when writing DOT file.',
+    )
 
 
 @entityd.pm.hookimpl
@@ -133,7 +138,12 @@ def entityd_collection_after(session, updates):
             relationships.add((entity.ueid, child))
     _process_foreign_references(
         session.config.args.dot_foreign, entities, relationships)
-    _write_dot(session.config.args.dot, set(entities.values()), relationships)
+    _write_dot(
+        session.config.args.dot,
+        set(entities.values()),
+        relationships,
+        pretty=session.config.args.dot_pretty,
+    )
 
 
 # TODO: Refactor this mess
@@ -168,16 +178,40 @@ def _foreign_references(entities, relationships):
                 yield relationship, relation
 
 
-def _write_dot(path, entities, relationships):
+def _pretty_print(segment):
+    """Pretty print DOT segment chunks.
+
+    Each chunk in the segment will be terminated by a line feed. If
+    the the chunk ends with a LEFT CURLY BRACKET then subsequent chunks
+    will be indented until a corresponding RIGHT CURLY BRACKET is found.
+
+    :param segment: DOT chunk iterator.
+    :type segment: iterator of str
+
+    :returns: An iterator of strings that wraps around the given segment.
+    """
+    level = ''
+    for chunk in segment:
+        chunk_level = level
+        if chunk.endswith('{'):
+            level += '  '
+        if chunk.startswith('}'):
+            level = level[:-2]
+            chunk_level = level
+        yield chunk_level + chunk + '\n'
+
+
+def _write_dot(path, entities, relationships, *, pretty=False):
+    """Write model state to a DOT file."""
     log.info('Writing DOT to {}', path)
     with path.open('w') as dot:
-        segments = [
+        segments = itertools.chain(
             _write_dot_header(),
             _write_dot_entities(entities),
             _write_dot_relationships(relationships),
             _write_dot_footer(),
-        ]
-        for chunk in itertools.chain(*segments):
+        )
+        for chunk in _pretty_print(segments) if pretty else segments:
             dot.write(chunk)
     log.info('Finished writing DOT to {}', path)
 

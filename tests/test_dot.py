@@ -87,15 +87,49 @@ class TestCommandLineOptions:
             arguments = parser.parse_args(['--dot-foreign', 'boris'])
         assert 'invalid ForeignEntity value' in str(exception.value.__context__)
 
+    def test_dot_pretty_default(self, parser):
+        arguments = parser.parse_args([])
+        assert arguments.dot_pretty is False
 
-def test_write(tmpdir):
-    path = pathlib.Path(str(tmpdir)) / 'test.dot'
-    entityd.dot._write_dot(path, set(), set())
-    assert path.is_file()
-    with path.open() as dot_file:
-        dot = dot_file.read()
-    assert dot.startswith('digraph G {')
-    assert dot.endswith('}')
+    def test_dot_pretty(self, parser):
+        arguments = parser.parse_args(['--dot-pretty'])
+        assert arguments.dot_pretty is True
+
+
+def test_pretty_print():
+    chunks = [
+        'foo {',
+        'spam',
+        'eggs',
+        '}',
+    ]
+    assert list(entityd.dot._pretty_print(chunks)) == [
+        'foo {\n',
+        '  spam\n',
+        '  eggs\n',
+        '}\n',
+    ]
+
+
+class TestWrite:
+
+    def test(self, tmpdir):
+        path = pathlib.Path(str(tmpdir)) / 'test.dot'
+        entityd.dot._write_dot(path, set(), set())
+        assert path.is_file()
+        with path.open() as dot_file:
+            dot = dot_file.read()
+        assert dot.startswith('digraph G {')
+        assert dot.endswith('}')
+
+    def test_write_pretty(self, tmpdir):
+        path = pathlib.Path(str(tmpdir)) / 'test.dot'
+        entityd.dot._write_dot(path, set(), set(), pretty=True)
+        assert path.is_file()
+        with path.open() as dot_file:
+            dot = dot_file.read()
+        assert dot.splitlines()[0] == 'digraph G {'
+        assert dot.splitlines()[-1] == '}'
 
 
 def test_write_header():

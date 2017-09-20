@@ -14,11 +14,22 @@ import logbook
 log = logbook.Logger(__name__)
 
 
-class Palette:
-    """A palette of colours."""
+class _Palette:
+    """A palette of colours.
+
+    All colours must be expressed as hex-triplets. Their case will be
+    normalised so only lowercase hexadecimal digits are used.
+
+    :params colours: Ordered iterable of colours for the palette.
+    :type colours: iterable of str
+
+    :raises ValueError: If the given colours iterable is empty.
+    """
 
     def __init__(self, colours):
-        self._colours = tuple(colours)
+        self._colours = tuple(colour.lower() for colour in colours)
+        if not self._colours:
+            raise ValueError('Colour palette can not be empty')
 
     def __getitem__(self, key):
         """Select a colour from the palette.
@@ -53,9 +64,17 @@ class Palette:
 
         :param colours: Colours to exclude from the palette.
         :type colours: iterable of str
+
+        :raises ValueError: If excluding the given colour would result
+            in the new palette being empty.
+
+        :returns: A copy of the current palette with the specified
+            colours excluded.
         """
-        return self.__class__([colour for colour
-                               in self._colours if colour not in colours])
+        colours_normalised = [colour.lower() for colour in colours]
+        return self.__class__([
+            colour for colour
+            in self._colours if colour not in colours_normalised])
 
 
 class ForeignEntity(enum.Enum):
@@ -160,11 +179,15 @@ def _write_dot(path, entities, relationships):
         ]
         for chunk in itertools.chain(*segments):
             dot.write(chunk)
-            dot.write('\n')
     log.info('Finished writing DOT to {}', path)
 
 
 def _write_dot_header():
+    """Write a DOT digraph header.
+
+    Numerous attributes are also set to control the rendering as the
+    defaults are somewhat ugly.
+    """
     yield 'digraph G {'
     yield 'graph [overlap=prism];'
     yield 'graph [rankdir=LR];'
@@ -178,25 +201,54 @@ def _write_dot_header():
 
 
 def _write_dot_entities(entities):
-    for entity in entities:
+    """Write DOT nodes.
+
+    A node is created for each entity. The nodes will always be written
+    in a consistent order. However, the exact sort order is opaque.
+
+    :param entities: Entities to write as DOT nodes.
+    :type entities: set of entityd.entityupdate.EntityUpdate
+    """
+    ordered = sorted(entities, key=lambda entity: str(entity.ueid))
+    for entity in ordered:
         namespace = entity.metype.rsplit(':', 1)[0]
         type_ = entity.metype[len(namespace) + 1:]
-        palette = Palette.default()
-        colour_border = palette[namespace]
+        palette = _Palette.default()
+        attributes = {
+            'label': entity.label or '',
+            'color': palette[namespace],
+            'fillcolor': '#ffffff',
+        }
         if type_:
-            colour_background = palette.exclude(colour_border)[type_]
-        else:
-            colour_background = "#ffffff"
-        label = "{0}\\n{1}".format(entity.metype, entity.label or '')
-        if not entity.metype:
-            label = '\\n'.join(label.split('\\n')[1:])
-        yield '"{0.ueid}" [label="{1}", color="{2}" fillcolor="{3}"];'.format(entity, label, colour_border, colour_background)
+            attributes['fillcolor'] = \
+                palette.exclude(attributes['color'])[type_]
+        if entity.metype:
+            attributes['label'] = entity.metype + '\\n' + attributes['label']
+            attributes['label'] = attributes['label'].rstrip('\\n')
+        attributes_formatted = []
+        for attribute in sorted(attributes):
+            attributes_formatted.append(
+                '{0}="{1}"'.format(attribute, attributes[attribute]))
+        node_id = '"{entity.ueid}"'.format(entity=entity)
+        node_attributes = ', '.join(attributes_formatted)
+        yield node_id + ' [' + node_attributes + '];'
 
 
 def _write_dot_relationships(relationships):
-    for (parent, child) in relationships:
+    """Write DOT relationships.
+
+    The relationships will always be written in a consistent order.
+    However, the exact sort order is opaque.
+
+    :param relationships: Relationships to write as DOT.
+    :type relationships: set of tuples of cobe.UEID
+    """
+    ordered = sorted(
+        relationships, key=lambda relationship: str(relationship[0]))
+    for (parent, child) in ordered:
         yield '"{0}" -> "{1}";'.format(parent, child)
 
 
 def _write_dot_footer():
+    """Write a DOT digraph footer."""
     yield '}'

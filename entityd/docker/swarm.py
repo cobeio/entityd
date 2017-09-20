@@ -1,9 +1,15 @@
+"""
+Plugin to provide docker swarm entities
+
+If a machine running docker is part of a swarm, a swarm
+entity will be generated
+"""
 import entityd
 from entityd.docker.client import DockerClient
 
 
 class DockerSwarm():
-    """An entity for the docker daemon"""
+    """An entity for the docker swarm"""
     name = "Docker:Swarm"
 
     @entityd.pm.hookimpl
@@ -23,13 +29,14 @@ class DockerSwarm():
 
     @classmethod
     def get_ueid(cls, docker_swarm_id):
-        """Create a ueid for a docker daemon"""
+        """Create a ueid for a docker swarm"""
         entity = entityd.EntityUpdate(cls.name)
         entity.attrs.set('id', docker_swarm_id, traits={'entity:id'})
         return entity.ueid
 
     @classmethod
     def swarm_exists(cls):
+        """Checks if the docker client is connected to a docker swarm"""
         if DockerClient.client_available():
             client = DockerClient.get_client()
             client_info = client.info()

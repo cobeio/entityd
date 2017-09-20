@@ -40,7 +40,7 @@ BUILTIN_PLUGIN_NAMES = ['entityd.' + n for n in
                          'kubernetes.group:NamespaceGroup',
                          'declentity:DeclarativeEntity',
                          'docker.container:DockerContainer',
-                         'docker.daemon:DockerDaemon',
+                         'docker.daemon:DockerEngine',
                          'docker.swarm:DockerSwarm',
                          'docker.container_group:DockerContainerGroup',]]
 

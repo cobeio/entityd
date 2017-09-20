@@ -3,14 +3,14 @@ from entityd.docker.client import DockerClient
 from entityd.mixins import HostUEID
 
 
-class DockerDaemon(HostUEID):
+class DockerEngine(HostUEID):
     """An entity for the docker daemon"""
-    name = "Docker:Daemon"
+    name = "Docker:Engine"
 
     @entityd.pm.hookimpl
     def entityd_configure(self, config):
         """Register the Process Monitored Entity."""
-        config.addentity(self.name, 'entityd.docker.daemon.DockerDaemon')
+        config.addentity(self.name, 'entityd.docker.daemon.DockerEngine')
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs=None,
@@ -23,10 +23,10 @@ class DockerDaemon(HostUEID):
             return self.generate_updates()
 
     @classmethod
-    def get_ueid(cls, docker_daemon_id):
+    def get_ueid(cls, docker_engine_id):
         """Create a ueid for a docker daemon"""
         entity = entityd.EntityUpdate(cls.name)
-        entity.attrs.set('id', docker_daemon_id, traits={'entity:id'})
+        entity.attrs.set('id', docker_engine_id, traits={'entity:id'})
         return entity.ueid
 
     def generate_updates(self):

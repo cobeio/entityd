@@ -3,46 +3,46 @@ from docker.errors import DockerException
 from mock import patch, MagicMock
 
 from entityd.docker.client import DockerClient
-from entityd.docker.engine import DockerDaemon
+from entityd.docker.engine import DockerEngine
 
 
 @pytest.fixture
-def docker_daemon(pm, host_entity_plugin):  # pylint: disable=unused-argument
+def docker_engine(pm, host_entity_plugin):  # pylint: disable=unused-argument
     """A DockerContainer instance.
 
     The plugin will be registered with the PluginManager but no hooks
     will have been called.
     """
-    dd = DockerDaemon()
-    pm.register(dd, 'entityd.docker.daemon.DockerDaemon')
+    dd = DockerEngine()
+    pm.register(dd, 'entityd.docker.daemon.DockerEngine')
     return dd
 
 
 def test_docker_not_available():
     with patch('entityd.docker.client.docker.DockerClient') as docker_client:
         docker_client.side_effect = DockerException
-        docker_daemon = DockerDaemon()
+        docker_engine = DockerEngine()
 
-        assert not list(docker_daemon.entityd_find_entity(docker_daemon.name))
+        assert not list(docker_engine.entityd_find_entity(docker_engine.name))
 
 
 def test_attrs_raises_exception():
     with pytest.raises(LookupError):
-        docker_daemon = DockerDaemon()
-        docker_daemon.entityd_find_entity(DockerDaemon.name, attrs="foo")
+        docker_engine = DockerEngine()
+        docker_engine.entityd_find_entity(DockerEngine.name, attrs="foo")
 
 
 def test_not_provided():
-    docker_daemon = DockerDaemon()
-    assert docker_daemon.entityd_find_entity('foo') is None
+    docker_engine = DockerEngine()
+    assert docker_engine.entityd_find_entity('foo') is None
 
 
 def test_get_ueid():
-    ueid = DockerDaemon.get_ueid("foo")
+    ueid = DockerEngine.get_ueid("foo")
     assert ueid
 
 
-def test_find_entities(monkeypatch, session, docker_daemon):
+def test_find_entities(monkeypatch, session, docker_engine):
     client_info = {
         'ID': 'foo',
         'Name': 'bar',
@@ -57,9 +57,9 @@ def test_find_entities(monkeypatch, session, docker_daemon):
     client_instance.info.return_value = client_info
     monkeypatch.setattr(DockerClient, "get_client", get_client)
 
-    docker_daemon.entityd_sessionstart(session)
-    docker_daemon.entityd_configure(session.config)
-    entities = docker_daemon.entityd_find_entity(DockerDaemon.name)
+    docker_engine.entityd_sessionstart(session)
+    docker_engine.entityd_configure(session.config)
+    entities = docker_engine.entityd_find_entity(DockerEngine.name)
     entities = list(entities)
     assert len(entities) == 1
 

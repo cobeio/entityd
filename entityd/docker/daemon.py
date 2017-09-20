@@ -1,5 +1,5 @@
 """
-Plugin to provide docker daemon entities
+Plugin to provide docker daemon entities.
 
 For each machine running a docker daemon an entity
 will be generated
@@ -11,7 +11,7 @@ from entityd.mixins import HostUEID
 
 class DockerDaemon(HostUEID):
     """An entity for the docker daemon"""
-    name = "Docker:Daemon"
+    name = 'Docker:Daemon'
 
     @entityd.pm.hookimpl
     def entityd_configure(self, config):
@@ -21,7 +21,7 @@ class DockerDaemon(HostUEID):
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs=None,
                             include_ondemand=False):  # pylint: disable=unused-argument
-        """Find the docker daemon entity"""
+        """Find the docker daemon entity."""
 
         if name == self.name:
             if attrs is not None:
@@ -30,13 +30,13 @@ class DockerDaemon(HostUEID):
 
     @classmethod
     def get_ueid(cls, docker_daemon_id):
-        """Create a ueid for a docker daemon"""
+        """Create a ueid for a docker daemon."""
         entity = entityd.EntityUpdate(cls.name)
         entity.attrs.set('id', docker_daemon_id, traits={'entity:id'})
         return entity.ueid
 
     def generate_updates(self):
-        """Generates the entity updates for the docker daemon"""
+        """Generates the entity updates for the docker daemon."""
         if DockerClient.client_available():
             client = DockerClient.get_client()
             dd_info = client.info()

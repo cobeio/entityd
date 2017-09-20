@@ -1,6 +1,7 @@
 """
-Plugin to provide entities for docker containers
+Plugin to provide entities for docker containers.
 """
+
 import logbook
 from docker.errors import ImageNotFound
 

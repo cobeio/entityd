@@ -237,15 +237,16 @@ class TestSession:
 
     @pytest.fixture
     def session(self, pm):
-        config = core.Config(pm, argparse.Namespace(period=5))
+        config = core.Config(pm, argparse.Namespace(period=5, once=False))
         return core.Session(pm, config)
 
-    def test_run(self, session, monitor):  # pylint: disable=unused-argument
+    def test_run(self, session):
         session.svc.monitor = pytest.Mock()
         session._shutdown = pytest.Mock()
-        session._shutdown.is_set.side_effect = [False, False, True]
+        session._shutdown.is_set.side_effect = [  # 2 checks per cycle
+            False, False, False, False, False, False, True]
         session.run()
-        assert session.svc.monitor.collect_entities.called
+        assert session.svc.monitor.collect_entities.call_count == 3
 
     def test_shutdown(self, session):
         session.svc.monitor = pytest.Mock()
@@ -260,6 +261,12 @@ class TestSession:
         session.shutdown()
         thread.join(3)
         assert not thread.is_alive()
+
+    def test_once(self, session):
+        session.config.args.once = True
+        session.svc.monitor = pytest.Mock()
+        session.run()
+        assert session.svc.monitor.collect_entities.call_count == 1
 
     def test_addservice(self, session):
         session.addservice('list', list)

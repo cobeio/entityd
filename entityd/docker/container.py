@@ -6,7 +6,7 @@ from docker.errors import ImageNotFound
 
 import entityd
 from entityd.docker.client import DockerClient
-from entityd.docker.daemon import DockerDaemon
+from entityd.docker.engine import DockerDaemon
 
 log = logbook.Logger(__name__)
 

@@ -3,7 +3,7 @@ from docker.errors import DockerException
 from mock import patch, MagicMock
 
 from entityd.docker.client import DockerClient
-from entityd.docker.daemon import DockerDaemon
+from entityd.docker.engine import DockerDaemon
 
 
 @pytest.fixture

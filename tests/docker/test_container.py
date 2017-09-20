@@ -5,7 +5,7 @@ from mock import patch, MagicMock, Mock
 
 from entityd.docker.client import DockerClient
 from entityd.docker.container import DockerContainer
-from entityd.docker.daemon import DockerDaemon
+from entityd.docker.engine import DockerDaemon
 
 
 @pytest.fixture

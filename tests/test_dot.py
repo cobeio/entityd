@@ -43,10 +43,10 @@ class TestPalette:
 
 
 @pytest.mark.parametrize('foreign_entity', [
-    entityd.dot.ForeignEntity.DEFAULT,
-    entityd.dot.ForeignEntity.UEID,
-    entityd.dot.ForeignEntity.UEID_SHORT,
-    entityd.dot.ForeignEntity.EXCLUDE,
+    entityd.dot._ForeignEntity.DEFAULT,
+    entityd.dot._ForeignEntity.UEID,
+    entityd.dot._ForeignEntity.UEID_SHORT,
+    entityd.dot._ForeignEntity.EXCLUDE,
 ])
 def test_foreign_entity(foreign_entity):
     assert str(foreign_entity) == foreign_entity.value
@@ -70,13 +70,13 @@ class TestCommandLineOptions:
 
     def test_dot_foreign_default(self, parser):
         arguments = parser.parse_args([])
-        assert arguments.dot_foreign is entityd.dot.ForeignEntity.DEFAULT
+        assert arguments.dot_foreign is entityd.dot._ForeignEntity.DEFAULT
 
     @pytest.mark.parametrize('foreign_entity', [
-        entityd.dot.ForeignEntity.DEFAULT,
-        entityd.dot.ForeignEntity.UEID,
-        entityd.dot.ForeignEntity.UEID_SHORT,
-        entityd.dot.ForeignEntity.EXCLUDE,
+        entityd.dot._ForeignEntity.DEFAULT,
+        entityd.dot._ForeignEntity.UEID,
+        entityd.dot._ForeignEntity.UEID_SHORT,
+        entityd.dot._ForeignEntity.EXCLUDE,
     ])
     def test_dot_foreign(self, parser, foreign_entity):
         arguments = parser.parse_args(['--dot-foreign', foreign_entity.value])
@@ -85,7 +85,7 @@ class TestCommandLineOptions:
     def test_dot_foreign_bad_choice(self, parser):
         with pytest.raises(SystemExit) as exception:
             arguments = parser.parse_args(['--dot-foreign', 'boris'])
-        assert 'invalid ForeignEntity value' in str(exception.value.__context__)
+        assert 'invalid _ForeignEntity value' in str(exception.value.__context__)
 
     def test_dot_pretty_default(self, parser):
         arguments = parser.parse_args([])
@@ -94,6 +94,90 @@ class TestCommandLineOptions:
     def test_dot_pretty(self, parser):
         arguments = parser.parse_args(['--dot-pretty'])
         assert arguments.dot_pretty is True
+
+
+class TestForeignReferences:
+
+    def test_parent(self):
+        entity = entityd.entityupdate.EntityUpdate('Foo')
+        relationship = (cobe.UEID('a' * 32), entity.ueid)
+        aliens = entityd.dot._foreign_references(
+            {entity.ueid: entity}, {relationship})
+        assert list(aliens) == [(relationship, relationship[0])]
+
+    def test_child(self):
+        entity = entityd.entityupdate.EntityUpdate('Foo')
+        relationship = (entity.ueid, cobe.UEID('a' * 32))
+        aliens = entityd.dot._foreign_references(
+            {entity.ueid: entity}, {relationship})
+        assert list(aliens) == [(relationship, relationship[1])]
+
+    def test_both(self):
+        relationship = (cobe.UEID('a' * 32), cobe.UEID('b' * 32))
+        aliens = entityd.dot._foreign_references({}, {relationship})
+        assert list(aliens) == [
+            (relationship, relationship[0]),
+            (relationship, relationship[1]),
+        ]
+
+    def test_neither(self):
+        entity_a = entityd.entityupdate.EntityUpdate('Foo')
+        entity_b = entityd.entityupdate.EntityUpdate('Bar')
+        relationship = (entity_a.ueid, entity_b.ueid)
+        aliens = entityd.dot._foreign_references({
+            entity_a.ueid: entity_a,
+            entity_b.ueid: entity_b,
+        }, {relationship})
+        assert list(aliens) == []
+
+
+class TestProcessForeignReferences:
+
+    def test_default(self):
+        entity = entityd.entityupdate.EntityUpdate('Foo')
+        relationship = (cobe.UEID('a' * 32), entity.ueid)
+        entities = {entity.ueid: entity}
+        relationships = {relationship}
+        entityd.dot._process_foreign_references(
+            entityd.dot._ForeignEntity.DEFAULT, entities, relationships)
+        assert set(entities.keys()) == {entity.ueid, relationship[0]}
+        assert entities[relationship[0]].metype == ''
+        assert entities[relationship[0]].label == '?'
+        assert relationships == {relationship}
+
+    def test_exclude(self):
+        entity = entityd.entityupdate.EntityUpdate('Foo')
+        relationship = (cobe.UEID('a' * 32), entity.ueid)
+        entities = {entity.ueid: entity}
+        relationships = {relationship}
+        entityd.dot._process_foreign_references(
+            entityd.dot._ForeignEntity.EXCLUDE, entities, relationships)
+        assert set(entities.keys()) == {entity.ueid}
+        assert relationships == set()
+
+    def test_ueid(self):
+        entity = entityd.entityupdate.EntityUpdate('Foo')
+        relationship = (cobe.UEID('a' * 32), entity.ueid)
+        entities = {entity.ueid: entity}
+        relationships = {relationship}
+        entityd.dot._process_foreign_references(
+            entityd.dot._ForeignEntity.UEID, entities, relationships)
+        assert set(entities.keys()) == {entity.ueid, relationship[0]}
+        assert entities[relationship[0]].metype == ''
+        assert entities[relationship[0]].label == 'a' * 32
+        assert relationships == {relationship}
+
+    def test_ueid_short(self):
+        entity = entityd.entityupdate.EntityUpdate('Foo')
+        relationship = (cobe.UEID('a' * 32), entity.ueid)
+        entities = {entity.ueid: entity}
+        relationships = {relationship}
+        entityd.dot._process_foreign_references(
+            entityd.dot._ForeignEntity.UEID_SHORT, entities, relationships)
+        assert set(entities.keys()) == {entity.ueid, relationship[0]}
+        assert entities[relationship[0]].metype == ''
+        assert entities[relationship[0]].label == 'aaaaaa'
+        assert relationships == {relationship}
 
 
 def test_pretty_print():

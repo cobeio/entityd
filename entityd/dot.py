@@ -77,7 +77,7 @@ class _Palette:
             in self._colours if colour not in colours_normalised])
 
 
-class ForeignEntity(enum.Enum):
+class _ForeignEntity(enum.Enum):
     """Behaviour for foreign entities in the graph."""
 
     DEFAULT = 'default'
@@ -104,12 +104,12 @@ def entityd_addoption(parser):
     )
     parser.add_argument(
         '--dot-foreign',
-        default=ForeignEntity.DEFAULT,
+        default=_ForeignEntity.DEFAULT,
         choices=sorted(
-            (option for option in ForeignEntity),
+            (option for option in _ForeignEntity),
             key=lambda option: option.value,
         ),
-        type=ForeignEntity,
+        type=_ForeignEntity,
         help=(
             'How to treat references to entities which are not collected '
             'by this agent. The default behaviour will simply replace '
@@ -146,24 +146,48 @@ def entityd_collection_after(session, updates):
     )
 
 
-# TODO: Refactor this mess
 def _process_foreign_references(method, entities, relationships):
-    if method is ForeignEntity.EXCLUDE:
+    """Update and/or filter foreign references.
+
+    The exact behaviour depends on the given processing method:
+
+    - :attr:`_ForeignEntity.DEFAULT`: An entity is added for the
+      foreign relation with a label set to a QUESTION MARK.
+    - :attr:`_ForeignEntity.EXCLUDE`: The relationships are outright
+      removed from the set of relationships.
+    - :attr:`_ForeignEntity.UEID`: An entity is added for the
+      foreign relation with a label set to the full UEID of the
+      relation.
+    - :attr:`_ForeignEntity.UEID_SHORT`: An entity is added for
+      the foreign relation with a label set to the truncated UEID
+      of the relation.
+
+    .. warning::
+
+        This will modify the given entity and relationship collections
+        in place.
+
+    :param entities: All local entity updates.
+    :type entities: dict of cobe.UEID to entityd.entityupdate.EntityUpdate
+    :param relationships: All local entity relationships.
+    :type entities: set of tuple of cobe.UEID
+    """
+    if method is _ForeignEntity.EXCLUDE:
         foreigners = set()
         for relationship, _ in _foreign_references(entities, relationships):
             foreigners.add(relationship)
         relationships -= foreigners
-    elif method is ForeignEntity.DEFAULT:
+    elif method is _ForeignEntity.DEFAULT:
         for _, relation in _foreign_references(entities, relationships):
             entity = entityd.entityupdate.EntityUpdate('', relation)
             entity.label = '?'
             entities[entity.ueid] = entity
-    elif method is ForeignEntity.UEID:
+    elif method is _ForeignEntity.UEID:
         for _, relation in _foreign_references(entities, relationships):
             entity = entityd.entityupdate.EntityUpdate('', relation)
             entity.label = str(relation)
             entities[entity.ueid] = entity
-    elif method is ForeignEntity.UEID_SHORT:
+    elif method is _ForeignEntity.UEID_SHORT:
         for _, relation in _foreign_references(entities, relationships):
             entity = entityd.entityupdate.EntityUpdate('', relation)
             entity.label = str(relation)[:6]
@@ -171,7 +195,21 @@ def _process_foreign_references(method, entities, relationships):
 
 
 def _foreign_references(entities, relationships):
-    """Find foreign entity references in a model."""
+    """Find foreign entity references in a model.
+
+    A foreign entity reference is defined as being a relationship,
+    for which at least one relation doesn't exist in the given mapping
+    of local entities.
+
+    :param entities: All local entity updates.
+    :type entities: dict of cobe.UEID to entityd.entityupdate.EntityUpdate
+    :param relationships: All local entity relationships.
+    :type entities: set of tuple of cobe.UEID
+
+    :returns: An iterator of foreign entity references. Each foreign
+        reference is represented by a tuple containing the relationship,
+        and the offending UEID in the relationship.
+    """
     for relationship in relationships:
         for relation in relationship:
             if relation not in entities:

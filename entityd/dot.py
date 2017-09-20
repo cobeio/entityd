@@ -125,6 +125,13 @@ def entityd_addoption(parser):
 
 @entityd.pm.hookimpl
 def entityd_collection_after(session, updates):
+    """Optionally write a DOT file.
+
+    If a DOT file path is specified by ``--dot``, it will be overwritten
+    to represent the state of the updates from the collection cycle.
+
+    If not DOT file path is specified, this function does nothing.
+    """
     if session.config.args.dot is None:
         return
     entities = {}  # UEID : EntityUpdate

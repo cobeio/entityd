@@ -293,3 +293,88 @@ class TestWriteEntities:
             ('"f980732eaf5c4f4105e52fadde79e563" '
              '[color="#8850a4", fillcolor="#ea8279", label="Test:Foo"];'),
         ]
+
+
+class TestCollectionAfter:
+
+    @pytest.fixture(params=list(entityd.dot._ForeignEntity))
+    def foreign_entity(self, request):
+        return request.param
+
+    @pytest.fixture(params=[True, False])
+    def pretty(self, request):
+        return request.param
+
+    def test(self, monkeypatch, tmpdir, session, foreign_entity, pretty):
+        monkeypatch.setattr(
+            entityd.dot,
+            '_write_dot',
+            pytest.Mock(wraps=entityd.dot._write_dot),
+        )
+        monkeypatch.setattr(
+            entityd.dot,
+            '_process_foreign_references',
+            pytest.Mock(wraps=entityd.dot._process_foreign_references),
+        )
+        path = pathlib.Path(str(tmpdir)) / 'test.dot'
+        session.config.args.dot = path
+        session.config.args.dot_foreign = foreign_entity
+        session.config.args.dot_pretty = pretty
+        entity_a = entityd.entityupdate.EntityUpdate('Foo')
+        entity_b = entityd.entityupdate.EntityUpdate('Bar')
+        entity_c = entityd.entityupdate.EntityUpdate('Baz')
+        entity_a.children.add(entity_b)
+        entity_a.parents.add(entity_c)
+        entityd.dot.entityd_collection_after(
+            session, (entity_a, entity_b, entity_c))
+        assert path.is_file()
+        with path.open() as dot_file:
+            dot = dot_file.read()
+        assert ('"3d9873001ef496294b3d7f5930b32cac" '
+                '-> "716eec5f78bfa9b97ff69ccda90c7f7a"' in dot)
+        assert ('"716eec5f78bfa9b97ff69ccda90c7f7a" '
+                '-> "31f596aa85f36577720cf361cd8715d1"' in dot)
+        assert entityd.dot._write_dot.call_args[0] == (
+                path,
+                {entity_a, entity_b, entity_c},
+                {
+                    (entity_a.ueid, entity_b.ueid),
+                    (entity_c.ueid, entity_a.ueid),
+                },
+        )
+        assert entityd.dot._write_dot.call_args[1] == {'pretty': pretty}
+        assert entityd.dot._process_foreign_references.call_args[0] == (
+            foreign_entity,
+            {
+                entity_a.ueid: entity_a,
+                entity_b.ueid: entity_b,
+                entity_c.ueid: entity_c,
+            },
+            {
+                (entity_a.ueid, entity_b.ueid),
+                (entity_c.ueid, entity_a.ueid),
+            },
+        )
+        assert entityd.dot._process_foreign_references.call_args[1] == {}
+
+    def test_disabled(self, monkeypatch, session):
+        monkeypatch.setattr(
+            entityd.dot,
+            '_write_dot',
+            pytest.Mock(wraps=entityd.dot._write_dot),
+        )
+        monkeypatch.setattr(
+            entityd.dot,
+            '_process_foreign_references',
+            pytest.Mock(wraps=entityd.dot._process_foreign_references),
+        )
+        session.config.args.dot = None
+        entity_a = entityd.entityupdate.EntityUpdate('Foo')
+        entity_b = entityd.entityupdate.EntityUpdate('Bar')
+        entity_c = entityd.entityupdate.EntityUpdate('Baz')
+        entity_a.children.add(entity_b)
+        entity_a.parents.add(entity_c)
+        entityd.dot.entityd_collection_after(
+            session, (entity_a, entity_b, entity_c))
+        assert not entityd.dot._write_dot.called
+        assert not entityd.dot._process_foreign_references.called

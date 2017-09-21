@@ -110,7 +110,7 @@ pipeline {
 
                             script {
                                 sh "docker pull ${entityd_test_image_id}"
-                                runTestSteps(entityd_test_image_id, "pylint", 'Running linting tests'){
+                                runTestSteps(entityd_test_image_id, "pylint", 'Running linting tests', ''){
                                         pylint = sh(script:'/opt/entityd/bin/invoke pylint', returnStatus: true)
                                         warnings parserConfigurations: [[parserName: 'PyLint', pattern: 'results/pylint.log']]
                                         return pylint

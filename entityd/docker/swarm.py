@@ -1,9 +1,15 @@
+"""Plugin to provide docker swarm entities.
+
+If a machine running docker is part of a swarm, a swarm
+entity will be generated
+"""
+
 import entityd
 from entityd.docker.client import DockerClient
 
 
-class DockerSwarm():
-    """An entity for the docker daemon"""
+class DockerSwarm:
+    """An entity for the docker swarm."""
     name = "Docker:Swarm"
 
     @entityd.pm.hookimpl
@@ -14,7 +20,7 @@ class DockerSwarm():
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs=None,
                             include_ondemand=False):  # pylint: disable=unused-argument
-        """Find the docker swarm entity"""
+        """Find the docker swarm entity."""
 
         if name == self.name:
             if attrs is not None:
@@ -23,26 +29,27 @@ class DockerSwarm():
 
     @classmethod
     def get_ueid(cls, docker_swarm_id):
-        """Create a ueid for a docker daemon"""
+        """Create a ueid for a docker swarm."""
         entity = entityd.EntityUpdate(cls.name)
         entity.attrs.set('id', docker_swarm_id, traits={'entity:id'})
         return entity.ueid
 
     @classmethod
-    def swarm_exists(cls):
-        if DockerClient.client_available():
-            client = DockerClient.get_client()
-            client_info = client.info()
-            if client_info['Swarm']['LocalNodeState'] == "active":
-                return True
+    def swarm_exists(cls, client_info):
+        """Checks if the docker client is connected to a docker swarm."""
+        if client_info['Swarm']['LocalNodeState'] == "active":
+            return True
         return False
 
     def generate_updates(self):
-        """Generates the entity updates for the docker daemon"""
-        if self.swarm_exists():
-            client = DockerClient.get_client()
-            client_info = client.info()
+        """Generates the entity updates for the docker daemon."""
+        if not DockerClient.client_available():
+            return
 
+        client = DockerClient.get_client()
+        client_info = client.info()
+
+        if self.swarm_exists(client_info):
             swarm_attrs = client_info['Swarm']
             swarm_spec = swarm_attrs['Cluster']['Spec']
             swarm_spec_raft = swarm_spec['Raft']
@@ -60,21 +67,21 @@ class DockerSwarm():
             update.attrs.set('nodes:managers', swarm_attrs['Managers'],
                              traits={'metric:gauge'})
 
-            update.attrs.set('specification:name', swarm_spec['Name'])
+            update.attrs.set('name', swarm_spec['Name'])
             update.attrs.set(
-                'specification:auto-lock-managers',
+                'auto-lock-managers',
                 swarm_spec['EncryptionConfig']['AutoLockManagers'])
 
-            update.attrs.set('specification:raft:election-tick',
+            update.attrs.set('raft:election-tick',
                              swarm_spec_raft['ElectionTick'])
-            update.attrs.set('specification:raft:heartbeat-tick',
+            update.attrs.set('raft:heartbeat-tick',
                              swarm_spec_raft['HeartbeatTick'])
-            update.attrs.set('specification:raft:keep-old-snapshots',
+            update.attrs.set('raft:keep-old-snapshots',
                              swarm_spec_raft['KeepOldSnapshots'])
             update.attrs.set(
-                'specification:raft:log-entries-for-slow-followers',
+                'raft:log-entries-for-slow-followers',
                 swarm_spec_raft['LogEntriesForSlowFollowers'])
-            update.attrs.set('specification:raft:snapshot-interval',
+            update.attrs.set('raft:snapshot-interval',
                              swarm_spec_raft['SnapshotInterval'])
 
             yield update

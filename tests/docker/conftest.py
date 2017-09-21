@@ -45,8 +45,12 @@ def finished_container():
     }
     image = MagicMock(id='image_id', tags=['debian:latest'])
     container = Mock(
-        id="bar", name="finished_container", status="exited", labels=["label"],
-        image=image, attrs=attrs)
+        id="bar",
+        name="finished_container",
+        status="exited",
+        labels=["label"],
+        image=image,
+        attrs=attrs)
     container.configure_mock(name="finished_container", should_exist=True)
 
     return container

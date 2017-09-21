@@ -1,5 +1,4 @@
-"""
-Plugin to provide container group entities
+"""Plugin to provide container group entities.
 
 Each running container will have a container group with
 a child for each process.
@@ -16,7 +15,7 @@ log = logbook.Logger(__name__)
 
 
 class DockerContainerGroup(HostUEID):
-    """Entity for a grouping of Processes running within a Docker Container"""
+    """Entity for a grouping of Processes running within a Docker Container."""
     name = "Group"
 
     @entityd.pm.hookimpl
@@ -28,7 +27,7 @@ class DockerContainerGroup(HostUEID):
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs=None, include_ondemand=False):  # pylint: disable=unused-argument
-        """Find the docker container process group entities"""
+        """Find the docker container process group entities."""
         if name == self.name:
             if attrs is not None:
                 raise LookupError('Attribute based filtering not supported')
@@ -55,8 +54,7 @@ class DockerContainerGroup(HostUEID):
             return entity.ueid
 
     def get_missed_process_children(self, pid):
-        """Use the process tree to get any PID's that might of been
-        missed by docker.container.top()
+        """Walk the process tree returning child pid's
 
         :param pid: A process id.
 
@@ -75,7 +73,7 @@ class DockerContainerGroup(HostUEID):
         return missed_processes
 
     def generate_updates(self):
-        """Generates the entity updates for the process group"""
+        """Generates the entity updates for the process group."""
         if not DockerClient.client_available():
             return
 

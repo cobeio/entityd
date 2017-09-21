@@ -143,7 +143,7 @@ def syskit_user_error(monkeypatch):
 
 @pytest.fixture
 def no_docker_client(monkeypatch):
-    """Mock out docker DockerClient to test no docker client being available."""
+    """Mock out DockerClient to test no docker client being available."""
     monkeypatch.setattr(docker, 'DockerClient',
                         pytest.Mock(side_effect=docker.errors.DockerException))
 

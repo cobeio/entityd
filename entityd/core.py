@@ -88,6 +88,11 @@ def entityd_addoption(parser):
         type=lambda period: max(0, float(period)),
         help='How often to run periodic entity collection in seconds',
     )
+    parser.add_argument(
+        '--once',
+        action='store_true',
+        help='Run entity collection once and then exit.',
+    )
     parser.add_argument(  # Ignored; used by __main__
         '--disable',
         nargs='+',
@@ -205,7 +210,9 @@ class Session:
         """Run the monitoring session.
 
         This will block until .shutdown() is called or SIGTERM is
-        received (aka KeyboardInterrupt is raised).
+        received (aka KeyboardInterrupt is raised). If the ``--once``
+        option was given, the monitoring session is shutdown after
+        the first cycle completes.
 
         :raises KeyBoardInterrupt: When SIGTERM is received the
            KeyBoardInterrupt is not caught and propagated up to the
@@ -223,7 +230,9 @@ class Session:
                 time_start = time.monotonic()
                 self.svc.monitor.collect_entities()
                 time_next = time_start + self.config.args.period
-
+            if self.config.args.once:
+                log.info('Only collecting once; will exit now')
+                self.shutdown()
 
     def shutdown(self):
         """Signal the session to shutdown.

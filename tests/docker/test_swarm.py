@@ -13,9 +13,9 @@ def docker_swarm(pm, host_entity_plugin):  # pylint: disable=unused-argument
     The plugin will be registered with the PluginManager but no hooks
     will have been called.
     """
-    dd = DockerSwarm()
-    pm.register(dd, 'entityd.docker.swarm.DockerSwarm')
-    return dd
+    swarm = DockerSwarm()
+    pm.register(swarm, 'entityd.docker.swarm.DockerSwarm')
+    return swarm
 
 
 def test_docker_not_available():
@@ -49,7 +49,7 @@ def test_non_swarm_docker(monkeypatch, session, docker_swarm):
         'LocalNodeState': 'inactive',
         'NodeAddr': '',
         'NodeID': '',
-        'RemoteManagers': None
+        'RemoteManagers': None,
     }
 
     client_info = {'Swarm': swarm}
@@ -71,20 +71,20 @@ def test_find_entities(monkeypatch, session, docker_swarm):
         'HeartbeatTick': 1,
         'KeepOldSnapshots': 0,
         'LogEntriesForSlowFollowers': 500,
-        'SnapshotInterval': 10000
+        'SnapshotInterval': 10000,
     }
 
     spec = {
         'EncryptionConfig': {'AutoLockManagers': False},
         'Labels': {},
         'Name': 'default',
-        'Raft': raft
+        'Raft': raft,
     }
 
     cluster = {
         'CreatedAt': '2017-09-18T11:02:01.903734295Z',
         'ID': 'v1w5dux11fec5252r3hciqgzp',
-        'Spec': spec
+        'Spec': spec,
     }
 
     swarm = {
@@ -115,28 +115,36 @@ def test_find_entities(monkeypatch, session, docker_swarm):
     assert entity.attrs.get('id').value == "a1234567890"
     assert entity.attrs.get('id').traits == {'entity:id'}
 
-    assert (entity.attrs.get('control-available').value ==
-            swarm['ControlAvailable'])
-
-    assert (entity.attrs.get('error').value == swarm['Error'])
-
-    assert (entity.attrs.get('nodes:total').value == swarm['Nodes'])
-    assert (entity.attrs.get('nodes:managers').value == swarm['Managers'])
-    assert (entity.attrs.get('nodes:total').traits == {'metric:gauge'})
-    assert (entity.attrs.get('nodes:managers').traits == {'metric:gauge'})
-
-    assert (entity.attrs.get('specification:name').value == spec['Name'])
-    assert (entity.attrs.get('specification:auto-lock-managers').value ==
-            spec['EncryptionConfig']['AutoLockManagers'])
-
-    assert (entity.attrs.get('specification:raft:election-tick').value ==
-            raft['ElectionTick'])
-    assert (entity.attrs.get('specification:raft:heartbeat-tick').value ==
-            raft['HeartbeatTick'])
-    assert (entity.attrs.get('specification:raft:keep-old-snapshots').value ==
-            raft['KeepOldSnapshots'])
     assert (entity.attrs.get(
-        'specification:raft:log-entries-for-slow-followers').value ==
+        'control-available').value == swarm['ControlAvailable'])
+
+    assert entity.attrs.get('error').value == swarm['Error']
+
+    assert entity.attrs.get('nodes:total').value == swarm['Nodes']
+    assert entity.attrs.get('nodes:managers').value == swarm['Managers']
+    assert entity.attrs.get('nodes:total').traits == {'metric:gauge'}
+    assert entity.attrs.get('nodes:managers').traits == {'metric:gauge'}
+
+    assert entity.attrs.get('name').value == spec['Name']
+    assert (entity.attrs.get('auto-lock-managers').value ==
+            spec['EncryptionConfig']['AutoLockManagers'])
+    assert (entity.attrs.get(
+        'raft:election-tick').value == raft['ElectionTick'])
+    assert (entity.attrs.get(
+        'raft:heartbeat-tick').value == raft['HeartbeatTick'])
+    assert (entity.attrs.get(
+        'raft:keep-old-snapshots').value == raft['KeepOldSnapshots'])
+    assert (entity.attrs.get(
+        'raft:log-entries-for-slow-followers').value ==
         raft['LogEntriesForSlowFollowers'])
-    assert (entity.attrs.get('specification:raft:snapshot-interval').value ==
-                     raft['SnapshotInterval'])
+    assert (entity.attrs.get(
+        'raft:snapshot-interval').value == raft['SnapshotInterval'])
+
+    assert entity.attrs.get('name').traits == set()
+    assert entity.attrs.get('auto-lock-managers').traits == set()
+    assert entity.attrs.get('raft:election-tick').traits == set()
+    assert entity.attrs.get('raft:heartbeat-tick').traits == set()
+    assert entity.attrs.get('raft:keep-old-snapshots').traits == set()
+    assert (entity.attrs.get(
+        'raft:log-entries-for-slow-followers').traits == set())
+    assert entity.attrs.get('raft:snapshot-interval').traits == set()

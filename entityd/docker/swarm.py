@@ -142,26 +142,25 @@ class DockerNode:
                     update.attrs.set('id', node.attrs['ID'],
                                      traits={'entity:id'})
 
-                    update.attrs.set('node:id', node.attrs['ID'])
-                    update.attrs.set('node:role',
+                    update.attrs.set('role',
                                      node.attrs['Spec']['Role'])
-                    update.attrs.set('node:availability',
+                    update.attrs.set('availability',
                                      node.attrs['Spec']['Availability'])
-                    update.attrs.set('node:labels',
+                    update.attrs.set('labels',
                                      node.attrs['Spec']['Labels'])
-                    update.attrs.set('node:state',
+                    update.attrs.set('state',
                                      node.attrs['Status']['State'])
-                    update.attrs.set('node:address',
+                    update.attrs.set('address',
                                      node.attrs['Status']['Addr'])
-                    update.attrs.set('node:version',
+                    update.attrs.set('version',
                                      node.attrs['Version']['Index'])
 
                     manager_attrs = node.attrs['ManagerStatus']
-                    update.attrs.set('node:manager:reachability',
+                    update.attrs.set('manager:reachability',
                                      manager_attrs['Reachability'])
-                    update.attrs.set('node:manager:leader',
+                    update.attrs.set('manager:leader',
                                      manager_attrs['Leader'])
-                    update.attrs.set('node:manager:addr',
+                    update.attrs.set('manager:addr',
                                      manager_attrs['Addr'])
                     yield update
             except APIError as error:

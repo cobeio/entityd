@@ -37,7 +37,6 @@ class DockerSwarm():
                 return True
         return False
 
-
     def generate_updates(self):
         """Generates the entity updates for the docker daemon"""
         if self.swarm_exists():

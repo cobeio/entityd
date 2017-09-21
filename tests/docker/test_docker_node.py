@@ -1,9 +1,9 @@
 import pytest
 from docker.errors import DockerException
-from mock import MagicMock, patch
+from mock import MagicMock
 
 from entityd.docker.client import DockerClient
-from entityd.docker.node import DockerNode
+from entityd.docker.swarm import DockerNode
 
 
 @pytest.fixture
@@ -14,7 +14,7 @@ def docker_node(pm, host_entity_plugin):  # pylint: disable=unused-argument
     will have been called.
     """
     node = DockerNode()
-    pm.register(node, 'entityd.docker.node.DockerNode')
+    pm.register(node, 'entityd.docker.swarm.DockerNode')
     return node
 
 
@@ -24,7 +24,7 @@ def manager_node():
     node.ip_address = '192.168.2.23'
     node.attrs = {
         'ID': 'aaaa',
-        'HostName': 'bbbb',
+        'Description': {'Hostname': 'bbbb'},
         'ManagerStatus': {
             'Addr': '192.168.2.23:2377',
             'Leader': True,
@@ -48,7 +48,7 @@ def worker_node():
     node.ip_address = '192.168.2.24'
     node.attrs = {
         'ID': 'cccc',
-        'HostName': 'dddd',
+        'Description': {'Hostname': 'dddd'},
         'ManagerStatus': {
             'Addr': '192.168.2.23:2377',
             'Leader': True,
@@ -71,7 +71,7 @@ def inactive_node():
     node = MagicMock()
     node.attrs = {
         'ID': 'eeee',
-        'HostName': 'ffff',
+        'Description': {'Hostname': 'ffff'},
         'ManagerStatus': {
             'Addr': '192.168.2.23:2377',
             'Leader': True,

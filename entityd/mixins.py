@@ -54,4 +54,4 @@ class HostEntity:
 
         :returns: A :class:`cobe.UEID` for the host.
         """
-        return self.host_entity.hostname
+        return self.host_entity.attrs.get('hostname').value

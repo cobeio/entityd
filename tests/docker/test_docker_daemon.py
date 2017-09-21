@@ -4,7 +4,7 @@ from mock import patch, MagicMock
 
 from entityd.docker.client import DockerClient
 from entityd.docker.daemon import DockerDaemon
-from entityd.docker.node import DockerNode
+from entityd.docker.swarm import DockerNode
 
 
 @pytest.fixture
@@ -98,7 +98,6 @@ def test_find_entities_with_swarm(monkeypatch, session, docker_daemon):
     get_client = MagicMock()
     client_instance = get_client.return_value
     client_instance.info.return_value = client_info
-    client_instance.nodes.list.return_value = nodes
     monkeypatch.setattr(DockerClient, "get_client", get_client)
 
     docker_daemon.entityd_sessionstart(session)
@@ -121,7 +120,7 @@ def test_find_entities_with_swarm(monkeypatch, session, docker_daemon):
             client_info['ContainersStopped'])
 
     node_ueid = DockerNode.get_ueid(client_info['Swarm']['NodeID'])
-    assert node_ueid in entity.children
+    assert node_ueid in entity.parents
 
 
     # manager_attrs = manager_node.attrs['ManagerStatus']

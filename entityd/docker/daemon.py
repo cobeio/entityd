@@ -45,7 +45,8 @@ class DockerDaemon(HostEntity):
             update.label = client_info['Name']
             update.attrs.set('id', client_info['ID'], traits={'entity:id'})
             update.attrs.set('containers:total', client_info['Containers'])
-            update.attrs.set('containers:paused', client_info['ContainersPaused'])
+            update.attrs.set(
+                'containers:paused', client_info['ContainersPaused'])
             update.attrs.set(
                 'containers:running', client_info['ContainersRunning'])
             update.attrs.set(

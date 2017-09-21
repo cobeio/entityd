@@ -186,10 +186,7 @@ def test_entities_have_core_attributes(procent, session, kvstore): # pylint: dis
         for attr in 'binary pid starttime ppid host cputime utime stime vsz ' \
                     'rss uid euid suid username gid sgid egid sessionid ' \
                     'command'.split():
-            try:
-                assert entity.attrs.get(attr)
-            except Exception as ex:
-                print(entity)
+            assert entity.attrs.get(attr)
         count += 1
     assert count
 

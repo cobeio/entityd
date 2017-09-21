@@ -101,18 +101,18 @@ class DockerSwarm:
 
 
 class DockerNode:
-    """An entity for the docker daemon"""
+    """An entity for the docker node."""
     name = "Docker:Node"
 
     @entityd.pm.hookimpl
     def entityd_configure(self, config):
-        """Register the Process Monitored Entity."""
+        """Register the Docker Node Entity."""
         config.addentity(self.name, 'entityd.docker.swarm.DockerNode')
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs=None,
                             include_ondemand=False):  # pylint: disable=unused-argument
-        """Find the docker daemon entity"""
+        """Find the docker node entities."""
         if name == self.name:
             if attrs is not None:
                 raise LookupError('Attribute based filtering not supported')
@@ -120,13 +120,13 @@ class DockerNode:
 
     @classmethod
     def get_ueid(cls, docker_node_id):
-        """Create a ueid for a docker daemon"""
+        """Create a ueid for a docker node."""
         entity = entityd.EntityUpdate(cls.name)
         entity.attrs.set('id', docker_node_id, traits={'entity:id'})
         return entity.ueid
 
     def generate_updates(self):
-        """Generates the entity updates for the docker daemon"""
+        """Generates the entity updates for the docker node."""
         if not DockerClient.client_available():
             return
 

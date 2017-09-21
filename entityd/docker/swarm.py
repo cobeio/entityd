@@ -3,6 +3,7 @@
 If a machine running docker is part of a swarm, a swarm
 entity will be generated
 """
+
 import logbook
 from docker.errors import APIError
 
@@ -33,7 +34,7 @@ class DockerSwarm:
 
     @classmethod
     def get_ueid(cls, docker_swarm_id):
-        """Create a ueid for a docker daemon"""
+        """Create a ueid for a docker swarm."""
         entity = entityd.EntityUpdate(cls.name)
         entity.attrs.set('id', docker_swarm_id, traits={'entity:id'})
         return entity.ueid
@@ -46,7 +47,7 @@ class DockerSwarm:
         return False
 
     def generate_updates(self):
-        """Generates the entity updates for the docker daemon."""
+        """Generates the entity updates for the docker swarm."""
         if not DockerClient.client_available():
             return
 

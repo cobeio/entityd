@@ -1,9 +1,9 @@
-"""
-Plugin to provide docker swarm entities.
+"""Plugin to provide docker swarm entities.
 
 If a machine running docker is part of a swarm, a swarm
 entity will be generated
 """
+
 import entityd
 from entityd.docker.client import DockerClient
 

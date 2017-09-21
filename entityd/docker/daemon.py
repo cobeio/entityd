@@ -1,5 +1,4 @@
-"""
-Plugin to provide docker daemon entities.
+"""Plugin to provide docker daemon entities.
 
 For each machine running a docker daemon an entity
 will be generated
@@ -10,7 +9,7 @@ from entityd.mixins import HostUEID
 
 
 class DockerDaemon(HostUEID):
-    """An entity for the docker daemon"""
+    """An entity for the docker daemon."""
     name = 'Docker:Daemon'
 
     @entityd.pm.hookimpl

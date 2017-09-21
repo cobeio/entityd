@@ -1,4 +1,4 @@
-"""Module contains class for connecting to the docker client"""
+"""Module contains class for connecting to the docker client."""
 
 import docker
 import docker.errors
@@ -8,7 +8,7 @@ log = logbook.Logger(__name__)
 
 
 class DockerClient:
-    """Helper class to cache and get Docker DockerClient"""
+    """Helper class to cache and get Docker DockerClient."""
     _client = None
 
     @classmethod
@@ -27,7 +27,7 @@ class DockerClient:
 
     @classmethod
     def client_available(cls):
-        """Detects if docker is running on the local system"""
+        """Detects if docker is running on the local system."""
         if cls.get_client():
             return True
 

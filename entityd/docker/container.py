@@ -1,6 +1,4 @@
-"""
-Plugin to provide entities for docker containers.
-"""
+"""Plugin to provide entities for docker containers."""
 
 import logbook
 from docker.errors import ImageNotFound
@@ -13,7 +11,7 @@ log = logbook.Logger(__name__)
 
 
 class DockerContainer:
-    """Entity for a Docker Container"""
+    """Entity for a Docker Container."""
     name = "Docker:Container"
 
     @entityd.pm.hookimpl
@@ -32,13 +30,13 @@ class DockerContainer:
 
     @classmethod
     def get_ueid(cls, container_id):
-        """Get a docker container ueid"""
+        """Get a docker container ueid."""
         entity = entityd.EntityUpdate(cls.name)
         entity.attrs.set('id', container_id, traits={'entity:id'})
         return entity.ueid
 
     def generate_updates(self):
-        """Generate entity update objects for each container"""
+        """Generate entity update objects for each container."""
         if not DockerClient.client_available():
             return
 

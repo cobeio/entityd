@@ -206,7 +206,7 @@ def _foreign_references(entities, relationships):
     :param entities: All local entity updates.
     :type entities: dict of cobe.UEID to entityd.entityupdate.EntityUpdate
     :param relationships: All local entity relationships.
-    :type entities: set of tuple of cobe.UEID
+    :type relationships: set of tuple of cobe.UEID
 
     :returns: An iterator of foreign entity references. Each foreign
         reference is represented by a tuple containing the relationship,

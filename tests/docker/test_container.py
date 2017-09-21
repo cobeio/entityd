@@ -5,7 +5,7 @@ from mock import patch, MagicMock, Mock
 
 from entityd.docker.client import DockerClient
 from entityd.docker.container import DockerContainer
-from entityd.docker.engine import DockerEngine
+from entityd.docker.daemon import DockerDaemon
 
 
 @pytest.fixture
@@ -49,7 +49,7 @@ def test_find_entities(monkeypatch, session, docker_container,
     client_instance.containers.list.return_value = iter(containers)
     monkeypatch.setattr(DockerClient, "get_client", get_client)
 
-    daemon_ueid = DockerEngine.get_ueid('foo')
+    daemon_ueid = DockerDaemon.get_ueid('foo')
 
     docker_container.entityd_configure(session.config)
     entities = docker_container.entityd_find_entity(DockerContainer.name)

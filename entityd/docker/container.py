@@ -6,7 +6,7 @@ from docker.errors import ImageNotFound
 
 import entityd
 from entityd.docker.client import DockerClient
-from entityd.docker.engine import DockerEngine
+from entityd.docker.daemon import DockerDaemon
 
 log = logbook.Logger(__name__)
 
@@ -42,7 +42,7 @@ class DockerContainer:
             return
 
         client = DockerClient.get_client()
-        daemon_ueid = DockerEngine.get_ueid(client.info()['ID'])
+        daemon_ueid = DockerDaemon.get_ueid(client.info()['ID'])
 
         for container in client.containers.list(all=True):
             attrs = container.attrs

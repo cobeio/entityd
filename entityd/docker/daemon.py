@@ -1,17 +1,18 @@
 import entityd
 from entityd.docker.client import DockerClient
+from entityd.docker.node import DockerNode
 from entityd.docker.swarm import DockerSwarm
 from entityd.mixins import HostEntity
 
 
-class DockerEngine(HostEntity):
+class DockerDaemon(HostEntity):
     """An entity for the docker daemon"""
-    name = "Docker:Engine"
+    name = "Docker:Daemon"
 
     @entityd.pm.hookimpl
     def entityd_configure(self, config):
         """Register the Process Monitored Entity."""
-        config.addentity(self.name, 'entityd.docker.daemon.DockerEngine')
+        config.addentity(self.name, 'entityd.docker.daemon.DockerDaemon')
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs=None,
@@ -24,10 +25,10 @@ class DockerEngine(HostEntity):
             return self.generate_updates()
 
     @classmethod
-    def get_ueid(cls, docker_engine_id):
+    def get_ueid(cls, docker_daemon_id):
         """Create a ueid for a docker daemon"""
         entity = entityd.EntityUpdate(cls.name)
-        entity.attrs.set('id', docker_engine_id, traits={'entity:id'})
+        entity.attrs.set('id', docker_daemon_id, traits={'entity:id'})
         return entity.ueid
 
     def generate_updates(self):
@@ -48,19 +49,7 @@ class DockerEngine(HostEntity):
             update.parents.add(self.host_ueid)
 
             if DockerSwarm.swarm_exists():
-                node_address = client_info['Swarm']['NodeAddr']
-                found_node = next(
-                    (node for node in client.nodes.list()
-                     if node.attrs['Status']['Addr'] == node_address), None)
-                if found_node:
-                    update.attrs.set('node:role',
-                                     found_node.attrs['Spec']['Role'])
-                    update.attrs.set('node:availability',
-                                     found_node.attrs['Spec']['Availability'])
-                    update.attrs.set('node:labels',
-                                     found_node.attrs['Spec']['Labels'])
-                    update.attrs.set('node:state',
-                                     found_node.attrs['Status']['State'])
-
+                node_ueid = DockerNode.get_ueid(client_info['Swarm']['NodeID'])
+                update.children.add(node_ueid)
 
             yield update

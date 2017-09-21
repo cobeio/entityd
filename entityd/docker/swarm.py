@@ -15,7 +15,7 @@ log = logbook.Logger(__name__)
 
 class DockerSwarm:
     """An entity for the docker swarm."""
-    name = "Docker:Swarm"
+    name = 'Docker:Swarm'
 
     @entityd.pm.hookimpl
     def entityd_configure(self, config):
@@ -42,7 +42,7 @@ class DockerSwarm:
     @classmethod
     def swarm_exists(cls, client_info):
         """Checks if the docker client is connected to a docker swarm."""
-        if client_info['Swarm']['LocalNodeState'] == "active":
+        if client_info['Swarm']['LocalNodeState'] == 'active':
             return True
         return False
 
@@ -60,8 +60,8 @@ class DockerSwarm:
             swarm_spec_raft = swarm_spec['Raft']
 
             update = entityd.EntityUpdate(self.name)
-            update.label = client.swarm.short_id
-            update.attrs.set('id', client.swarm.id, traits={'entity:id'})
+            update.label = swarm_attrs['ID'][:10]
+            update.attrs.set('id', swarm_attrs['ID'], traits={'entity:id'})
             update.attrs.set('control-available',
                              swarm_attrs['ControlAvailable'])
 
@@ -103,7 +103,7 @@ class DockerSwarm:
 
 class DockerNode:
     """An entity for the docker node."""
-    name = "Docker:Node"
+    name = 'Docker:Node'
 
     @entityd.pm.hookimpl
     def entityd_configure(self, config):

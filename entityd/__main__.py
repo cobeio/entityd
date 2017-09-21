@@ -18,6 +18,7 @@ import entityd.pm
 #: These plugins are always loaded first and in order.
 BUILTIN_PLUGIN_NAMES = ['entityd.' + n for n in
                         ['core',
+                         'dot',
                          'mesend:MonitoredEntitySender',
                          'kvstore',
                          'monitor:Monitor',

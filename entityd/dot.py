@@ -178,27 +178,21 @@ def _process_foreign_references(method, entities, relationships):
     :param entities: All local entity updates.
     :type entities: dict of cobe.UEID to entityd.entityupdate.EntityUpdate
     :param relationships: All local entity relationships.
-    :type entities: set of tuple of cobe.UEID
+    :type relationships: set of tuple of cobe.UEID
     """
     if method is _ForeignEntity.EXCLUDE:
         foreigners = set()
         for relationship, _ in _foreign_references(entities, relationships):
             foreigners.add(relationship)
         relationships -= foreigners
-    elif method is _ForeignEntity.DEFAULT:
+    else:
         for _, relation in _foreign_references(entities, relationships):
             entity = entityd.entityupdate.EntityUpdate('', relation)
-            entity.label = '?'
-            entities[entity.ueid] = entity
-    elif method is _ForeignEntity.UEID:
-        for _, relation in _foreign_references(entities, relationships):
-            entity = entityd.entityupdate.EntityUpdate('', relation)
-            entity.label = str(relation)
-            entities[entity.ueid] = entity
-    elif method is _ForeignEntity.UEID_SHORT:
-        for _, relation in _foreign_references(entities, relationships):
-            entity = entityd.entityupdate.EntityUpdate('', relation)
-            entity.label = str(relation)[:6]
+            entity.label = {
+                _ForeignEntity.DEFAULT: '?',
+                _ForeignEntity.UEID: str(relation),
+                _ForeignEntity.UEID_SHORT: str(relation)[:6],
+            }[method]
             entities[entity.ueid] = entity
 
 
@@ -295,9 +289,9 @@ def _write_dot_entities(entities):
         type_ = entity.metype[len(namespace) + 1:]
         palette = _Palette.default()
         attributes = {
-            'label': entity.label or '',
             'color': palette[namespace],
             'fillcolor': '#ffffff',
+            'label': entity.label or '',
         }
         if type_:
             attributes['fillcolor'] = \

@@ -207,19 +207,19 @@ class DockerService:
         if DockerSwarm.swarm_exists(client_info):
             try:
                 for service in client.services.list():
-
                     update = entityd.EntityUpdate(self.name)
-                    update.label = service.attrs['Description']['Hostname']
-                    update.attrs.set('id', node.attrs['ID'],
+                    update.label = service.attrs['Spec']['Name']
+                    update.attrs.set('id', service.attrs['ID'],
                                      traits={'entity:id'})
+                    update.attrs.set('node:labels',
+                                     service.attrs['Spec']['Labels'])
 
                     update.attrs.set('node:id', node.attrs['ID'])
                     update.attrs.set('node:role',
                                      node.attrs['Spec']['Role'])
                     update.attrs.set('node:availability',
                                      node.attrs['Spec']['Availability'])
-                    update.attrs.set('node:labels',
-                                     node.attrs['Spec']['Labels'])
+
                     update.attrs.set('node:state',
                                      node.attrs['Status']['State'])
                     update.attrs.set('node:address',

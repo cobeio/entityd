@@ -4,13 +4,18 @@ If a machine running docker is part of a swarm, a swarm
 entity will be generated
 """
 
+import logbook
+from docker.errors import APIError
+
 import entityd
 from entityd.docker.client import DockerClient
+
+log = logbook.Logger(__name__)
 
 
 class DockerSwarm:
     """An entity for the docker swarm."""
-    name = "Docker:Swarm"
+    name = 'Docker:Swarm'
 
     @entityd.pm.hookimpl
     def entityd_configure(self, config):
@@ -37,12 +42,12 @@ class DockerSwarm:
     @classmethod
     def swarm_exists(cls, client_info):
         """Checks if the docker client is connected to a docker swarm."""
-        if client_info['Swarm']['LocalNodeState'] == "active":
+        if client_info['Swarm']['LocalNodeState'] == 'active':
             return True
         return False
 
     def generate_updates(self):
-        """Generates the entity updates for the docker daemon."""
+        """Generates the entity updates for the docker swarm."""
         if not DockerClient.client_available():
             return
 
@@ -55,8 +60,8 @@ class DockerSwarm:
             swarm_spec_raft = swarm_spec['Raft']
 
             update = entityd.EntityUpdate(self.name)
-            update.label = client.swarm.short_id
-            update.attrs.set('id', client.swarm.id, traits={'entity:id'})
+            update.label = swarm_attrs['ID'][:10]
+            update.attrs.set('id', swarm_attrs['ID'], traits={'entity:id'})
             update.attrs.set('control-available',
                              swarm_attrs['ControlAvailable'])
 
@@ -84,4 +89,82 @@ class DockerSwarm:
             update.attrs.set('raft:snapshot-interval',
                              swarm_spec_raft['SnapshotInterval'])
 
+            try:
+                for node in client.nodes.list():
+                    update.children.add(DockerNode.get_ueid(node.attrs['ID']))
+            except APIError as error:
+                if error.status_code == 503:
+                    log.debug("Can't get node list on non manager nodes")
+                else:
+                    raise
+
             yield update
+
+
+class DockerNode:
+    """An entity for the docker node."""
+    name = 'Docker:Node'
+
+    @entityd.pm.hookimpl
+    def entityd_configure(self, config):
+        """Register the Docker Node Entity."""
+        config.addentity(self.name, 'entityd.docker.swarm.DockerNode')
+
+    @entityd.pm.hookimpl
+    def entityd_find_entity(self, name, attrs=None,
+                            include_ondemand=False):  # pylint: disable=unused-argument
+        """Find the docker node entities."""
+        if name == self.name:
+            if attrs is not None:
+                raise LookupError('Attribute based filtering not supported')
+            return self.generate_updates()
+
+    @classmethod
+    def get_ueid(cls, docker_node_id):
+        """Create a ueid for a docker node."""
+        entity = entityd.EntityUpdate(cls.name)
+        entity.attrs.set('id', docker_node_id, traits={'entity:id'})
+        return entity.ueid
+
+    def generate_updates(self):
+        """Generates the entity updates for the docker node."""
+        if not DockerClient.client_available():
+            return
+
+        client = DockerClient.get_client()
+        client_info = client.info()
+
+        if DockerSwarm.swarm_exists(client_info):
+            try:
+                for node in client.nodes.list():
+                    update = entityd.EntityUpdate(self.name)
+                    update.label = node.attrs['Description']['Hostname']
+                    update.attrs.set('id', node.attrs['ID'],
+                                     traits={'entity:id'})
+
+                    update.attrs.set('role',
+                                     node.attrs['Spec']['Role'])
+                    update.attrs.set('availability',
+                                     node.attrs['Spec']['Availability'])
+                    update.attrs.set('labels',
+                                     node.attrs['Spec']['Labels'])
+                    update.attrs.set('state',
+                                     node.attrs['Status']['State'])
+                    update.attrs.set('address',
+                                     node.attrs['Status']['Addr'])
+                    update.attrs.set('version',
+                                     node.attrs['Version']['Index'])
+
+                    manager_attrs = node.attrs['ManagerStatus']
+                    update.attrs.set('manager:reachability',
+                                     manager_attrs['Reachability'])
+                    update.attrs.set('manager:leader',
+                                     manager_attrs['Leader'])
+                    update.attrs.set('manager:addr',
+                                     manager_attrs['Addr'])
+                    yield update
+            except APIError as error:
+                if error.status_code == 503:
+                    log.debug("Can't get node list on non manager nodes")
+                else:
+                    raise

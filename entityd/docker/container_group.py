@@ -9,12 +9,12 @@ import syskit
 import entityd
 from entityd.docker.client import DockerClient
 from entityd.docker.container import DockerContainer
-from entityd.mixins import HostUEID
+from entityd.mixins import HostEntity
 
 log = logbook.Logger(__name__)
 
 
-class DockerContainerGroup(HostUEID):
+class DockerContainerGroup(HostEntity):
     """Entity for a grouping of Processes running within a Docker Container."""
     name = "Group"
 

@@ -5,10 +5,11 @@ will be generated
 """
 import entityd
 from entityd.docker.client import DockerClient
-from entityd.mixins import HostUEID
+from entityd.docker.swarm import DockerSwarm, DockerNode
+from entityd.mixins import HostEntity
 
 
-class DockerDaemon(HostUEID):
+class DockerDaemon(HostEntity):
     """An entity for the docker daemon."""
     name = 'Docker:Daemon'
 
@@ -38,17 +39,22 @@ class DockerDaemon(HostUEID):
         """Generates the entity updates for the docker daemon."""
         if DockerClient.client_available():
             client = DockerClient.get_client()
-            dd_info = client.info()
+            client_info = client.info()
 
             update = entityd.EntityUpdate(self.name)
-            update.label = dd_info['Name']
-            update.attrs.set('id', dd_info['ID'], traits={'entity:id'})
-            update.attrs.set('containers:total', dd_info['Containers'])
-            update.attrs.set('containers:paused', dd_info['ContainersPaused'])
+            update.label = client_info['Name']
+            update.attrs.set('id', client_info['ID'], traits={'entity:id'})
+            update.attrs.set('containers:total', client_info['Containers'])
             update.attrs.set(
-                'containers:running', dd_info['ContainersRunning'])
+                'containers:paused', client_info['ContainersPaused'])
             update.attrs.set(
-                'containers:stopped', dd_info['ContainersStopped'])
+                'containers:running', client_info['ContainersRunning'])
+            update.attrs.set(
+                'containers:stopped', client_info['ContainersStopped'])
             update.parents.add(self.host_ueid)
+
+            if DockerSwarm.swarm_exists(client_info):
+                node_ueid = DockerNode.get_ueid(client_info['Swarm']['NodeID'])
+                update.parents.add(node_ueid)
 
             yield update

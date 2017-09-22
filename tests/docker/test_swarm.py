@@ -88,6 +88,7 @@ def test_find_entities(monkeypatch, session, docker_swarm):
     }
 
     swarm = {
+        'ID': 'w5rbcl1ff2tx3exd6tbvq9em9',
         'Cluster': cluster,
         'ControlAvailable': True,
         'Error': '',
@@ -101,8 +102,6 @@ def test_find_entities(monkeypatch, session, docker_swarm):
     get_client = MagicMock()
     client_instance = get_client.return_value
     client_instance.info.return_value = client_info
-    client_instance.swarm.id = "a1234567890"
-    client_instance.swarm.short_id = "a123456"
     monkeypatch.setattr(DockerClient, "get_client", get_client)
 
     docker_swarm.entityd_configure(session.config)
@@ -112,7 +111,8 @@ def test_find_entities(monkeypatch, session, docker_swarm):
 
     entity = entities[0]
     assert entity.exists == True
-    assert entity.attrs.get('id').value == "a1234567890"
+    assert entity.label == "w5rbcl1ff2"
+    assert entity.attrs.get('id').value == "w5rbcl1ff2tx3exd6tbvq9em9"
     assert entity.attrs.get('id').traits == {'entity:id'}
 
     assert (entity.attrs.get(

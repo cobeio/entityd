@@ -196,6 +196,10 @@ class DockerService:
         entity.attrs.set('id', docker_node_id, traits={'entity:id'})
         return entity.ueid
 
+    def populate_mode_fields(self, mode_attrs, update):
+        if "Replicated" in mode_attrs:
+            pass
+
     def generate_updates(self):
         """Generates the entity updates for the docker node."""
         if not DockerClient.client_available():
@@ -211,29 +215,10 @@ class DockerService:
                     update.label = service.attrs['Spec']['Name']
                     update.attrs.set('id', service.attrs['ID'],
                                      traits={'entity:id'})
-                    update.attrs.set('node:labels',
+                    update.attrs.set('labels',
                                      service.attrs['Spec']['Labels'])
+                    self.populate_mode_fields(service.attrs['Mode'], update)
 
-                    update.attrs.set('node:id', node.attrs['ID'])
-                    update.attrs.set('node:role',
-                                     node.attrs['Spec']['Role'])
-                    update.attrs.set('node:availability',
-                                     node.attrs['Spec']['Availability'])
-
-                    update.attrs.set('node:state',
-                                     node.attrs['Status']['State'])
-                    update.attrs.set('node:address',
-                                     node.attrs['Status']['Addr'])
-                    update.attrs.set('node:version',
-                                     node.attrs['Version']['Index'])
-
-                    manager_attrs = node.attrs['ManagerStatus']
-                    update.attrs.set('node:manager:reachability',
-                                     manager_attrs['Reachability'])
-                    update.attrs.set('node:manager:leader',
-                                     manager_attrs['Leader'])
-                    update.attrs.set('node:manager:addr',
-                                     manager_attrs['Addr'])
                     yield update
             except APIError as error:
                 if error.status_code == 503:

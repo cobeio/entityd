@@ -42,7 +42,7 @@ class DockerSwarm:
     @classmethod
     def swarm_exists(cls, client_info):
         """Checks if the docker client is connected to a docker swarm."""
-        if client_info['Swarm']['LocalNodeState'] == "active":
+        if client_info['Swarm']['LocalNodeState'] == 'active':
             return True
         return False
 
@@ -60,8 +60,8 @@ class DockerSwarm:
             swarm_spec_raft = swarm_spec['Raft']
 
             update = entityd.EntityUpdate(self.name)
-            update.label = client.swarm.short_id
-            update.attrs.set('id', client.swarm.id, traits={'entity:id'})
+            update.label = swarm_attrs['ID'][:10]
+            update.attrs.set('id', swarm_attrs['ID'], traits={'entity:id'})
             update.attrs.set('control-available',
                              swarm_attrs['ControlAvailable'])
 
@@ -103,7 +103,7 @@ class DockerSwarm:
 
 class DockerNode:
     """An entity for the docker node."""
-    name = "Docker:Node"
+    name = 'Docker:Node'
 
     @entityd.pm.hookimpl
     def entityd_configure(self, config):
@@ -142,26 +142,25 @@ class DockerNode:
                     update.attrs.set('id', node.attrs['ID'],
                                      traits={'entity:id'})
 
-                    update.attrs.set('node:id', node.attrs['ID'])
-                    update.attrs.set('node:role',
+                    update.attrs.set('role',
                                      node.attrs['Spec']['Role'])
-                    update.attrs.set('node:availability',
+                    update.attrs.set('availability',
                                      node.attrs['Spec']['Availability'])
-                    update.attrs.set('node:labels',
+                    update.attrs.set('labels',
                                      node.attrs['Spec']['Labels'])
-                    update.attrs.set('node:state',
+                    update.attrs.set('state',
                                      node.attrs['Status']['State'])
-                    update.attrs.set('node:address',
+                    update.attrs.set('address',
                                      node.attrs['Status']['Addr'])
-                    update.attrs.set('node:version',
+                    update.attrs.set('version',
                                      node.attrs['Version']['Index'])
 
                     manager_attrs = node.attrs['ManagerStatus']
-                    update.attrs.set('node:manager:reachability',
+                    update.attrs.set('manager:reachability',
                                      manager_attrs['Reachability'])
-                    update.attrs.set('node:manager:leader',
+                    update.attrs.set('manager:leader',
                                      manager_attrs['Leader'])
-                    update.attrs.set('node:manager:addr',
+                    update.attrs.set('manager:addr',
                                      manager_attrs['Addr'])
                     yield update
             except APIError as error:

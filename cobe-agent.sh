@@ -18,11 +18,12 @@ BEACON_ID=$(uuid 4)
 BEACON="A:$BEACON_SCOPE:$BEACON_ID"
 BEACON_URL="https://beacon.cobe.io/$BEACON"
 echo "BEACON: $BEACON_URL"
+VERSION=$(entityd --version | cut -d " " -f 2)
 entityd "$@" &
 AGENT_PID=$!
 trap "kill $AGENT_PID" INT TERM EXIT
 while [ -e "/proc/$AGENT_PID" ]; do
-    do_curl -X PUT "$BEACON_URL?expires-after=12"
+    do_curl -X PUT "$BEACON_URL?expires-after=12" -d '{"version": "$VERSION"}'
     sleep 5s
 done
 do_curl -X DELETE "$BEACON_URL"

@@ -91,9 +91,11 @@ class DockerContainerGroup(HostEntity):
             update.label = container.name
             update.attrs.set(
                 'kind', DockerContainer.name, traits={'entity:id'})
-            container_ueid = DockerContainer.get_ueid(container.id)
+            container_ueid = entityd.docker.get_ueid(
+                'DockerContainer', container.id)
             update.attrs.set('id', str(container_ueid), traits={'entity:id'})
-            update.children.add(DockerContainer.get_ueid(container.id))
+            update.children.add(entityd.docker.get_ueid(
+                'DockerContainer', container.id))
 
             for process in processes:
                 process_ueid = self.get_process_ueid(int(process[0]))

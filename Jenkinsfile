@@ -47,10 +47,6 @@ pipeline {
                                     'Running unit tests', '',
                                     'jenkins-pytest', 5, true){ String container_id ->
                                         sh "docker cp ${container_id}:/entityd/results results"
-                                        if (fileExists('results/test_results.xml')) {
-                                            junit "results/test_results.xml"
-                                            step([$class: 'CoberturaPublisher', coberturaReportFile: 'results/coverage.xml'])
-                                        }
                                     }
                             }
                         }
@@ -64,11 +60,10 @@ pipeline {
 
                             script {
                                 sh "docker pull ${entityd_test_image_id}"
-                                runTestSteps(entityd_test_image_id, "pylint", 'Running linting tests', ''){
-                                        pylint = sh(script:'/opt/entityd/bin/invoke pylint', returnStatus: true)
-                                        warnings parserConfigurations: [[parserName: 'PyLint', pattern: 'results/pylint.log']]
-                                        return pylint
-                                    }
+                                runInvoke(entityd_test_image_id, 'pylint',
+                                'Running linting tests', '') { String container_id ->
+                                    sh "docker cp ${container_id}:/entityd/results results"
+                                }
                             }
                         }
                     }
@@ -87,6 +82,19 @@ pipeline {
                     publishImage(entityd_image_id, "entityd", "latest")
                     publishImage(kubectl_image_id, "kubectl-entityd", "latest")
                 }
+            }
+        }
+    }
+    post {
+        always {
+            if (fileExists('results/test_results.xml')) {
+                junit "results/test_results.xml"
+            }
+            if (fileExists('results/coverage.xml')) {
+                step([$class: 'CoberturaPublisher', coberturaReportFile: 'results/coverage.xml'])
+            }
+            if (fileExists('results/pylint.log')) {
+                warnings parserConfigurations: [[parserName: 'PyLint', pattern: 'results/pylint.log']]
             }
         }
     }

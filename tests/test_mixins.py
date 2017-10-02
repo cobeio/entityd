@@ -21,6 +21,7 @@ def test_host_ueid(session, host_entity):
     assert host_entity.host_ueid
 
 
+@pytest.mark.non_container
 def test_hostname(session, host_entity):
     host_entity.entityd_sessionstart(session)
 

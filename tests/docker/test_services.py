@@ -236,7 +236,8 @@ def test_find_entities_with_swarm(session, docker_service, services,
         assert entity.attrs.get('running-containers').traits == set()
 
         assert len(entity.children) == service.running_containers
-        assert list(entity.children) == service.children
+        for child in service.children:
+            assert child in entity.children
 
         assert len(entity.parents) == 1
         assert list(entity.parents) == [swarm_ueid]

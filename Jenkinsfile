@@ -44,13 +44,11 @@ pipeline {
                             script {
                                 sh "docker pull ${entityd_test_image_id}"
                                 // Try tests twice as entityd tests can hang and timeout
-                                retry (2) {
-                                    runInvoke(entityd_test_image_id, "py.test",
-                                        'Running unit tests', '',
-                                        'jenkins-pytest', 5, true){ String container_id ->
-                                            sh "docker cp ${container_id}:/entityd/results results"
-                                            stash includes: 'results/**', name: 'unit-tests'
-                                    }
+                                runInvoke(entityd_test_image_id, "py.test",
+                                    'Running unit tests', '',
+                                    'jenkins-pytest', 5, true, 2){ String container_id ->
+                                        sh "docker cp ${container_id}:/entityd/results results"
+                                        stash includes: 'results/**', name: 'unit-tests'
                                 }
                             }
                         }

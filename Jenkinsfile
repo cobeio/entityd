@@ -47,7 +47,8 @@ pipeline {
                                     'Running unit tests', '',
                                     'jenkins-pytest', 5, true){ String container_id ->
                                         sh "docker cp ${container_id}:/entityd/results results"
-                                    }
+                                }
+                                stash includes: 'results/**', name: 'unit-tests'
                             }
                         }
                     },
@@ -65,6 +66,7 @@ pipeline {
                                 'pylint', 5, true) { String container_id ->
                                     sh "docker cp ${container_id}:/entityd/results results"
                                 }
+                                stash includes: 'results/**', name: 'lint-tests'
                             }
                         }
                     }
@@ -89,6 +91,8 @@ pipeline {
     post {
         always {
             script {
+                unstash 'unit-tests'
+                unstash 'lint-tests'
                 collectResults()
             }
         }

@@ -88,15 +88,7 @@ pipeline {
     post {
         always {
             script {
-                if (fileExists('results/test_results.xml')) {
-                    junit "results/test_results.xml"
-                }
-                if (fileExists('results/coverage.xml')) {
-                    step([$class: 'CoberturaPublisher', coberturaReportFile: 'results/coverage.xml'])
-                }
-                if (fileExists('results/pylint.log')) {
-                    warnings parserConfigurations: [[parserName: 'PyLint', pattern: 'results/pylint.log']]
-                }
+                collectResults()
             }
         }
     }

@@ -61,7 +61,8 @@ pipeline {
                             script {
                                 sh "docker pull ${entityd_test_image_id}"
                                 runInvoke(entityd_test_image_id, 'pylint',
-                                'Running linting tests', '') { String container_id ->
+                                'Running linting tests', '',
+                                'pylint', 5, true) { String container_id ->
                                     sh "docker cp ${container_id}:/entityd/results results"
                                 }
                             }

@@ -11,6 +11,7 @@ import entityd.docker.daemon
 
 
 def get_ueid(class_name, *args):
+    """Get a ueid for any docker entity type."""
     values = {
         'DockerContainer': entityd.docker.container.DockerContainer,
         'DockerSwarm': entityd.docker.swarm.DockerSwarm,

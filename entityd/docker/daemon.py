@@ -5,7 +5,7 @@ will be generated
 """
 import entityd
 from entityd.docker.client import DockerClient
-from entityd.docker.swarm import DockerSwarm, DockerNode
+from entityd.docker.swarm import DockerSwarm
 from entityd.mixins import HostEntity
 
 

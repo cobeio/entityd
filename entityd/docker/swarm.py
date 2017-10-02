@@ -173,18 +173,18 @@ class DockerNode:
 
 
 class DockerService:
-    """An entity for the docker node."""
+    """An entity for the docker service."""
     name = "Docker:Service"
 
     @entityd.pm.hookimpl
     def entityd_configure(self, config):
-        """Register the Docker Node Entity."""
+        """Register the Docker Service Entity."""
         config.addentity(self.name, 'entityd.docker.swarm.DockerService')
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs=None,
                             include_ondemand=False):  # pylint: disable=unused-argument
-        """Find the docker node entities."""
+        """Find the docker service entities."""
         if name == self.name:
             if attrs is not None:
                 raise LookupError('Attribute based filtering not supported')
@@ -192,12 +192,13 @@ class DockerService:
 
     @classmethod
     def get_ueid(cls, docker_node_id):
-        """Create a ueid for a docker node."""
+        """Create a ueid for a docker service."""
         entity = entityd.EntityUpdate(cls.name)
         entity.attrs.set('id', docker_node_id, traits={'entity:id'})
         return entity.ueid
 
     def populate_mode_fields(self, mode_attrs, update):
+        """Add fields depending on the service mode."""
         if "Replicated" in mode_attrs:
             update.attrs.set('mode', 'replicated')
             update.attrs.set('desired-replicas',
@@ -206,6 +207,7 @@ class DockerService:
             update.attrs.set('mode', 'global')
 
     def populate_service_fields(self, service):
+        """Creates an EntityUpdate object for a docker service."""
         update = entityd.EntityUpdate(self.name)
         update.label = service.attrs['Spec']['Name']
         update.attrs.set('id', service.attrs['ID'], traits={'entity:id'})
@@ -217,7 +219,8 @@ class DockerService:
             task_status = task['Status']
             if task_status['State'] == "running":
                 container_id = task_status['ContainerStatus']['ContainerID']
-                container_ueid = entityd.docker.get_ueid('DockerContainer', container_id)
+                container_ueid = entityd.docker.get_ueid(
+                    'DockerContainer', container_id)
                 update.children.add(container_ueid)
                 running += 1
 
@@ -226,7 +229,7 @@ class DockerService:
         return update
 
     def generate_updates(self):
-        """Generates the entity updates for the docker node."""
+        """Generates the entity updates for the docker service."""
         if not DockerClient.client_available():
             return
 

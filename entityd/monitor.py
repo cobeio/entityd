@@ -44,6 +44,7 @@ class Monitor:
                 cobe.UEID(ueid) for ueid in
                 session.svc.kvstore.getmany(prefix).values()
             )
+            self.last_batch[metype] = set()  # FIXME: what in tarnation
         entityd.health.heartbeat()
 
     @entityd.pm.hookimpl(before='entityd.kvstore')

@@ -3,8 +3,6 @@
 If a machine running docker is part of a swarm, a swarm
 entity will be generated
 """
-from collections import defaultdict
-
 import logbook
 from docker.errors import APIError
 
@@ -208,15 +206,16 @@ class DockerService:
             update.attrs.set('mode', 'global')
 
     def populate_task_fields(self, service, update):
-        possible_states = ["pending", "assigned", "accepted", "preparing",
-                           "ready", "starting", "running", "complete",
-                           "shutdown", "failed", "rejected"]
+        """Add fields for the tasks of a service."""
+        possible_states = ['pending', 'assigned', 'accepted', 'preparing',
+                           'ready', 'starting', 'running', 'complete',
+                           'shutdown', 'failed', 'rejected']
         totals = {state: 0 for state in possible_states}
         for task in service.tasks():
             task_status = task['Status']
             totals[task_status['State']] += 1
-            if ("ContainerStatus" in task_status and
-                        "ContainerID" in task_status['ContainerStatus']):
+            if ('ContainerStatus' in task_status and
+                    'ContainerID' in task_status['ContainerStatus']):
                 container_id = task_status['ContainerStatus']['ContainerID']
                 container_ueid = entityd.docker.get_ueid(
                     'DockerContainer', container_id)

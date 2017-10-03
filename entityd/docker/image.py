@@ -64,6 +64,7 @@ class DockerImage:
         for image in self._images.values():
             update = entityd.EntityUpdate('Docker:Image')
             self._image_label(update, image)
+            self._image_parents(update, image)
             update.attrs.set('digest', image.attrs['Id'], {'entity:id'})
             update.attrs.set('created', image.attrs['Created'], {'time:rfc339'})
             update.attrs.set('size', image.attrs['Size'], {'unit:bytes'})
@@ -76,10 +77,21 @@ class DockerImage:
             update.attrs.set('entry-point', image.attrs['Config']['Entrypoint'])
             update.attrs.set('command', image.attrs['Config']['Cmd'])
             update.attrs.set('dangling', not image.attrs['RepoTags'])
-            update.parents.add(
-                entityd.docker.get_ueid(
-                    'DockerDaemon', self._client_info['ID']))
             yield update
+
+    def _image_parents(self, update, image):
+        digests = []
+        if image.attrs['Parent']:
+            digests.append(image.attrs['Parent'])
+        for digest_repository in image.attrs['RepoDigests']:
+            digests.append(digest_repository.rsplit('@', 1)[-1])
+        for digest in digests:
+            if digest in self._images:
+                image_parent = self._images[image.attrs['Parent']]
+                update_parent = entityd.EntityUpdate('Docker:Image')
+                update_parent.attrs.set(
+                        'digest', image_parent.attrs['Id'], {'entity:id'})
+                update.parents.add(update_parent)
 
     def _generate_labels(self):
         labels = collections.defaultdict(set)  # (key, value) : image digest

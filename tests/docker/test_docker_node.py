@@ -165,33 +165,31 @@ def test_find_entities_with_swarm(session, docker_node, manager_node, nodes,
 
     for entity, node in zip(entities, testing_nodes) :
         manager_attrs = node.attrs['ManagerStatus']
+        assert (entity.attrs.get('id').value == node.attrs['ID'])
+        assert (entity.attrs.get('role').value == node.attrs['Spec']['Role'])
         assert (entity.attrs.get(
-            'node:id').value == node.attrs['ID'])
+            'availability').value == node.attrs['Spec']['Availability'])
         assert (entity.attrs.get(
-            'node:role').value == node.attrs['Spec']['Role'])
-        assert (entity.attrs.get('node:availability').value ==
-                node.attrs['Spec']['Availability'])
+            'labels').value == node.attrs['Spec']['Labels'])
         assert (entity.attrs.get(
-            'node:labels').value == node.attrs['Spec']['Labels'])
+            'state').value == node.attrs['Status']['State'])
         assert (entity.attrs.get(
-            'node:state').value == node.attrs['Status']['State'])
+            'address').value == node.attrs['Status']['Addr'])
         assert (entity.attrs.get(
-            'node:address').value == node.attrs['Status']['Addr'])
+            'version').value == node.attrs['Version']['Index'])
         assert (entity.attrs.get(
-            'node:version').value == node.attrs['Version']['Index'])
+            'manager:reachability').value == manager_attrs['Reachability'])
         assert (entity.attrs.get(
-            'node:manager:reachability').value == manager_attrs['Reachability'])
+            'manager:leader').value == manager_attrs['Leader'])
         assert (entity.attrs.get(
-            'node:manager:leader').value == manager_attrs['Leader'])
-        assert (entity.attrs.get(
-            'node:manager:addr').value == manager_attrs['Addr'])
-        assert entity.attrs.get('node:id').traits == set()
-        assert entity.attrs.get('node:role').traits == set()
-        assert entity.attrs.get('node:availability').traits == set()
-        assert entity.attrs.get('node:labels').traits == set()
-        assert entity.attrs.get('node:state').traits == set()
-        assert entity.attrs.get('node:address').traits == set()
-        assert entity.attrs.get('node:version').traits == set()
-        assert entity.attrs.get('node:manager:reachability').traits == set()
-        assert entity.attrs.get('node:manager:leader').traits == set()
-        assert entity.attrs.get('node:manager:addr').traits == set()
+            'manager:addr').value == manager_attrs['Addr'])
+        assert entity.attrs.get('id').traits == {'entity:id'}
+        assert entity.attrs.get('role').traits == set()
+        assert entity.attrs.get('availability').traits == set()
+        assert entity.attrs.get('labels').traits == set()
+        assert entity.attrs.get('state').traits == set()
+        assert entity.attrs.get('address').traits == set()
+        assert entity.attrs.get('version').traits == set()
+        assert entity.attrs.get('manager:reachability').traits == set()
+        assert entity.attrs.get('manager:leader').traits == set()
+        assert entity.attrs.get('manager:addr').traits == set()

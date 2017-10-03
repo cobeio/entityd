@@ -60,8 +60,9 @@ class DockerSwarm:
             swarm_spec_raft = swarm_spec['Raft']
 
             update = entityd.EntityUpdate(self.name)
-            update.label = swarm_attrs['ID'][:10]
-            update.attrs.set('id', swarm_attrs['ID'], traits={'entity:id'})
+            update.label = swarm_attrs['Cluster']['ID'][:10]
+            update.attrs.set('id', swarm_attrs['Cluster']['ID'],
+                             traits={'entity:id'})
             update.attrs.set('control-available',
                              swarm_attrs['ControlAvailable'])
 
@@ -91,7 +92,8 @@ class DockerSwarm:
 
             try:
                 for node in client.nodes.list():
-                    update.children.add(DockerNode.get_ueid(node.attrs['ID']))
+                    update.children.add(entityd.docker.get_ueid(
+                        'DockerNode', node.attrs['ID']))
             except APIError as error:
                 if error.status_code == 503:
                     log.debug("Can't get node list on non manager nodes")
@@ -142,30 +144,111 @@ class DockerNode:
                     update.attrs.set('id', node.attrs['ID'],
                                      traits={'entity:id'})
 
-                    update.attrs.set('node:id', node.attrs['ID'])
-                    update.attrs.set('node:role',
+                    update.attrs.set('role',
                                      node.attrs['Spec']['Role'])
-                    update.attrs.set('node:availability',
+                    update.attrs.set('availability',
                                      node.attrs['Spec']['Availability'])
-                    update.attrs.set('node:labels',
+                    update.attrs.set('labels',
                                      node.attrs['Spec']['Labels'])
-                    update.attrs.set('node:state',
+                    update.attrs.set('state',
                                      node.attrs['Status']['State'])
-                    update.attrs.set('node:address',
+                    update.attrs.set('address',
                                      node.attrs['Status']['Addr'])
-                    update.attrs.set('node:version',
+                    update.attrs.set('version',
                                      node.attrs['Version']['Index'])
 
                     manager_attrs = node.attrs['ManagerStatus']
-                    update.attrs.set('node:manager:reachability',
+                    update.attrs.set('manager:reachability',
                                      manager_attrs['Reachability'])
-                    update.attrs.set('node:manager:leader',
+                    update.attrs.set('manager:leader',
                                      manager_attrs['Leader'])
-                    update.attrs.set('node:manager:addr',
+                    update.attrs.set('manager:addr',
                                      manager_attrs['Addr'])
                     yield update
             except APIError as error:
                 if error.status_code == 503:
                     log.debug("Can't get node list on non manager nodes")
+                else:
+                    raise
+
+
+class DockerService:
+    """An entity for the docker service."""
+    name = "Docker:Service"
+
+    @entityd.pm.hookimpl
+    def entityd_configure(self, config):
+        """Register the Docker Service Entity."""
+        config.addentity(self.name, 'entityd.docker.swarm.DockerService')
+
+    @entityd.pm.hookimpl
+    def entityd_find_entity(self, name, attrs=None,
+                            include_ondemand=False):  # pylint: disable=unused-argument
+        """Find the docker service entities."""
+        if name == self.name:
+            if attrs is not None:
+                raise LookupError('Attribute based filtering not supported')
+            return self.generate_updates()
+
+    @classmethod
+    def get_ueid(cls, docker_node_id):
+        """Create a ueid for a docker service."""
+        entity = entityd.EntityUpdate(cls.name)
+        entity.attrs.set('id', docker_node_id, traits={'entity:id'})
+        return entity.ueid
+
+    def populate_mode_fields(self, mode_attrs, update):
+        """Add fields depending on the service mode."""
+        if "Replicated" in mode_attrs:
+            update.attrs.set('mode', 'replicated')
+            update.attrs.set('desired-replicas',
+                             mode_attrs['Replicated']['Replicas'])
+        elif "Global" in mode_attrs:
+            update.attrs.set('mode', 'global')
+
+    def populate_service_fields(self, service):
+        """Creates an EntityUpdate object for a docker service."""
+        update = entityd.EntityUpdate(self.name)
+        update.label = service.attrs['Spec']['Name']
+        update.attrs.set('id', service.attrs['ID'], traits={'entity:id'})
+        update.attrs.set('labels', service.attrs['Spec']['Labels'])
+        self.populate_mode_fields(service.attrs['Spec']['Mode'], update)
+
+        running = 0
+        for task in service.tasks():
+            task_status = task['Status']
+            if task_status['State'] == "running":
+                container_id = task_status['ContainerStatus']['ContainerID']
+                container_ueid = entityd.docker.get_ueid(
+                    'DockerContainer', container_id)
+                update.children.add(container_ueid)
+                running += 1
+
+        update.attrs.set('running-containers', running)
+
+        return update
+
+    def generate_updates(self):
+        """Generates the entity updates for the docker service."""
+        if not DockerClient.client_available():
+            return
+
+        client = DockerClient.get_client()
+        client_info = client.info()
+
+        if DockerSwarm.swarm_exists(client_info):
+            try:
+                for service in client.services.list():
+                    update = self.populate_service_fields(service)
+
+                    swarm_id = client_info['Swarm']['Cluster']['ID']
+                    swarm_ueid = entityd.docker.get_ueid(
+                        'DockerSwarm', swarm_id)
+                    update.parents.add(swarm_ueid)
+
+                    yield update
+            except APIError as error:
+                if error.status_code == 503:
+                    log.debug("Can't get services list on non manager nodes")
                 else:
                     raise

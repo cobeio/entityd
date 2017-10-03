@@ -5,7 +5,7 @@ will be generated
 """
 import entityd
 from entityd.docker.client import DockerClient
-from entityd.docker.swarm import DockerSwarm, DockerNode
+from entityd.docker.swarm import DockerSwarm
 from entityd.mixins import HostEntity
 
 
@@ -54,7 +54,8 @@ class DockerDaemon(HostEntity):
             update.parents.add(self.host_ueid)
 
             if DockerSwarm.swarm_exists(client_info):
-                node_ueid = DockerNode.get_ueid(client_info['Swarm']['NodeID'])
+                node_ueid = entityd.docker.get_ueid(
+                    'DockerNode', client_info['Swarm']['NodeID'])
                 update.parents.add(node_ueid)
 
             yield update

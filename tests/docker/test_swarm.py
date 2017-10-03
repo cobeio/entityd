@@ -88,7 +88,6 @@ def test_find_entities(monkeypatch, session, docker_swarm):
     }
 
     swarm = {
-        'ID': 'w5rbcl1ff2tx3exd6tbvq9em9',
         'Cluster': cluster,
         'ControlAvailable': True,
         'Error': '',
@@ -111,8 +110,8 @@ def test_find_entities(monkeypatch, session, docker_swarm):
 
     entity = entities[0]
     assert entity.exists == True
-    assert entity.label == "w5rbcl1ff2"
-    assert entity.attrs.get('id').value == "w5rbcl1ff2tx3exd6tbvq9em9"
+    assert entity.label == "v1w5dux11f"
+    assert entity.attrs.get('id').value == "v1w5dux11fec5252r3hciqgzp"
     assert entity.attrs.get('id').traits == {'entity:id'}
 
     assert (entity.attrs.get(

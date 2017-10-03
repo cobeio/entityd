@@ -8,3 +8,4 @@ python-cobe
 pyyaml
 kube
 docker==2.5.0
+voluptuous >=0.8.7, <0.9

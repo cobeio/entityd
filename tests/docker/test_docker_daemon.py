@@ -123,35 +123,3 @@ def test_find_entities_with_swarm(monkeypatch, session, docker_daemon):
     assert node_ueid in entity.parents
 
 
-    # manager_attrs = manager_node.attrs['ManagerStatus']
-    # assert (entity.attrs.get(
-    #     'node:id').value == manager_node.attrs['ID'])
-    # assert (entity.attrs.get(
-    #     'node:role').value == manager_node.attrs['Spec']['Role'])
-    # assert (entity.attrs.get('node:availability').value ==
-    #         manager_node.attrs['Spec']['Availability'])
-    # assert (entity.attrs.get(
-    #     'node:labels').value == manager_node.attrs['Spec']['Labels'])
-    # assert (entity.attrs.get(
-    #     'node:state').value == manager_node.attrs['Status']['State'])
-    # assert (entity.attrs.get(
-    #     'node:address').value == manager_node.attrs['Status']['Addr'])
-    # assert (entity.attrs.get(
-    #     'node:version').value == manager_node.attrs['Version']['Index'])
-    # assert (entity.attrs.get(
-    #     'node:manager:reachability').value == manager_attrs['Reachability'])
-    # assert (entity.attrs.get(
-    #     'node:manager:leader').value == manager_attrs['Leader'])
-    # assert (entity.attrs.get(
-    #     'node:manager:addr').value == manager_attrs['Addr'])
-    # assert entity.attrs.get('node:id').traits == set()
-    # assert entity.attrs.get('node:role').traits == set()
-    # assert entity.attrs.get('node:availability').traits == set()
-    # assert entity.attrs.get('node:labels').traits == set()
-    # assert entity.attrs.get('node:state').traits == set()
-    # assert entity.attrs.get('node:address').traits == set()
-    # assert entity.attrs.get('node:version').traits == set()
-    # assert entity.attrs.get('node:manager:reachability').traits == set()
-    # assert entity.attrs.get('node:manager:leader').traits == set()
-    # assert entity.attrs.get('node:manager:addr').traits == set()
-

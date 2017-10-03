@@ -9,3 +9,4 @@ pylint==1.5.4
 astroid==1.4.4
 invoke
 pylint-abilisoft
+flaky

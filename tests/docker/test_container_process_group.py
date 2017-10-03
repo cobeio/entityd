@@ -5,7 +5,6 @@ import docker
 import pytest
 import syskit
 from docker.errors import DockerException
-from mock import Mock, MagicMock
 
 from entityd.docker.client import DockerClient
 from entityd.docker.container import DockerContainer
@@ -27,7 +26,7 @@ def container_group(pm, host_entity_plugin):  # pylint: disable=unused-argument
 @pytest.fixture
 def docker_client(monkeypatch):
     def make_docker_client(containers):
-        get_client = MagicMock()
+        get_client = pytest.MagicMock()
         client_instance = get_client.return_value
         client_instance.info.return_value = {'ID': 'foo'}
         client_instance.containers.list.return_value = iter(containers)
@@ -38,7 +37,7 @@ def docker_client(monkeypatch):
 
 def test_docker_not_available(monkeypatch):
     monkeypatch.setattr('entityd.docker.client.docker.DockerClient',
-                        Mock(side_effect=DockerException))
+                        pytest.Mock(side_effect=DockerException))
 
     group = DockerContainerGroup()
     assert not list(group.entityd_find_entity(group.name))
@@ -112,7 +111,7 @@ def test_generate_updates(monkeypatch, session, running_container, container_gro
 
     containers = [running_container]
 
-    get_client = MagicMock()
+    get_client = pytest.MagicMock()
     client_instance = get_client.return_value
     client_instance.info.return_value = {'ID': 'foo'}
     client_instance.containers.list.return_value = iter(containers)
@@ -121,7 +120,7 @@ def test_generate_updates(monkeypatch, session, running_container, container_gro
     procs = {}
     for x in range(5):
         name = "proc" + str(x)
-        proc = MagicMock(name=name, pid=x)
+        proc = pytest.MagicMock(name=name, pid=x)
         proc.start_time.timestamp.return_value = datetime.utcnow().timestamp()
         procs[x] = proc
 

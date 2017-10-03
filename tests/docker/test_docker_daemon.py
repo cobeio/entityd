@@ -1,6 +1,5 @@
 import pytest
 from docker.errors import DockerException
-from mock import patch, MagicMock
 
 from entityd.docker.client import DockerClient
 from entityd.docker.daemon import DockerDaemon
@@ -19,12 +18,12 @@ def docker_daemon(pm, host_entity_plugin):  # pylint: disable=unused-argument
     return dd
 
 
-def test_docker_not_available():
-    with patch('entityd.docker.client.docker.DockerClient') as docker_client:
-        docker_client.side_effect = DockerException
-        docker_daemon = DockerDaemon()
+def test_docker_not_available(monkeypatch):
+    monkeypatch.setattr('entityd.docker.client.docker.DockerClient',
+                        pytest.MagicMock(side_effect=DockerException))
+    docker_daemon = DockerDaemon()
 
-        assert not list(docker_daemon.entityd_find_entity(docker_daemon.name))
+    assert not list(docker_daemon.entityd_find_entity(docker_daemon.name))
 
 
 def test_attrs_raises_exception():
@@ -56,7 +55,7 @@ def test_find_entities_no_swarm(monkeypatch, session, docker_daemon):
         }
     }
 
-    get_client = MagicMock()
+    get_client = pytest.MagicMock()
     client_instance = get_client.return_value
     client_instance.info.return_value = client_info
     monkeypatch.setattr(DockerClient, "get_client", get_client)
@@ -95,7 +94,7 @@ def test_find_entities_with_swarm(monkeypatch, session, docker_daemon):
         },
     }
 
-    get_client = MagicMock()
+    get_client = pytest.MagicMock()
     client_instance = get_client.return_value
     client_instance.info.return_value = client_info
     monkeypatch.setattr(DockerClient, "get_client", get_client)

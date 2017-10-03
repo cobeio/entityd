@@ -1,6 +1,5 @@
 import pytest
 from docker.errors import DockerException
-from mock import MagicMock
 
 import entityd
 from entityd.docker.client import DockerClient
@@ -21,7 +20,7 @@ def docker_service(pm, host_entity_plugin):  # pylint: disable=unused-argument
 
 @pytest.fixture
 def replicated_service():
-    service = MagicMock()
+    service = pytest.MagicMock()
     service.container_id1 = 'container_id1'
     service.container_id2 = 'container_id2'
     service.container_ueid1 = entityd.docker.get_ueid(
@@ -29,7 +28,6 @@ def replicated_service():
     service.container_ueid2 = entityd.docker.get_ueid(
         'DockerContainer', service.container_id2)
     service.children = [service.container_ueid1, service.container_ueid2]
-
 
     service.attrs = {
         'ID': 'aaaaaa',
@@ -72,15 +70,37 @@ def replicated_service():
             'Message': 'preparing',
             'State': 'preparing'},
         'Version': {'Index': 86}
+    },{
+        'DesiredState': 'running',
+        'ID': 'task4',
+        'NodeID': 'node2',
+        'ServiceID': 'service2',
+        'Status': {
+            'ContainerStatus': {},
+            'Message': 'starting',
+            'State': 'starting'},
+        'Version': {'Index': 86}
     }]
-    service.running_containers = 2
+    service.states = {
+        "pending": 0,
+        "assigned": 0,
+        "accepted": 0,
+        "preparing": 1,
+        "ready": 0,
+        "starting": 1,
+        "running": 2,
+        "complete": 0,
+        "shutdown": 0,
+        "failed": 0,
+        "rejected": 0,
+    }
 
     return service
 
 
 @pytest.fixture
 def global_service():
-    service = MagicMock()
+    service = pytest.MagicMock()
     service.container_id1 = 'container_id1'
     service.container_id2 = 'container_id2'
     service.container_ueid1 = entityd.docker.get_ueid(
@@ -121,15 +141,26 @@ def global_service():
             'State': 'running'},
         'Version': {'Index': 86}
     }]
-    service.running_containers = 2
-
+    service.states = {
+        "pending": 0,
+        "assigned": 0,
+        "accepted": 0,
+        "preparing": 0,
+        "ready": 0,
+        "starting": 0,
+        "running": 2,
+        "complete": 0,
+        "shutdown": 0,
+        "failed": 0,
+        "rejected": 0,
+    }
     return service
 
 
 @pytest.fixture
 def services(monkeypatch):
     def make_client(client_info, services):
-        get_client = MagicMock()
+        get_client = pytest.MagicMock()
         client_instance = get_client.return_value
         client_instance.info.return_value = client_info
         client_instance.services.list.return_value = iter(services)
@@ -140,7 +171,7 @@ def services(monkeypatch):
 
 def test_docker_not_available(monkeypatch):
     monkeypatch.setattr('entityd.docker.client.docker.DockerClient',
-                        MagicMock(side_effect=DockerException))
+                        pytest.MagicMock(side_effect=DockerException))
     docker_service = DockerService()
 
     assert not list(docker_service.entityd_find_entity(docker_service.name))
@@ -229,13 +260,14 @@ def test_find_entities_with_swarm(session, docker_service, services,
             assert entity.attrs.get('mode').value == 'global'
             assert entity.attrs.get('mode').traits == set()
 
-        assert entity.attrs.get('running-containers').value == service.running_containers
-
         assert entity.attrs.get('id').traits == {'entity:id'}
         assert entity.attrs.get('labels').traits == set()
-        assert entity.attrs.get('running-containers').traits == set()
 
-        assert len(entity.children) == service.running_containers
+        for key, value in service.states.items():
+            assert entity.attrs.get('replicas:' + key).value == value
+            assert entity.attrs.get('replicas:' + key).traits == set()
+
+        assert len(entity.children) == len(service.children)
         for child in service.children:
             assert child in entity.children
 

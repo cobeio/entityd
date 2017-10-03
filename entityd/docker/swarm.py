@@ -3,6 +3,7 @@
 If a machine running docker is part of a swarm, a swarm
 entity will be generated
 """
+from collections import defaultdict
 
 import logbook
 from docker.errors import APIError
@@ -201,10 +202,28 @@ class DockerService:
         """Add fields depending on the service mode."""
         if "Replicated" in mode_attrs:
             update.attrs.set('mode', 'replicated')
-            update.attrs.set('desired-replicas',
+            update.attrs.set('replicas-desired',
                              mode_attrs['Replicated']['Replicas'])
         elif "Global" in mode_attrs:
             update.attrs.set('mode', 'global')
+
+    def populate_task_fields(self, service, update):
+        possible_states = ["pending", "assigned", "accepted", "preparing",
+                           "ready", "starting", "running", "complete",
+                           "shutdown", "failed", "rejected"]
+        totals = {state: 0 for state in possible_states}
+        for task in service.tasks():
+            task_status = task['Status']
+            totals[task_status['State']] += 1
+            if ("ContainerStatus" in task_status and
+                        "ContainerID" in task_status['ContainerStatus']):
+                container_id = task_status['ContainerStatus']['ContainerID']
+                container_ueid = entityd.docker.get_ueid(
+                    'DockerContainer', container_id)
+                update.children.add(container_ueid)
+
+        for key, value in totals.items():
+            update.attrs.set('replicas:' + key, value)
 
     def populate_service_fields(self, service):
         """Creates an EntityUpdate object for a docker service."""
@@ -213,18 +232,7 @@ class DockerService:
         update.attrs.set('id', service.attrs['ID'], traits={'entity:id'})
         update.attrs.set('labels', service.attrs['Spec']['Labels'])
         self.populate_mode_fields(service.attrs['Spec']['Mode'], update)
-
-        running = 0
-        for task in service.tasks():
-            task_status = task['Status']
-            if task_status['State'] == "running":
-                container_id = task_status['ContainerStatus']['ContainerID']
-                container_ueid = entityd.docker.get_ueid(
-                    'DockerContainer', container_id)
-                update.children.add(container_ueid)
-                running += 1
-
-        update.attrs.set('running-containers', running)
+        self.populate_task_fields(service, update)
 
         return update
 

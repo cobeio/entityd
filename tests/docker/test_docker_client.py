@@ -1,15 +1,13 @@
 import pytest
 from docker.errors import DockerException
-from mock import patch
 
 from entityd.docker.client import DockerClient
 
 
-def test_docker_not_available():
-    with patch('entityd.docker.client.docker.DockerClient') as docker_client:
-        docker_client.side_effect = DockerException
-
-        assert DockerClient.client_available() == False
+def test_docker_not_available(monkeypatch):
+    monkeypatch.setattr('entityd.docker.client.docker.DockerClient',
+                        pytest.MagicMock(side_effect=DockerException))
+    assert DockerClient.client_available() == False
 
 
 @pytest.mark.non_container

@@ -1,6 +1,5 @@
 import pytest
 from docker.errors import DockerException
-from mock import MagicMock
 
 from entityd.docker.client import DockerClient
 from entityd.docker.swarm import DockerNode
@@ -20,7 +19,7 @@ def docker_node(pm, host_entity_plugin):  # pylint: disable=unused-argument
 
 @pytest.fixture
 def manager_node():
-    node = MagicMock()
+    node = pytest.MagicMock()
     node.ip_address = '192.168.2.23'
     node.attrs = {
         'ID': 'aaaa',
@@ -44,7 +43,7 @@ def manager_node():
 
 @pytest.fixture
 def worker_node():
-    node = MagicMock()
+    node = pytest.MagicMock()
     node.ip_address = '192.168.2.24'
     node.attrs = {
         'ID': 'cccc',
@@ -68,7 +67,7 @@ def worker_node():
 
 @pytest.fixture
 def inactive_node():
-    node = MagicMock()
+    node = pytest.MagicMock()
     node.attrs = {
         'ID': 'eeee',
         'Description': {'Hostname': 'ffff'},
@@ -92,7 +91,7 @@ def inactive_node():
 @pytest.fixture
 def nodes(monkeypatch):
     def make_client(client_info, nodes):
-        get_client = MagicMock()
+        get_client = pytest.MagicMock()
         client_instance = get_client.return_value
         client_instance.info.return_value = client_info
         client_instance.nodes.list.return_value = iter(nodes)
@@ -103,7 +102,7 @@ def nodes(monkeypatch):
 
 def test_docker_not_available(monkeypatch):
     monkeypatch.setattr('entityd.docker.client.docker.DockerClient',
-                        MagicMock(side_effect=DockerException))
+                        pytest.MagicMock(side_effect=DockerException))
     docker_node = DockerNode()
 
     assert not list(docker_node.entityd_find_entity(docker_node.name))

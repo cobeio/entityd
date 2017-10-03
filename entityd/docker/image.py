@@ -57,8 +57,9 @@ class DockerImage:
 
     def _image_label(self, update, image):
         update.label = image.attrs['Id'].split(':', 1)[-1][:12]
-        if len(image.attrs['RepoTags']) == 1:
-            update.label = image.attrs['RepoTags'][0]
+        for tag in sorted(image.attrs['RepoTags']):
+            if not tag.endswith(':latest'):
+                update.label = tag
 
     def _generate_images(self):
         for image in self._images.values():

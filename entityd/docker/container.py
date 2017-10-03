@@ -63,9 +63,8 @@ class DockerContainer:
                 update.attrs.set('image:id', None)
                 update.attrs.set('image:name', None)
             else:
-                update_image = entityd.EntityUpdate('Docker:Image')
-                update_image.attrs.set('digest', container.image.id, {'entity:id'})
-                update.parents.add(update_image)
+                update.parents.add(
+                    entityd.docker.get_ueid('DockerImage', container.image.id))
 
             if container.status in ["exited", "dead"]:
                 update.attrs.set('state:exit-code', None)

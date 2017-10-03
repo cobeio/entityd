@@ -55,6 +55,19 @@ class DockerImage:
         self._images.clear()
         self._client_info = None
 
+    @classmethod
+    def get_ueid(cls, digest):
+        """Get the UEID for a Docker image.
+
+        :param digest: Full image digest including the hash component.
+        :type digest: str
+
+        :returns: :class:`cobe.UEID` for the Docker image.
+        """
+        update = entityd.EntityUpdate('Docker:Image')
+        update.attrs.set('digest', digest, {'entity:id'})
+        return update.ueid
+
     def _image_label(self, update, image):
         update.label = image.attrs['Id'].split(':', 1)[-1][:12]
         for tag in sorted(image.attrs['RepoTags']):
@@ -89,10 +102,7 @@ class DockerImage:
         for digest in digests:
             if digest in self._images:
                 image_parent = self._images[image.attrs['Parent']]
-                update_parent = entityd.EntityUpdate('Docker:Image')
-                update_parent.attrs.set(
-                        'digest', image_parent.attrs['Id'], {'entity:id'})
-                update.parents.add(update_parent)
+                update.parents.add(self.get_ueid(image_parent.attrs['Id']))
 
     def _generate_labels(self):
         labels = collections.defaultdict(set)  # (key, value) : image digest
@@ -106,7 +116,5 @@ class DockerImage:
             update.attrs.set('key', label_key, {'entity:id'})
             update.attrs.set('value', label_value, {'entity:id'})
             for image in images:
-                image_update = entityd.EntityUpdate('Docker:Image')
-                image_update.attrs.set('digest', image, {'entity:id'})
-                update.children.add(image_update)
+                update.children.add(self.get_ueid(image))
             yield update

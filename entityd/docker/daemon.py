@@ -3,6 +3,7 @@
 For each machine running a docker daemon an entity
 will be generated
 """
+
 import entityd
 from entityd.docker.client import DockerClient
 from entityd.docker.swarm import DockerSwarm

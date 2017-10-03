@@ -6,6 +6,7 @@ import logbook
 import docker.errors
 
 import entityd
+import entityd.docker
 import entityd.docker.client
 import entityd.docker.daemon
 
@@ -23,6 +24,7 @@ class DockerImage:
 
     def __init__(self):
         self._images = {}  # digest : image
+        self._client_info = None
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs=None, include_ondemand=False):  # pylint: disable=unused-argument
@@ -44,12 +46,14 @@ class DockerImage:
         if not entityd.docker.client.DockerClient.client_available():
             return
         client = entityd.docker.client.DockerClient.get_client()
+        self._client_info = client.info()
         for image in client.images.list(all=True):
             self._images[image.attrs['Id']] = image
 
     @entityd.pm.hookimpl
     def entityd_collection_after(self, session, updates):
         self._images.clear()
+        self._client_info = None
 
     def _image_label(self, update, image):
         update.label = image.attrs['Id'].split(':', 1)[-1][:12]
@@ -72,6 +76,9 @@ class DockerImage:
             update.attrs.set('entry-point', image.attrs['Config']['Entrypoint'])
             update.attrs.set('command', image.attrs['Config']['Cmd'])
             update.attrs.set('dangling', not image.attrs['RepoTags'])
+            update.parents.add(
+                entityd.docker.get_ueid(
+                    'DockerDaemon', self._client_info['ID']))
             yield update
 
     def _generate_labels(self):

@@ -30,14 +30,18 @@ def replicated_service():
         'DockerContainer', service.container_id2)
     service.children = [service.container_ueid1, service.container_ueid2]
 
-
     service.attrs = {
         'ID': 'aaaaaa',
-        'Spec': {'EndpointSpec': {'Mode': 'vip'},
-                 'Labels': {'label1': 'value1'},
-                 'Mode': {'Replicated': {'Replicas': 3}},
-                 'Name': 'replicated-service',
-                 },
+        'Spec': {
+            'EndpointSpec': {'Mode': 'vip'},
+            'Labels': {'label1': 'value1'},
+            'Mode': {'Replicated': {'Replicas': 3}},
+            'Name': 'replicated-service',
+            'TaskTemplate': {
+                'Networks': [
+                    {'Aliases': ['node'], 'Target': 'bbbbbb'}],
+            }
+        },
         'Version': {'Index': 56}
     }
     service.tasks.return_value = [{
@@ -91,11 +95,16 @@ def global_service():
 
     service.attrs = {
         'ID': 'service2',
-        'Spec': {'EndpointSpec': {'Mode': 'vip'},
-                 'Labels': {'label1': 'value1'},
-                 'Mode': {'Global': {}},
-                 'Name': 'global-service',
-                 },
+        'Spec': {
+            'EndpointSpec': {'Mode': 'vip'},
+            'Labels': {'label1': 'value1'},
+            'Mode': {'Global': {}},
+            'Name': 'global-service',
+            'TaskTemplate': {
+                'Networks': [
+                    {'Aliases': ['node'], 'Target': 'bbbbbb'}],
+            }
+        },
         'Version': {'Index': 56}
     }
     service.tasks.return_value = [{
@@ -209,6 +218,9 @@ def test_find_entities_with_swarm(session, docker_service, services,
     swarm_ueid = entityd.docker.get_ueid(
         'DockerSwarm', cluster['ID'])
 
+    network_ueid = entityd.docker.get_ueid(
+        'DockerNetwork', replicated_service.attrs['Spec']['TaskTemplate']['Networks'][0]['Target'])
+
     docker_service.entityd_configure(session.config)
     entities = docker_service.entityd_find_entity(DockerService.name)
     entities = list(entities)
@@ -239,5 +251,6 @@ def test_find_entities_with_swarm(session, docker_service, services,
         for child in service.children:
             assert child in entity.children
 
-        assert len(entity.parents) == 1
-        assert list(entity.parents) == [swarm_ueid]
+        assert len(entity.parents) == 2
+        assert swarm_ueid in entity.parents
+        assert network_ueid in entity.parents

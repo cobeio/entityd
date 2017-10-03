@@ -3,6 +3,7 @@ import pytest
 from docker.errors import DockerException
 from mock import patch, MagicMock, Mock
 
+import entityd
 from entityd.docker.client import DockerClient
 from entityd.docker.container import DockerContainer
 from entityd.docker.daemon import DockerDaemon
@@ -69,7 +70,7 @@ def test_find_entities(monkeypatch, session, docker_container,
         assert entity.attrs.get('state:started-at').value == \
             container.attrs['State']['StartedAt']
 
-        if container.status in ["exited", "dead"]:
+        if container.status not in ["exited", "dead"]:
             assert entity.attrs.get('state:exit-code').value is None
             assert entity.attrs.get('state:error').value is None
             assert entity.attrs.get('state:finished-at').value is None
@@ -80,5 +81,9 @@ def test_find_entities(monkeypatch, session, docker_container,
                 container.attrs['State']['Error']
             assert entity.attrs.get('state:finished-at').value == \
                 container.attrs['State']['FinishedAt']
+
+        network_ueid = entityd.docker.get_ueid('DockerNetwork',
+                                               container.network_id)
+        assert network_ueid in entity.parents
 
 

@@ -224,6 +224,12 @@ class DockerService:
                 update.children.add(container_ueid)
                 running += 1
 
+        if 'Networks' in service.attrs['Spec']['TaskTemplate']:
+            for network in service.attrs['Spec']['TaskTemplate']['Networks']:
+                network_ueid = entityd.docker.get_ueid(
+                    'DockerNetwork', network['Target'])
+                update.parents.add(network_ueid)
+
         update.attrs.set('running-containers', running)
 
         return update
@@ -252,3 +258,75 @@ class DockerService:
                     log.debug("Can't get services list on non manager nodes")
                 else:
                     raise
+
+
+class DockerNetwork:
+    """An entity for the docker network."""
+    name = "Docker:Network"
+
+    @entityd.pm.hookimpl
+    def entityd_configure(self, config):
+        """Register the Docker Network Entity."""
+        config.addentity(self.name, 'entityd.docker.swarm.DockerNetwork')
+
+    @entityd.pm.hookimpl
+    def entityd_find_entity(self, name, attrs=None,
+                            include_ondemand=False):  # pylint: disable=unused-argument
+        """Find the docker network entities."""
+        if name == self.name:
+            if attrs is not None:
+                raise LookupError('Attribute based filtering not supported')
+            return self.generate_updates()
+
+    @classmethod
+    def get_ueid(cls, docker_node_id):
+        """Create a ueid for a docker network."""
+        entity = entityd.EntityUpdate(cls.name)
+        entity.attrs.set('id', docker_node_id, traits={'entity:id'})
+        return entity.ueid
+
+    def populate_network_fields(self, network, swarm_ueid, daemon_ueid):
+        update = entityd.EntityUpdate(self.name)
+        update.label = network.attrs['Name']
+        update.attrs.set('id', network.id, traits={'entity:id'})
+        update.attrs.set('labels', network.attrs['Labels'])
+        update.attrs.set('options', network.attrs['Options'])
+        update.attrs.set('driver', network.attrs['Driver'])
+        update.attrs.set('ipv6-enabled', network.attrs['EnableIPv6'])
+        update.attrs.set('ingress', network.attrs['Ingress'])
+        update.attrs.set('internal', network.attrs['Internal'])
+        scope = network.attrs['Scope']
+        update.attrs.set('scope', scope)
+
+        if scope == "local":
+            update.parents.add(daemon_ueid)
+        elif scope == "swarm":
+            update.parents.add(swarm_ueid)
+
+        return update
+
+    def generate_updates(self):
+        """Generates the entity updates for the docker node."""
+        if not DockerClient.client_available():
+            return
+
+        client = DockerClient.get_client()
+        client_info = client.info()
+
+        swarm_ueid = None
+        if DockerSwarm.swarm_exists(client_info):
+            swarm_id = client_info['Swarm']['Cluster']['ID']
+            swarm_ueid = entityd.docker.get_ueid(
+                'DockerSwarm', swarm_id)
+
+        daemon_ueid = entityd.docker.get_ueid('DockerDaemon',
+                                              client_info['ID'])
+
+        for network in client.networks.list():
+            update = self.populate_network_fields(network,
+                                                  swarm_ueid, daemon_ueid)
+            if swarm_ueid:
+                update.parents.add(swarm_ueid)
+
+            yield update
+

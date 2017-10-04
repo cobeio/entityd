@@ -57,7 +57,7 @@ def finished_container():
             "StartedAt": "2017-08-30T10:52:25.439434269Z",
             "Error": "",
             "FinishedAt": "2017-08-30T10:55:25.439434269Z",
-		},
+        },
         'NetworkSettings': {
             'Networks': {
                 'non-swarm-net': {

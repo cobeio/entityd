@@ -1,13 +1,7 @@
-import types
-
 import cobe
 import kube
 import pytest
 import requests
-from mock import MagicMock, patch, Mock, PropertyMock
-import mock
-
-import entityd.kubernetes.cluster
 
 from entityd.kubernetes.group import NamespaceGroup
 
@@ -52,7 +46,7 @@ def namespace_group(pm):    # pylint: disable=unused-argument
 def cluster(session, active_namespace, namespace_group, terminating_namespace):
     namespaces = [active_namespace, terminating_namespace]
 
-    cluster = MagicMock()
+    cluster = pytest.MagicMock()
     cluster.namespaces = namespaces
 
     session.addservice("kube_cluster", cluster)

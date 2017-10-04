@@ -1,5 +1,4 @@
 import pytest
-from mock import MagicMock, Mock
 
 from entityd.docker.client import DockerClient
 
@@ -28,8 +27,8 @@ def running_container():
             'Ports': {'6379/tcp': None},
         },
     }
-    image = MagicMock(id='image_id', tags=['debian:latest'])
-    container = Mock(
+    image = pytest.MagicMock(id='image_id', tags=['debian:latest'])
+    container = pytest.Mock(
         id="bar", name="running_container", status="running", labels=["label"],
         image=image, attrs=attrs, should_exist=True, network_id=network_id)
     container.top.return_value = {
@@ -60,8 +59,8 @@ def finished_container():
             'Ports': {'6379/tcp': None},
         }
     }
-    image = MagicMock(id='image_id', tags=['debian:latest'])
-    container = Mock(
+    image = pytest.MagicMock(id='image_id', tags=['debian:latest'])
+    container = pytest.Mock(
         id="bar",
         name="finished_container",
         status="exited",

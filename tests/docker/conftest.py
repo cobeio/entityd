@@ -21,8 +21,13 @@ def running_container():
     }
     image = MagicMock(id='image_id', tags=['debian:latest'])
     container = Mock(
-        id="bar", name="running_container", status="running", labels=["label"],
-        image=image, attrs=attrs)
+        id="bar",
+        name="running_container",
+        status="running",
+        labels=["label"],
+        image=image,
+        attrs=attrs,
+    )
     container.configure_mock(name="running_container", should_exist=True)
     container.top.return_value = {
         "Titles": ["PID"],
@@ -50,7 +55,8 @@ def finished_container():
         status="exited",
         labels=["label"],
         image=image,
-        attrs=attrs)
+        attrs=attrs,
+    )
     container.configure_mock(name="finished_container", should_exist=True)
 
     return container

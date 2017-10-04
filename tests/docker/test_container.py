@@ -23,8 +23,8 @@ def docker_container(pm, host_entity_plugin):  # pylint: disable=unused-argument
 def test_docker_not_available(docker_container):
     with patch('entityd.docker.client.docker.DockerClient') as docker_client:
         docker_client.side_effect = DockerException
-
-        assert len(list(docker_container.entityd_find_entity(docker_container.name))) == 0
+        assert len(list(
+            docker_container.entityd_find_entity(docker_container.name))) == 0
 
 
 def test_attrs_raises_exception():

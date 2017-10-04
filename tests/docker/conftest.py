@@ -18,7 +18,7 @@ def running_container():
             "StartedAt": "2017-08-30T10:52:25.439434269Z",
             "Error": "",
             "FinishedAt": "0001-01-01T00:00:00Z",
-		},
+        },
         'NetworkSettings': {
             'Networks': {
                 'non-swarm-net': {
@@ -30,22 +30,21 @@ def running_container():
     }
     image = pytest.MagicMock(id='image_id', tags=['debian:latest'])
     container = pytest.Mock(
-        id="bar", 
-		name="running_container", 
-		status="running", 
-		labels=["label"],
-        image=image, 
-		attrs=attrs, 
-		should_exist=True, 
-		network_id=network_id,
-	)
+        id="bar",
+        name="running_container",
+        status="running",
+        labels=["label"],
+        image=image,
+        attrs=attrs,
+        should_exist=True,
+        network_id=network_id,
+    )
     container.top.return_value = {
         "Titles": ["PID"],
         "Processes": [
             ['0'], ['1'], ['3']
         ]
     }
-
     return container
 
 
@@ -77,7 +76,7 @@ def finished_container():
         image=image,
         attrs=attrs,
         network_id=network_id,
-	)
+    )
     container.configure_mock(name="finished_container", should_exist=True)
 
     return container

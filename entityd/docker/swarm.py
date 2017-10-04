@@ -287,10 +287,10 @@ class DockerNetwork:
             return self.generate_updates()
 
     @classmethod
-    def get_ueid(cls, docker_node_id):
+    def get_ueid(cls, docker_network_id):
         """Create a ueid for a docker network."""
         entity = entityd.EntityUpdate(cls.name)
-        entity.attrs.set('id', docker_node_id, traits={'entity:id'})
+        entity.attrs.set('id', docker_network_id, traits={'entity:id'})
         return entity.ueid
 
     def populate_network_fields(self, network):
@@ -309,7 +309,7 @@ class DockerNetwork:
         return update
 
     def generate_updates(self):
-        """Generates the entity updates for the docker node."""
+        """Generates the entity updates for the docker network."""
         if not DockerClient.client_available():
             return
 

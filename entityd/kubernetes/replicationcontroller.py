@@ -50,6 +50,8 @@ class ReplicationControllerEntity(entityd.kubernetes.BasePlugin):
         spec = resource.spec()
         try:
             update.attrs.set('kubernetes:replicas-desired', spec['replicas'])
+            update.attrs.set('kubernetes:replicas:desired', spec['replicas'])
         except KeyError:
             update.attrs.delete('kubernetes:replicas-desired')
+            update.attrs.delete('kubernetes:replicas:desired')
         return update

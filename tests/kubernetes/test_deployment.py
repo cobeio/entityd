@@ -143,6 +143,7 @@ def test_deployment_entities(deployment, entities, cluster,
     assert entity.attrs.get('kubernetes:available-replicas').value == 5
     assert entity.attrs.get('kubernetes:unavailable-replicas').value == 6
     assert entity.attrs.get('kubernetes:replicas-desired').value == 4
+    assert entity.attrs.get('kubernetes:replicas:desired').value == 4
     assert len(list(entity.children)) == 1
     assert len(list(entity.parents)) == 2
     assert cobe.UEID('ff290adeb112ae377e8fca009ca4fd9f') in entity.parents
@@ -182,6 +183,7 @@ def test_missing_attributes_handled(deployment, cluster):
         'kubernetes:available-replicas',
         'kubernetes:unavailable-replicas',
         'kubernetes:replicas-desired',
+        'kubernetes:replicas:desired',
     }
 
 

@@ -201,7 +201,7 @@ class DockerService:
         """Add fields depending on the service mode."""
         if "Replicated" in mode_attrs:
             update.attrs.set('mode', 'replicated')
-            update.attrs.set('replicas-desired',
+            update.attrs.set('replicas:desired',
                              mode_attrs['Replicated']['Replicas'])
         elif "Global" in mode_attrs:
             update.attrs.set('mode', 'global')

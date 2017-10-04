@@ -64,8 +64,10 @@ class ReplicaSetEntity(entityd.kubernetes.BasePlugin):
         spec = resource.spec()
         try:
             update.attrs.set('kubernetes:replicas-desired', spec['replicas'])
+            update.attrs.set('kubernetes:replicas:desired', spec['replicas'])
         except KeyError:
             update.attrs.delete('kubernetes:replicas-desired')
+            update.attrs.delete('kubernetes:replicas:desired')
         if update.ueid in parented_rs:
             update.parents.discard(
                 self.create_namespace_ueid(resource.meta.namespace))

@@ -293,7 +293,8 @@ class DockerNetwork:
         entity.attrs.set('id', docker_node_id, traits={'entity:id'})
         return entity.ueid
 
-    def populate_network_fields(self, network, swarm_ueid, daemon_ueid):
+    def populate_network_fields(self, network):
+        """Create EntityUpdate for a docker network."""
         update = entityd.EntityUpdate(self.name)
         update.label = network.attrs['Name']
         update.attrs.set('id', network.id, traits={'entity:id'})
@@ -303,13 +304,7 @@ class DockerNetwork:
         update.attrs.set('ipv6-enabled', network.attrs['EnableIPv6'])
         update.attrs.set('ingress', network.attrs['Ingress'])
         update.attrs.set('internal', network.attrs['Internal'])
-        scope = network.attrs['Scope']
-        update.attrs.set('scope', scope)
-
-        if scope == "local":
-            update.parents.add(daemon_ueid)
-        elif scope == "swarm":
-            update.parents.add(swarm_ueid)
+        update.attrs.set('scope', network.attrs['Scope'])
 
         return update
 
@@ -324,16 +319,16 @@ class DockerNetwork:
         swarm_ueid = None
         if DockerSwarm.swarm_exists(client_info):
             swarm_id = client_info['Swarm']['Cluster']['ID']
-            swarm_ueid = entityd.docker.get_ueid(
-                'DockerSwarm', swarm_id)
+            swarm_ueid = entityd.docker.get_ueid('DockerSwarm', swarm_id)
 
         daemon_ueid = entityd.docker.get_ueid('DockerDaemon',
                                               client_info['ID'])
 
         for network in client.networks.list():
-            update = self.populate_network_fields(network,
-                                                  swarm_ueid, daemon_ueid)
-            if swarm_ueid:
+            update = self.populate_network_fields(network)
+            if update.attrs.get('scope').value == "local":
+                update.parents.add(daemon_ueid)
+            elif update.attrs.get('scope').value == "swarm" and swarm_ueid:
                 update.parents.add(swarm_ueid)
 
             yield update

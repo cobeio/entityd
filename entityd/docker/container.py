@@ -66,7 +66,7 @@ class DockerContainer:
                 update.parents.add(
                     entityd.docker.get_ueid('DockerImage', container.image.id))
 
-            if container.status in ["exited", "dead"]:
+            if container.status not in ["exited", "dead"]:
                 update.attrs.set('state:exit-code', None)
                 update.attrs.set('state:error', None)
                 update.attrs.set('state:finished-at', None)
@@ -78,6 +78,10 @@ class DockerContainer:
                                  traits={'chrono:rfc3339'})
 
             update.parents.add(daemon_ueid)
+            for network in attrs['NetworkSettings']['Networks'].values():
+                network_ueid = entityd.docker.get_ueid(
+                    'DockerNetwork', network['NetworkID'])
+                update.parents.add(network_ueid)
 
             yield update
 

@@ -1,10 +1,4 @@
-"""Plugins providing entities for Docker.
-
-This module implements all the entities for various Docker
-components. Each entity type is implemented as a generator function.
-A single ``entityd_find_entity`` hook implementation takes responsibility
-for dispatching to the correct generator function.
-"""
+"""This package contains all the docker entities."""
 
 
 def get_ueid(class_name, *args):
@@ -18,6 +12,7 @@ def get_ueid(class_name, *args):
         'DockerImage': entityd.docker.image.DockerImage,
         'DockerSwarm': entityd.docker.swarm.DockerSwarm,
         'DockerDaemon': entityd.docker.daemon.DockerDaemon,
+        'DockerNetwork': entityd.docker.swarm.DockerNetwork,
         'DockerNode': entityd.docker.swarm.DockerNode,
     }
     return values[class_name].get_ueid(*args)

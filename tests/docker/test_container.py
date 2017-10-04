@@ -1,8 +1,7 @@
-import docker
 import pytest
 from docker.errors import DockerException
-from mock import patch, MagicMock, Mock
 
+import entityd
 from entityd.docker.client import DockerClient
 from entityd.docker.container import DockerContainer
 from entityd.docker.daemon import DockerDaemon
@@ -20,11 +19,10 @@ def docker_container(pm, host_entity_plugin):  # pylint: disable=unused-argument
     return container
 
 
-def test_docker_not_available(docker_container):
-    with patch('entityd.docker.client.docker.DockerClient') as docker_client:
-        docker_client.side_effect = DockerException
-        assert len(list(
-            docker_container.entityd_find_entity(docker_container.name))) == 0
+def test_docker_not_available(monkeypatch, docker_container):
+    monkeypatch.setattr('entityd.docker.client.docker.DockerClient',
+                        pytest.MagicMock(side_effect=DockerException))
+    assert len(list(docker_container.entityd_find_entity(docker_container.name))) == 0
 
 
 def test_attrs_raises_exception():
@@ -43,7 +41,7 @@ def test_find_entities(monkeypatch, session, docker_container,
 
     containers = [running_container, finished_container]
 
-    get_client = MagicMock()
+    get_client = pytest.MagicMock()
     client_instance = get_client.return_value
     client_instance.info.return_value = {'ID': 'foo'}
     client_instance.containers.list.return_value = iter(containers)
@@ -69,7 +67,7 @@ def test_find_entities(monkeypatch, session, docker_container,
         assert entity.attrs.get('state:started-at').value == \
             container.attrs['State']['StartedAt']
 
-        if container.status in ["exited", "dead"]:
+        if container.status not in ["exited", "dead"]:
             assert entity.attrs.get('state:exit-code').value is None
             assert entity.attrs.get('state:error').value is None
             assert entity.attrs.get('state:finished-at').value is None
@@ -80,5 +78,9 @@ def test_find_entities(monkeypatch, session, docker_container,
                 container.attrs['State']['Error']
             assert entity.attrs.get('state:finished-at').value == \
                 container.attrs['State']['FinishedAt']
+
+        network_ueid = entityd.docker.get_ueid('DockerNetwork',
+                                               container.network_id)
+        assert network_ueid in entity.parents
 
 

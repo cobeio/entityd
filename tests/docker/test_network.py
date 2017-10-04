@@ -1,6 +1,5 @@
 import pytest
 from docker.errors import DockerException
-from mock import MagicMock
 
 import entityd
 from entityd.docker.client import DockerClient
@@ -21,7 +20,7 @@ def docker_network(pm, host_entity_plugin):  # pylint: disable=unused-argument
 
 @pytest.fixture
 def swarm_network():
-    network = MagicMock()
+    network = pytest.MagicMock()
     network.id = 'aaaa'
     network.attrs = {
         'Containers': None,
@@ -42,7 +41,7 @@ def swarm_network():
 
 @pytest.fixture
 def local_network():
-    network = MagicMock()
+    network = pytest.MagicMock()
     network.id = 'bbbb'
     network.attrs = {
         'Containers': {},
@@ -63,7 +62,7 @@ def local_network():
 @pytest.fixture
 def networks(monkeypatch):
     def make_client(client_info, networks):
-        get_client = MagicMock()
+        get_client = pytest.MagicMock()
         client_instance = get_client.return_value
         client_instance.info.return_value = client_info
         client_instance.networks.list.return_value = iter(networks)
@@ -74,7 +73,7 @@ def networks(monkeypatch):
 
 def test_docker_not_available(monkeypatch):
     monkeypatch.setattr('entityd.docker.client.docker.DockerClient',
-                        MagicMock(side_effect=DockerException))
+                        pytest.MagicMock(side_effect=DockerException))
     docker_network = DockerNetwork()
 
     assert not list(docker_network.entityd_find_entity(docker_network.name))

@@ -4,6 +4,8 @@ If a machine running docker is part of a swarm, a swarm
 entity will be generated
 """
 
+import stat
+
 import logbook
 from docker.errors import APIError
 
@@ -339,8 +341,7 @@ class DockerSecret:
 
     _TYPES = {
         'Docker:Secret': '_generate_secrets',
-        'Docker:Secret:Binding': '_generate_bindings',
-        'Docker:Secret:Mount': '_generate_mounts',
+        'Docker:Mount': '_generate_mounts',
     }
 
     def __init__(self):
@@ -395,6 +396,13 @@ class DockerSecret:
         self._secrets.clear()
         del self._services[:]
 
+    @classmethod
+    def get_ueid(cls, id_):
+        """Create a ueid for a docker network."""
+        entity = entityd.EntityUpdate('Docker:Secret')
+        entity.attrs.set('id', id_, traits={'entity:id'})
+        return entity.ueid
+
     def _generate_secrets(self):
         for secret in self._secrets.values():
             update = entityd.EntityUpdate('Docker:Secret')
@@ -406,14 +414,43 @@ class DockerSecret:
             update.attrs.set(
                 'updated', secret.attrs['UpdatedAt'], {'time:rfc3339'})
             update.parents.add(self._swarm)
-            # for service in secret_allocations[secret.id]:
-            #     update.parents.add(DockerService.get_ueid(service.id))
             yield update
 
-    def _generate_bindings(self):
-        return
-        yield
-
     def _generate_mounts(self):
-        return
-        yield
+        for service in self._services:
+            service_task = service.attrs['Spec']['TaskTemplate']
+            if 'ContainerSpec' in service_task:
+                for service_secret in service_task['ContainerSpec']['Secrets']:
+                    yield from self._generate_mount(service, service_secret)
+
+    def _generate_mount(self, service, service_secret):
+        for task in service.tasks():
+            task_status = task['Status']
+            if ('ContainerStatus' in task_status and
+                    'ContainerID' in task_status['ContainerStatus']):
+                update = entityd.EntityUpdate('Docker:Mount')
+                update.label = service_secret['File']['Name']
+                update.attrs.set('service', service.id, {'entity:id'})
+                update.attrs.set(
+                    'container',
+                    task_status['ContainerStatus']['ContainerID'],
+                    {'entity:id'},
+                )
+                update.attrs.set(
+                    'target',
+                    '/var/secrets/' + service_secret['File']['Name'],
+                    {'entity:id'},
+                )
+                update.attrs.set(
+                    'permissions',
+                    stat.filemode(service_secret['File']['Mode']),
+                )
+                update.attrs.set('secret:gid', service_secret['File']['GID'])
+                update.attrs.set('secret:uid', service_secret['File']['UID'])
+                update.parents.add(self.get_ueid(service_secret['SecretID']))
+                update.parents.add(DockerService.get_ueid(service.id))
+                update.parents.add(entityd.docker.get_ueid(
+                    'DockerContainer',
+                    task_status['ContainerStatus']['ContainerID'],
+                ))
+                yield update

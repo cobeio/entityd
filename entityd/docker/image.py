@@ -18,7 +18,7 @@ class DockerImage:
 
     _TYPES = {
         'Docker:Image': '_generate_images',
-        'Docker:Image:Label': '_generate_labels',
+        'Docker:Label': '_generate_labels',
     }
 
     def __init__(self):
@@ -165,7 +165,7 @@ class DockerImage:
             for label_pair in labels_image.items():
                 labels[label_pair].add(image.id)
         for (label_key, label_value), images in labels.items():
-            update = entityd.EntityUpdate('Docker:Image:Label')
+            update = entityd.EntityUpdate('Docker:Label')
             update.label = "{0} = {1}".format(label_key, label_value)
             update.attrs.set('key', label_key, {'entity:id'})
             update.attrs.set('value', label_value, {'entity:id'})

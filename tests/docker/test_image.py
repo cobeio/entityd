@@ -206,7 +206,7 @@ class TestGenerateLabels:
         plugin._images = {image.id: image}
         labels = {label.label: label for label in plugin._generate_labels()}
         assert len(labels) == 2
-        assert labels['foo = bar'].metype == 'Docker:Image:Label'
+        assert labels['foo = bar'].metype == 'Docker:Label'
         assert labels['foo = bar'].label == 'foo = bar'  # sanity check
         assert labels['foo = bar'].attrs.get('key').value == 'foo'
         assert labels['foo = bar'].attrs.get('key').traits == {'entity:id'}
@@ -215,7 +215,7 @@ class TestGenerateLabels:
         assert len(labels['foo = bar'].parents) == 0
         assert len(labels['foo = bar'].children) == 1
         assert plugin.get_ueid(image.id) in labels['foo = bar'].children
-        assert labels['spam = eggs'].metype == 'Docker:Image:Label'
+        assert labels['spam = eggs'].metype == 'Docker:Label'
         assert labels['spam = eggs'].label == 'spam = eggs'  # sanity check
         assert labels['spam = eggs'].attrs.get('key').value == 'spam'
         assert labels['spam = eggs'].attrs.get('key').traits == {'entity:id'}
@@ -232,7 +232,7 @@ class TestGenerateLabels:
         image_2.attrs['Config']['Labels'] = {'foo': 'bar'}
         labels = {label.label: label for label in plugin._generate_labels()}
         assert len(labels) == 1
-        assert labels['foo = bar'].metype == 'Docker:Image:Label'
+        assert labels['foo = bar'].metype == 'Docker:Label'
         assert labels['foo = bar'].label == 'foo = bar'  # sanity check
         assert labels['foo = bar'].attrs.get('key').value == 'foo'
         assert labels['foo = bar'].attrs.get('key').traits == {'entity:id'}
@@ -363,13 +363,13 @@ class TestConfigure:
         plugin.entityd_configure(config)
         assert set(config.entities.keys()) == {
             'Docker:Image',
-            'Docker:Image:Label',
+            'Docker:Label',
         }
         assert len(config.entities['Docker:Image']) == 1
-        assert len(config.entities['Docker:Image:Label']) == 1
+        assert len(config.entities['Docker:Label']) == 1
         assert list(config.entities['Docker:Image'])[0].name \
             == 'entityd.docker.image.DockerImage'
-        assert list(config.entities['Docker:Image:Label'])[0].name \
+        assert list(config.entities['Docker:Label'])[0].name \
             == 'entityd.docker.image.DockerImage'
 
 
@@ -418,7 +418,7 @@ class TestCollectionAfter:
 
 class TestFindEntity:
 
-    @pytest.mark.parametrize('type_', ['Docker:Image', 'Docker:Image:Label'])
+    @pytest.mark.parametrize('type_', ['Docker:Image', 'Docker:Label'])
     def test(self, monkeypatch, plugin, type_):
         generator_function = unittest.mock.Mock()
         monkeypatch.setattr(plugin, '_generate_images', generator_function)
@@ -429,7 +429,7 @@ class TestFindEntity:
         assert generator_function.call_args[0] == ()
         assert generator_function.call_args[1] == {}
 
-    @pytest.mark.parametrize('type_', ['Docker:Image', 'Docker:Image:Label'])
+    @pytest.mark.parametrize('type_', ['Docker:Image', 'Docker:Label'])
     def test_filtering(self, plugin, type_):
         with pytest.raises(LookupError) as exception:
             plugin.entityd_find_entity(type_, attrs={'foo': 'bar'})

@@ -7,7 +7,6 @@ present then the entity will be configured as non existent.
 The app main loop will call monitor.gather()
 """
 
-import base64
 import collections
 
 import cobe
@@ -54,8 +53,7 @@ class Monitor:
             prefix = 'ueids/{}/'.format(metype)
             to_store = {}
             for ueid in entities:
-                key = prefix + base64.b64encode(str(ueid).encode()).decode()
-                to_store[key] = str(ueid)
+                to_store[prefix + str(ueid)] = str(ueid)
             self.session.svc.kvstore.addmany(to_store)
         self.session.svc.kvstore.add('metypes', list(self.last_batch.keys()))
         entityd.health.die()

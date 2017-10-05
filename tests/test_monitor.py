@@ -10,10 +10,16 @@ import entityd.monitor
 
 
 def test_sessionstart_entities_loaded(session, kvstore):
+    ueid_a = cobe.UEID('a' * 32)
+    ueid_b = cobe.UEID('b' * 32)
+    ueid_c = cobe.UEID('c' * 32)
+    ueid_a_b64 = base64.b64encode(str(ueid_a).encode()).decode()
+    ueid_b_b64 = base64.b64encode(str(ueid_b).encode()).decode()
+    ueid_c_b64 = base64.b64encode(str(ueid_c).encode()).decode()
     kvstore.add('metypes', ['foo', 'bar', 'foo:bar'])
-    kvstore.add('ueids:foo', 'a' * 32)
-    kvstore.add('ueids:bar', 'b' * 32)
-    kvstore.add('ueids:foo:bar', 'c' * 32)
+    kvstore.add('ueids/foo/' + ueid_a_b64, str(ueid_a))
+    kvstore.add('ueids/bar/' + ueid_b_b64, str(ueid_b))
+    kvstore.add('ueids/foo:bar/' + ueid_c_b64, str(ueid_c))
     monitor = entityd.monitor.Monitor()
     monitor.entityd_sessionstart(session)
     assert monitor.last_batch == {
@@ -39,9 +45,9 @@ def test_sessionfinish_entities_saved(session, kvstore):
     }
     monitor.entityd_sessionfinish()
     assert sorted(kvstore.get('metypes')) == sorted(['foo', 'bar', 'foo:bar'])
-    assert kvstore.get('ueids:foo:' + ueid_a_b64) == 'a' * 32
-    assert kvstore.get('ueids:bar:' + ueid_b_b64) == 'b' * 32
-    assert kvstore.get('ueids:foo:bar' + ueid_c_b64) == 'c' * 32
+    assert kvstore.get('ueids/foo/' + ueid_a_b64) == 'a' * 32
+    assert kvstore.get('ueids/bar/' + ueid_b_b64) == 'b' * 32
+    assert kvstore.get('ueids/foo:bar/' + ueid_c_b64) == 'c' * 32
 
 
 def test_collect_entities(pm, session, monitor, hookrec):

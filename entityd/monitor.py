@@ -39,7 +39,7 @@ class Monitor:
         except KeyError:
             last_types = set()
         for metype in set(self.config.entities) | last_types:
-            prefix = 'ueids:{}:'.format(metype)
+            prefix = 'ueids/{}/'.format(metype)
             self.last_batch[metype] = set(
                 cobe.UEID(ueid) for ueid in
                 session.svc.kvstore.getmany(prefix).values()
@@ -51,7 +51,7 @@ class Monitor:
         """Store out entities to kvstore."""
         self.session.svc.kvstore.deletemany('ueids:')
         for metype, entities in self.last_batch.items():
-            prefix = 'ueids:{}:'.format(metype)
+            prefix = 'ueids/{}/'.format(metype)
             to_store = {}
             for ueid in entities:
                 key = prefix + base64.b64encode(str(ueid).encode()).decode()

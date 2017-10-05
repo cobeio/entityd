@@ -333,3 +333,87 @@ class DockerNetwork:
 
             yield update
 
+
+class DockerSecret:
+    """A plugin for Docker secrets."""
+
+    _TYPES = {
+        'Docker:Secret': '_generate_secrets',
+        'Docker:Secret:Binding': '_generate_bindings',
+        'Docker:Secret:Mount': '_generate_mounts',
+    }
+
+    def __init__(self):
+        self._swarm = None
+        self._secrets = {}  # id : secret
+        self._services = []
+
+    @entityd.pm.hookimpl
+    def entityd_find_entity(self, name, attrs=None, include_ondemand=False):  # pylint: disable=unused-argument
+        """Find Docker entities."""
+        if name in self._TYPES:
+            if attrs is not None:
+                raise LookupError('Attribute based filtering not supported')
+            if self._swarm is not None:
+                return getattr(self, self._TYPES[name])()
+
+    @entityd.pm.hookimpl
+    def entityd_configure(self, config):
+        """Register the Process Monitored Entity."""
+        for type_ in self._TYPES:
+            config.addentity(
+                type_, __name__ + '.' + self.__class__.__qualname__)
+
+    @entityd.pm.hookimpl
+    def entityd_collection_before(self, session):  # pylint: disable=unused-argument
+        """Collect secrets from available Docker swarm.
+
+        If no connection to a Docker Swarm manager daemon is available
+        then this does nothing.
+        """
+        if not entityd.docker.client.DockerClient.client_available():
+            return
+        client = entityd.docker.client.DockerClient.get_client()
+        client_info = client.info()
+        if DockerSwarm.swarm_exists(client_info):
+            self._swarm = entityd.docker.get_ueid(
+                'DockerSwarm', client_info['Swarm']['Cluster']['ID'])
+            try:
+                for secret in client.secrets.list():
+                    self._secrets[secret.id] = secret
+                self._services.extend(client.services.list())
+            except APIError as error:
+                if error.status_code == 503:
+                    log.debug("Can't get node list on non manager nodes")
+                else:
+                    raise
+
+    @entityd.pm.hookimpl
+    def entityd_collection_after(self, session, updates):  # pylint: disable=unused-argument
+        """Clear secrets that were collected during collection."""
+        self._swarm = None
+        self._secrets.clear()
+        del self._services[:]
+
+    def _generate_secrets(self):
+        for secret in self._secrets.values():
+            update = entityd.EntityUpdate('Docker:Secret')
+            update.label = secret.name or secret.id
+            update.attrs.set('id', secret.id, {'entity:id'})
+            update.attrs.set('name', secret.name)
+            update.attrs.set(
+                'created', secret.attrs['CreatedAt'], {'time:rfc3339'})
+            update.attrs.set(
+                'updated', secret.attrs['UpdatedAt'], {'time:rfc3339'})
+            update.parents.add(self._swarm)
+            # for service in secret_allocations[secret.id]:
+            #     update.parents.add(DockerService.get_ueid(service.id))
+            yield update
+
+    def _generate_bindings(self):
+        return
+        yield
+
+    def _generate_mounts(self):
+        return
+        yield

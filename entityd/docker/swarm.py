@@ -157,13 +157,19 @@ class DockerNode:
                     update.attrs.set('version',
                                      node.attrs['Version']['Index'])
 
-                    manager_attrs = node.attrs['ManagerStatus']
-                    update.attrs.set('manager:reachability',
-                                     manager_attrs['Reachability'])
-                    update.attrs.set('manager:leader',
-                                     manager_attrs['Leader'])
-                    update.attrs.set('manager:addr',
-                                     manager_attrs['Addr'])
+                    if 'ManagerStatus' in node.attrs:
+                        manager_attrs = node.attrs['ManagerStatus']
+                        update.attrs.set('manager:reachability',
+                                         manager_attrs['Reachability'])
+                        update.attrs.set('manager:leader',
+                                         manager_attrs['Leader'])
+                        update.attrs.set('manager:addr',
+                                         manager_attrs['Addr'])
+                    else:
+                        update.attrs.set('manager:reachability', None)
+                        update.attrs.set('manager:leader', None)
+                        update.attrs.set('manager:addr', None)
+                        
                     yield update
             except APIError as error:
                 if error.status_code == 503:

@@ -1,4 +1,5 @@
 """Plugin providing the Process Monitored Entity."""
+import argparse
 
 import functools
 import threading
@@ -28,7 +29,9 @@ class CpuUsage(threading.Thread):
        last update.
     :ivar last_run_percentages: A map of {pid->float} percentage values.
     """
-    def __init__(self, context, endpoint='inproc://cpuusage', interval=15):
+    # pylint: disable=too-many-instance-attributes
+    def __init__(self, context,
+                 endpoint='inproc://cpuusage', interval=15, procpath='/proc'):
         self._context = context
         self.listen_endpoint = endpoint
         self.last_run_processes = {}
@@ -36,6 +39,7 @@ class CpuUsage(threading.Thread):
         self._stream = None
         self._timer_interval = interval
         self._log = logbook.Logger('CpuUsage')
+        self.procpath = procpath
         super().__init__()
 
     @staticmethod
@@ -60,22 +64,23 @@ class CpuUsage(threading.Thread):
         """Update the cpu percentage values we have stored."""
         new_percentages = {}
         new_processes = {}
-        for pid in syskit.Process.enumerate():
-            try:
-                process = syskit.Process(pid)
-            except syskit.NoSuchProcessError:
-                continue
-            else:
+        with syskit.set_procpath(self.procpath):
+            for pid in syskit.Process.enumerate():
                 try:
-                    percentage = self.percent_cpu_usage(
-                        self.last_run_processes[pid], process)
-                except KeyError:
-                    pass
+                    process = syskit.Process(pid)
+                except syskit.NoSuchProcessError:
+                    continue
                 else:
-                    new_percentages[pid] = percentage
-                new_processes[pid] = process
-        self.last_run_percentages = new_percentages
-        self.last_run_processes = new_processes
+                    try:
+                        percentage = self.percent_cpu_usage(
+                            self.last_run_processes[pid], process)
+                    except KeyError:
+                        pass
+                    else:
+                        new_percentages[pid] = percentage
+                    new_processes[pid] = process
+            self.last_run_percentages = new_percentages
+            self.last_run_processes = new_processes
 
     def run(self):
         while True:
@@ -84,6 +89,7 @@ class CpuUsage(threading.Thread):
             except Exception:  # pylint: disable=broad-except
                 self._log.exception('An unexpected exception occurred in '
                                     'CpuUsage thread')
+                raise
             else:
                 break
             finally:
@@ -129,6 +135,7 @@ class CpuUsage(threading.Thread):
 
 class ProcessEntity:
     """Plugin to generate Process MEs."""
+    # pylint: disable=too-many-instance-attributes
 
     prefix = 'entityd.processme:'
 
@@ -139,6 +146,7 @@ class ProcessEntity:
         self._host_ueid = None
         self.cpu_usage_thread = None
         self.cpu_usage_sock = None
+        self.procpath = '/proc' # Default; set by args in sessionstart
         try:
             self._docker_client = docker.DockerClient(
                 base_url='unix://var/run/docker.sock',
@@ -153,6 +161,22 @@ class ProcessEntity:
         config.addentity('Process', 'entityd.processme.ProcessEntity')
 
     @entityd.pm.hookimpl
+    def entityd_addoption(self, parser):
+        """Add the required options to the command line."""
+        # procpath is used by process and endpoints,
+        # so catch duplicate additions.
+        try:
+            parser.add_argument(
+                '--procpath',
+                default='/proc',
+                type=str,
+                help='Path to /proc if mounted elsewhere',
+            )
+        except argparse.ArgumentError:
+            # assume someone else added it.
+            pass
+
+    @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
         """Store the session for later usage."""
         self.session = session
@@ -160,6 +184,7 @@ class ProcessEntity:
         self.cpu_usage_thread.start()
         self.cpu_usage_sock = self.zmq_context.socket(zmq.PAIR)
         self.cpu_usage_sock.connect(self.cpu_usage_thread.listen_endpoint)
+        self.procpath = session.config.args.procpath
 
     @entityd.pm.hookimpl
     def entityd_sessionfinish(self):
@@ -174,10 +199,11 @@ class ProcessEntity:
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
         """Return an iterator of "Process" Monitored Entities."""
-        if name == 'Process':
-            if attrs is not None:
-                return self.filtered_processes(attrs)
-            return self.processes()
+        with syskit.set_procpath(self.procpath):
+            if name == 'Process':
+                if attrs is not None:
+                    return self.filtered_processes(attrs)
+                return self.processes()
 
     @property
     def host_ueid(self):
@@ -239,28 +265,30 @@ class ProcessEntity:
 
         Special case for 'pid' since this should be efficient.
         """
-        if 'pid' in attrs and len(attrs) == 1:
-            proc_containers = self.get_process_containers([attrs['pid']])
-            try:
-                proc = syskit.Process(attrs['pid'])
-            except syskit.NoSuchProcessError:
-                return
-            entity = self.create_process_me(self.active_processes,
-                                            proc, proc_containers)
-            cpupc = self.get_cpu_percentage(proc)
-            if cpupc:
-                entity.attrs.set('cpu', cpupc,
-                                 traits={'metric:gauge', 'unit:percent'})
-            yield entity
-        else:
-            for proc in self.processes():
+        with syskit.set_procpath(self.procpath):
+            if 'pid' in attrs and len(attrs) == 1:
+                proc_containers = self.get_process_containers([attrs['pid']])
                 try:
-                    match = all([proc.attrs.get(name).value == value
-                                 for (name, value) in attrs.items()])
-                    if match:
-                        yield proc
-                except KeyError:
-                    continue
+
+                    proc = syskit.Process(attrs['pid'])
+                except syskit.NoSuchProcessError:
+                    return
+                entity = self.create_process_me(self.active_processes,
+                                                proc, proc_containers)
+                cpupc = self.get_cpu_percentage(proc)
+                if cpupc:
+                    entity.attrs.set('cpu', cpupc,
+                                     traits={'metric:gauge', 'unit:percent'})
+                yield entity
+            else:
+                for proc in self.processes():
+                    try:
+                        match = all([proc.attrs.get(name).value == value
+                                     for (name, value) in attrs.items()])
+                        if match:
+                            yield proc
+                    except KeyError:
+                        continue
 
     def processes(self):
         """Generator of Process MEs."""
@@ -294,7 +322,7 @@ class ProcessEntity:
         containers = {}
         for pid in pids:
             try:
-                with open('/proc/{}/cgroup'.format(pid), 'r') as fp:
+                with open(self.procpath + '/{}/cgroup'.format(pid), 'r') as fp:
                     for containerid in containerids:
                         if containerid in fp.readline():
                             containers[pid] = containerid
@@ -315,8 +343,7 @@ class ProcessEntity:
             'id', container_id, traits={'entity:id'})
         return update.ueid
 
-    @staticmethod
-    def update_process_table(procs):
+    def update_process_table(self, procs):
         """Updates the process table, refreshing and adding processes.
 
         Returns a dict of active processes.
@@ -325,21 +352,23 @@ class ProcessEntity:
 
         """
         active = {}
-        for pid in syskit.Process.enumerate():
-            if pid in procs:
-                proc = procs[pid]
-                try:
-                    proc.refresh()
-                except syskit.NoSuchProcessError:
-                    pass
+        with syskit.set_procpath(self.procpath):
+            pids = syskit.Process.enumerate()
+            for pid in pids:
+                if pid in procs:
+                    proc = procs[pid]
+                    try:
+                        proc.refresh()
+                    except syskit.NoSuchProcessError:
+                        pass
+                    else:
+                        active[pid] = proc
                 else:
-                    active[pid] = proc
-            else:
-                try:
-                    active[pid] = syskit.Process(pid)
-                except (syskit.NoSuchProcessError, ProcessLookupError):
-                    pass
-        return active
+                    try:
+                        active[pid] = syskit.Process(pid)
+                    except (syskit.NoSuchProcessError, ProcessLookupError):
+                        pass
+            return active
 
     def get_cpu_percentage(self, proc):
         """Return CPU usage percentage since the last sample or process start.

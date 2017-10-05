@@ -175,6 +175,23 @@ def test_find_entity(procent, session, kvstore):  # pylint: disable=unused-argum
     assert count
 
 
+def test_find_entities_with_relocated_procfs(procent,
+                                             session, kvstore, tmpdir):    # pylint: disable=unused-argument
+    fakeproc = tmpdir.join('fakeproc')
+    fakeproc.ensure_dir()
+    piddir = fakeproc.join(str(os.getpid()))
+    piddir.ensure_dir()
+    for fname in ['stat', 'statm', 'cmdline', 'cwd', 'environ', 'status']:
+        os.symlink('/proc/{}/{}'.format(os.getpid(), fname),
+                   str(piddir.join(fname)))
+    session.config.args.procpath = str(fakeproc)
+    procent.entityd_sessionstart(session)
+    entity, = procent.entityd_find_entity('Process', None)
+    assert entity.metype == 'Process'
+    assert entity.attrs.get('starttime').value
+    assert entity.attrs.get('pid').value == os.getpid()
+
+
 def test_entities_have_core_attributes(procent, session, kvstore): # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
     entities = procent.entityd_find_entity('Process', None)
@@ -401,9 +418,9 @@ def test_processes_deleted(procent, proctable, monkeypatch, session, kvstore):  
 
 
 def test_update_process_table():
-    active = entityd.processme.ProcessEntity.update_process_table({})
+    active = entityd.processme.ProcessEntity().update_process_table({})
     assert isinstance(active[os.getpid()], syskit.Process)
-    pt2 = entityd.processme.ProcessEntity.update_process_table(active)
+    pt2 = entityd.processme.ProcessEntity().update_process_table(active)
     assert pt2[os.getpid()] is active[os.getpid()]
 
 
@@ -413,7 +430,7 @@ def test_process_table_vanished(monkeypatch):
                         pytest.Mock(side_effect=syskit.NoSuchProcessError))
     monkeypatch.setattr(syskit.Process, 'enumerate',
                         pytest.Mock(return_value=[42]))
-    pt = entityd.processme.ProcessEntity.update_process_table({})
+    pt = entityd.processme.ProcessEntity().update_process_table({})
     assert not pt
 
 
@@ -423,7 +440,7 @@ def test_process_table_vanished_refresh(monkeypatch):
     proc.refresh = pytest.Mock(side_effect=syskit.NoSuchProcessError)
     monkeypatch.setattr(syskit.Process, 'enumerate',
                         pytest.Mock(return_value=[os.getpid()]))
-    pt = entityd.processme.ProcessEntity.update_process_table(
+    pt = entityd.processme.ProcessEntity().update_process_table(
         {os.getpid(): proc})
     assert not pt
 

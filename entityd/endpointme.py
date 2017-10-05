@@ -1,5 +1,5 @@
 """Plugin providing the Endpoint Monitored Entity."""
-
+import argparse
 import socket
 
 import entityd
@@ -28,6 +28,7 @@ class EndpointEntity:
 
     def __init__(self):
         self.session = None
+        self.procpath = '/proc'
 
     @staticmethod
     @entityd.pm.hookimpl
@@ -36,9 +37,26 @@ class EndpointEntity:
         config.addentity('Endpoint', 'entityd.endpointme.EndpointEntity')
 
     @entityd.pm.hookimpl
+    def entityd_addoption(self, parser):
+        """Add the required options to the command line."""
+        # procpath is used by process and endpoints,
+        # so catch duplicate additions. Should probably
+        try:
+            parser.add_argument(
+                '--procpath',
+                default='/proc',
+                type=str,
+                help='Path to /proc if mounted elsewhere',
+            )
+        except argparse.ArgumentError:
+            # assume someone else added it.
+            pass
+
+    @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
         """Store the session for later usage."""
         self.session = session
+        self.procpath = session.config.args.procpath
 
     @entityd.pm.hookimpl
     def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
@@ -120,11 +138,12 @@ class EndpointEntity:
 
         :param pid: Optional. Find only connections for this process.
         """
-        connections = entityd.connections.Connections()
-        for conn in connections.retrieve('inet', pid):
-            update = self.create_update(conn)
-            if update:
-                yield update
+        with entityd.connections.set_procpath(self.procpath):
+            connections = entityd.connections.Connections()
+            for conn in connections.retrieve('inet', pid=pid):
+                update = self.create_update(conn)
+                if update:
+                    yield update
 
     def endpoints_for_process(self, pid):
         """Generator of endpoints for the provided process.

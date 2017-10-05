@@ -7,11 +7,14 @@ https://github.com/giampaolo/psutil/blob/master/psutil/_pslinux.py
 
 import base64
 import collections
+import contextlib
 import errno
 import os
 import socket
 import struct
 import sys
+import threading
+
 
 TCP_STATUSES = {
     '01': 'ESTABLISHED',
@@ -28,14 +31,45 @@ TCP_STATUSES = {
 }
 
 
+PROCPATH = threading.local()
+
+
 Connection = collections.namedtuple('Connection', ['fd', 'family', 'type',
                                                    'laddr', 'raddr',
                                                    'status', 'bound_pid'])
 
 
+@contextlib.contextmanager
+def set_procpath(path):
+    """Set the procfs location for this thread.
+
+    Reset back to default after exiting.
+
+    Same interface as syskit.set_procpath()
+    """
+    try:
+        previous = PROCPATH.procpath
+    except AttributeError:
+        previous = '/proc'
+    PROCPATH.procpath = path
+    yield path
+    PROCPATH.procpath = previous
+
+
+def procpath():
+    """Return the current thread-local procpath.
+
+    :return string: The path, defaulting to /proc if unset.
+    """
+    try:
+        return PROCPATH.procpath
+    except AttributeError:
+        return '/proc'
+
+
 def pids():
     """Returns a list of PIDs currently running on the system."""
-    return [int(x) for x in os.listdir('/proc') if x.isdigit()]
+    return [int(x) for x in os.listdir(procpath()) if x.isdigit()]
 
 
 class Connections:
@@ -77,9 +111,10 @@ class Connections:
         :param pid: The process ID to find inodes for
         """
         inodes = collections.defaultdict(list)
-        for fd in os.listdir("/proc/%s/fd" % pid):
+        path = procpath()
+        for fd in os.listdir("%s/%s/fd" % (path, pid)):
             try:
-                inode = os.readlink("/proc/%s/fd/%s" % (pid, fd))
+                inode = os.readlink("%s/%s/fd/%s" % (path, pid, fd))
             except OSError:
                 # TODO: need comment here
                 continue
@@ -247,11 +282,13 @@ class Connections:
         ret = []
         for fname, family, type_ in self.tmap[kind]:
             if family in (socket.AF_INET, socket.AF_INET6):
-                socks = self.process_inet("/proc/net/%s" % fname, family,
-                                          type_, inodes, filter_pid=pid)
+                socks = self.process_inet(
+                    "%s/net/%s" % (procpath(), fname),
+                    family, type_, inodes, filter_pid=pid)
             else:
                 socks = self.process_unix(
-                    "/proc/net/%s" % fname, family, inodes, filter_pid=pid)
+                    "%s/net/%s" % (procpath(), fname),
+                    family, inodes, filter_pid=pid)
             for fd, family, type_, laddr, raddr, status, bound_pid in socks:
                 if pid:
                     conn = Connection(fd, family, type_, laddr, raddr,

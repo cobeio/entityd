@@ -160,6 +160,7 @@ class HostEntity:                    # pylint: disable=too-many-instance-attribu
         """
         if self._bootid:
             return self._bootid
+        # XXX: Should this use the `--procpath` arg too
         with open('/proc/sys/kernel/random/boot_id', 'r') as fp:
             self._bootid = fp.read().strip()
             return self._bootid

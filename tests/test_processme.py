@@ -12,6 +12,7 @@ import pytest
 import zmq
 
 import syskit
+from flaky import flaky
 
 import entityd.hookspec
 import entityd.hostme
@@ -242,7 +243,7 @@ def test_non_container_entity_has_no_containerid_attr(process_entity):
     with pytest.raises(KeyError):
         process_entity.attrs.get('containerid')
 
-
+@flaky(max_runs=2)
 @pytest.mark.parametrize(
     ('attr', 'traits'),
     [('pid', {'entity:id'}),

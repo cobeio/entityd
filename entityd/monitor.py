@@ -7,7 +7,6 @@ present then the entity will be configured as non existent.
 The app main loop will call monitor.gather()
 """
 
-import base64
 import collections
 
 import cobe
@@ -39,7 +38,7 @@ class Monitor:
         except KeyError:
             last_types = set()
         for metype in set(self.config.entities) | last_types:
-            prefix = 'ueids:{}:'.format(metype)
+            prefix = 'ueids/{}/'.format(metype)
             self.last_batch[metype] = set(
                 cobe.UEID(ueid) for ueid in
                 session.svc.kvstore.getmany(prefix).values()
@@ -51,11 +50,10 @@ class Monitor:
         """Store out entities to kvstore."""
         self.session.svc.kvstore.deletemany('ueids:')
         for metype, entities in self.last_batch.items():
-            prefix = 'ueids:{}:'.format(metype)
+            prefix = 'ueids/{}/'.format(metype)
             to_store = {}
             for ueid in entities:
-                key = prefix + base64.b64encode(str(ueid).encode()).decode()
-                to_store[key] = str(ueid)
+                to_store[prefix + str(ueid)] = str(ueid)
             self.session.svc.kvstore.addmany(to_store)
         self.session.svc.kvstore.add('metypes', list(self.last_batch.keys()))
         entityd.health.die()

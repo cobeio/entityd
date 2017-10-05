@@ -1,6 +1,5 @@
 import pytest
 from docker.errors import DockerException
-from mock import patch, MagicMock
 
 from entityd.docker.client import DockerClient
 from entityd.docker.swarm import DockerSwarm
@@ -18,12 +17,12 @@ def docker_swarm(pm, host_entity_plugin):  # pylint: disable=unused-argument
     return swarm
 
 
-def test_docker_not_available():
-    with patch('entityd.docker.client.docker.DockerClient') as docker_client:
-        docker_client.side_effect = DockerException
-        docker_swarm = DockerSwarm()
+def test_docker_not_available(monkeypatch):
+    monkeypatch.setattr('entityd.docker.client.docker.DockerClient',
+                        pytest.MagicMock(side_effect=DockerException))
+    docker_swarm = DockerSwarm()
 
-        assert not list(docker_swarm.entityd_find_entity(docker_swarm.name))
+    assert not list(docker_swarm.entityd_find_entity(docker_swarm.name))
 
 
 def test_attrs_raises_exception():
@@ -54,7 +53,7 @@ def test_non_swarm_docker(monkeypatch, session, docker_swarm):
 
     client_info = {'Swarm': swarm}
 
-    get_client = MagicMock()
+    get_client = pytest.MagicMock()
     client_instance = get_client.return_value
     client_instance.info.return_value = client_info
     monkeypatch.setattr(DockerClient, "get_client", get_client)
@@ -88,7 +87,6 @@ def test_find_entities(monkeypatch, session, docker_swarm):
     }
 
     swarm = {
-        'ID': 'w5rbcl1ff2tx3exd6tbvq9em9',
         'Cluster': cluster,
         'ControlAvailable': True,
         'Error': '',
@@ -99,7 +97,7 @@ def test_find_entities(monkeypatch, session, docker_swarm):
 
     client_info = {'Swarm': swarm}
 
-    get_client = MagicMock()
+    get_client = pytest.MagicMock()
     client_instance = get_client.return_value
     client_instance.info.return_value = client_info
     monkeypatch.setattr(DockerClient, "get_client", get_client)
@@ -111,8 +109,8 @@ def test_find_entities(monkeypatch, session, docker_swarm):
 
     entity = entities[0]
     assert entity.exists == True
-    assert entity.label == "w5rbcl1ff2"
-    assert entity.attrs.get('id').value == "w5rbcl1ff2tx3exd6tbvq9em9"
+    assert entity.label == "v1w5dux11f"
+    assert entity.attrs.get('id').value == "v1w5dux11fec5252r3hciqgzp"
     assert entity.attrs.get('id').traits == {'entity:id'}
 
     assert (entity.attrs.get(

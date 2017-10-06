@@ -40,7 +40,7 @@ class EndpointEntity:
     def entityd_addoption(self, parser):
         """Add the required options to the command line."""
         # procpath is used by process and endpoints,
-        # so catch duplicate additions. Should probably
+        # so catch duplicate additions.
         try:
             parser.add_argument(
                 '--procpath',

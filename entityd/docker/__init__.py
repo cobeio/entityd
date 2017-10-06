@@ -10,6 +10,8 @@ def get_ueid(class_name, *args):
     values = {
         'DockerContainer': entityd.docker.container.DockerContainer,
         'DockerImage': entityd.docker.image.DockerImage,
+        'DockerSecret': entityd.docker.swarm.DockerSecret,
+        'DockerService': entityd.docker.swarm.DockerService,
         'DockerSwarm': entityd.docker.swarm.DockerSwarm,
         'DockerDaemon': entityd.docker.daemon.DockerDaemon,
         'DockerNetwork': entityd.docker.swarm.DockerNetwork,

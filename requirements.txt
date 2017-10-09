@@ -2,7 +2,7 @@ setuptools
 logbook==0.11.3
 cobe-act==1.7.0
 pyzmq==15.2.0
-hg+https://bitbucket.org/cobeio/syskit@6c00612b3d80f1d7c9fad41a2f1a24992a416881#egg=syskit
+hg+https://bitbucket.org/cobeio/syskit@8f25b40c602482b8ea7e88f87515619f2a2b3625#egg=syskit
 requests>=2.11.1
 python-cobe
 pyyaml

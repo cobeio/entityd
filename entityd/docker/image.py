@@ -37,7 +37,7 @@ class DockerImage:
         """Register the Process Monitored Entity."""
         for type_ in self._TYPES:
             config.addentity(
-                type_, __name__ + '.' + self.__class__.__qualname__)
+                type_, __name__ + '.' + self.__class__.__name__)
 
     @entityd.pm.hookimpl
     def entityd_collection_before(self, session):  # pylint: disable=unused-argument

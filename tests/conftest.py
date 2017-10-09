@@ -36,7 +36,9 @@ def pm():
 @pytest.fixture
 def config(pm):
     """An entityd.core.Config instance."""
-    return entityd.core.Config(pm, types.SimpleNamespace())
+    ns = types.SimpleNamespace()
+    ns.procpath = '/proc'
+    return entityd.core.Config(pm, ns)
 
 
 @pytest.fixture

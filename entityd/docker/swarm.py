@@ -7,7 +7,6 @@ entity will be generated
 import stat
 
 import logbook
-from docker.errors import APIError
 
 import entityd
 from entityd.docker.client import DockerClient

@@ -263,8 +263,8 @@ class TestGenerateMounts:
         assert update_1.attrs.get('target').value \
             == '/var/secrets/cobe-agent-test-key'
         assert update_1.attrs.get('target').traits == {'entity:id'}
-        assert update_1.attrs.get('permissions').value == '?r--r--r--'
-        assert update_1.attrs.get('permissions').traits == set()
+        assert update_1.attrs.get('secret:permissions').value == '?r--r--r--'
+        assert update_1.attrs.get('secret:permissions').traits == set()
         assert update_1.attrs.get('secret:gid').value == '0'
         assert update_1.attrs.get('secret:uid').value == '0'
         assert len(update_1.parents) == 3
@@ -287,8 +287,8 @@ class TestGenerateMounts:
         assert update_2.attrs.get('target').value \
             == '/var/secrets/cobe-agent-test-key-receiver'
         assert update_2.attrs.get('target').traits == {'entity:id'}
-        assert update_2.attrs.get('permissions').value == '?r--r--r--'
-        assert update_2.attrs.get('permissions').traits == set()
+        assert update_2.attrs.get('secret:permissions').value == '?r--r--r--'
+        assert update_2.attrs.get('secret:permissions').traits == set()
         assert update_2.attrs.get('secret:gid').value == '0'
         assert update_2.attrs.get('secret:uid').value == '0'
         assert len(update_2.parents) == 3

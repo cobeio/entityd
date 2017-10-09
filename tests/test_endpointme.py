@@ -174,6 +174,24 @@ def test_get_entities(pm, session, host_entity_plugin, kvstore):  # pylint: disa
     pm.hooks.entityd_sessionfinish()
 
 
+def test_get_entities_with_relocated_procfs(pm, session, tmpdir,
+                                            host_entity_plugin, kvstore):  # pylint: disable=unused-argument
+    endpoint_gen = entityd.endpointme.EndpointEntity()
+    session.config.args.procpath = str(tmpdir)
+    tmpdir.join('fakeproc').ensure_dir()
+    tmpdir.join('net/udp').ensure()
+    tmpdir.join('net/tcp').ensure()
+    pm.register(entityd.processme.ProcessEntity(), name='entityd.processme')
+    pm.hooks.entityd_plugin_registered(pluginmanager=pm,
+                                       name='entityd.processme')
+    pm.register(endpoint_gen, name='entityd.endpointme')
+    pm.hooks.entityd_plugin_registered(pluginmanager=pm,
+                                       name='entityd.endpointme')
+    pm.hooks.entityd_sessionstart(session=session)
+    entities = endpoint_gen.entityd_find_entity(name='Endpoint', attrs=None)
+    assert not list(entities)
+
+
 def test_endpoint_for_deleted_process(pm, session, host_entity_plugin,  # pylint: disable=unused-argument
                                       kvstore, local_socket, conn):  # pylint: disable=unused-argument
     endpoint_gen = entityd.endpointme.EndpointEntity()

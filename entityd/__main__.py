@@ -46,6 +46,7 @@ BUILTIN_PLUGIN_NAMES = ['entityd.' + n for n in
                          'docker.daemon:DockerDaemon',
                          'docker.swarm:DockerSwarm',
                          'docker.swarm:DockerNode',
+                         'docker.swarm:DockerSecret',
                          'docker.swarm:DockerService',
                          'docker.swarm:DockerNetwork',
                          'docker.volume:DockerVolume',

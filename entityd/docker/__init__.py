@@ -12,6 +12,8 @@ def get_ueid(class_name, *args):
     """Get a ueid for any docker entity type."""
     from entityd.docker.container import DockerContainer
     from entityd.docker.image import DockerImage
+    from entityd.docker.swarm import DockerSecret
+    from entityd.docker.swarm import DockerService
     from entityd.docker.swarm import DockerSwarm
     from entityd.docker.daemon import DockerDaemon
     from entityd.docker.swarm import DockerNetwork
@@ -22,6 +24,8 @@ def get_ueid(class_name, *args):
     values = {x.__name__: x for x in [
         DockerContainer,
         DockerImage,
+        DockerSecret,
+        DockerService,
         DockerSwarm,
         DockerDaemon,
         DockerNetwork,

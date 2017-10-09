@@ -4,6 +4,8 @@ If a machine running docker is part of a swarm, a swarm
 entity will be generated
 """
 
+import stat
+
 import logbook
 from docker.errors import APIError
 
@@ -339,3 +341,139 @@ class DockerNetwork:
 
             yield update
 
+
+class DockerSecret:
+    """A plugin for Docker secrets."""
+
+    _TYPES = {
+        'Docker:Secret': '_generate_secrets',
+        'Docker:Mount': '_generate_mounts',
+    }
+
+    def __init__(self):
+        self._swarm_ueid = None
+        self._secrets = {}  # id : secret
+        self._services = []  # (service, tasks), ...
+
+    @entityd.pm.hookimpl
+    def entityd_find_entity(self, name, attrs=None, include_ondemand=False):  # pylint: disable=unused-argument
+        """Find Docker entities."""
+        if name in self._TYPES:
+            if attrs is not None:
+                raise LookupError('Attribute based filtering not supported')
+            if self._swarm_ueid is not None:
+                return getattr(self, self._TYPES[name])()
+            else:
+                log.info('Not collecting Docker secrets on non-manager node')
+
+    @entityd.pm.hookimpl
+    def entityd_configure(self, config):
+        """Register the Process Monitored Entity."""
+        for type_ in self._TYPES:
+            config.addentity(
+                type_, __name__ + '.' + self.__class__.__name__)
+
+    @entityd.pm.hookimpl
+    def entityd_collection_before(self, session):  # pylint: disable=unused-argument
+        """Collect secrets from available Docker swarm.
+
+        If no connection to a Docker Swarm manager daemon is available
+        then this does nothing.
+        """
+        if not entityd.docker.client.DockerClient.client_available():
+            return
+        client = entityd.docker.client.DockerClient.get_client()
+        client_info = client.info()
+        if DockerSwarm.swarm_exists(client_info):
+            self._swarm_ueid = entityd.docker.get_ueid(
+                'DockerSwarm', client_info['Swarm']['Cluster']['ID'])
+            for secret in client.secrets.list():
+                self._secrets[secret.id] = secret
+            for service in client.services.list():
+                self._services.append((service, list(service.tasks())))
+
+    @entityd.pm.hookimpl
+    def entityd_collection_after(self, session, updates):  # pylint: disable=unused-argument
+        """Clear secrets that were collected during collection."""
+        self._swarm_ueid = None
+        self._secrets.clear()
+        del self._services[:]
+
+    @classmethod
+    def get_ueid(cls, id_):
+        """Create a ueid for a docker network."""
+        entity = entityd.EntityUpdate('Docker:Secret')
+        entity.attrs.set('id', id_, traits={'entity:id'})
+        return entity.ueid
+
+    def _generate_secrets(self):
+        """Generate updates for all Docker secrets.
+
+        :returns: Iterator of ``Docker:Secret`` updates.
+        """
+        for secret in self._secrets.values():
+            update = entityd.EntityUpdate('Docker:Secret')
+            update.label = secret.name or secret.id
+            update.attrs.set('id', secret.id, {'entity:id'})
+            update.attrs.set('name', secret.name)
+            update.attrs.set(
+                'created', secret.attrs['CreatedAt'], {'time:rfc3339'})
+            update.attrs.set(
+                'updated', secret.attrs['UpdatedAt'], {'time:rfc3339'})
+            update.parents.add(self._swarm_ueid)
+            yield update
+
+    def _generate_mounts(self):
+        """Generate updates for all Docker secret mounts.
+
+        :returns: Iterator of ``Docker:Mount`` updates.
+        """
+        for service, tasks in self._services:
+            service_task = service.attrs['Spec']['TaskTemplate']
+            if 'ContainerSpec' in service_task:
+                for service_secret in service_task['ContainerSpec']['Secrets']:
+                    for task in tasks:
+                        yield from self._generate_mount(
+                            service, task, service_secret)
+
+    def _generate_mount(self, service, task, service_secret):
+        """Generate a secret mount update.
+
+        :param service: Docker service the mount is to be generated for.
+        :type service: docker.models.services.Server
+        :param task: Service task to generate the mount for.
+        :type task: dict
+        :param service_secret: Configured secret for the task to generate
+            the mount update for.
+        :type service_secret: dict
+
+        :returns: Iterator of ``Docker:Mount`` updates.
+        """
+        task_status = task['Status']
+        if ('ContainerStatus' in task_status and
+                'ContainerID' in task_status['ContainerStatus']):
+            update = entityd.EntityUpdate('Docker:Mount')
+            update.label = service_secret['File']['Name']
+            update.attrs.set(
+                'container',
+                task_status['ContainerStatus']['ContainerID'],
+                {'entity:id'},
+            )
+            update.attrs.set(
+                'target',
+                '/var/secrets/' + service_secret['File']['Name'],
+                {'entity:id'},
+            )
+            update.attrs.set(
+                'permissions',
+                stat.filemode(service_secret['File']['Mode']),
+            )
+            update.attrs.set('secret:gid', service_secret['File']['GID'])
+            update.attrs.set('secret:uid', service_secret['File']['UID'])
+            update.parents.add(self.get_ueid(service_secret['SecretID']))
+            update.parents.add(DockerService.get_ueid(service.id))
+            update.parents.add(entityd.docker.get_ueid(
+                'DockerContainer',
+                task_status['ContainerStatus']['ContainerID'],
+            ))
+            yield update

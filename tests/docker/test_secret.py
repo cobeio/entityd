@@ -221,7 +221,7 @@ class TestGenerateSecrets:
     def test(self, plugin, secret):
         # Pedantic check that _generate_secrets returns multiple
         # updates. We don't actually care about the second one.
-        plugin._swarm = cobe.UEID('86063fb5b7e8a5ae9ef249972f656b18')
+        plugin._swarm_ueid = cobe.UEID('86063fb5b7e8a5ae9ef249972f656b18')
         plugin._secrets = {secret.id: secret, '_': secret}
         updates = list(plugin._generate_secrets())
         assert len(updates) == 2
@@ -246,7 +246,7 @@ class TestGenerateSecrets:
 class TestGenerateMounts:
 
     def test(self, plugin, secret, service):
-        plugin._swarm = cobe.UEID('86063fb5b7e8a5ae9ef249972f656b18')
+        plugin._swarm_ueid = cobe.UEID('86063fb5b7e8a5ae9ef249972f656b18')
         plugin._secrets = {secret.id: secret}
         plugin._services = [(service, service.tasks())]  # Has two secrets
         updates = list(plugin._generate_mounts())
@@ -356,7 +356,7 @@ class TestCollectionBefore:
     def test(self, session, plugin, client_info, secrets, service, client):
         plugin._secrets = {}
         plugin.entityd_collection_before(session)
-        assert plugin._swarm == entityd.docker.swarm.DockerSwarm.get_ueid(
+        assert plugin._swarm_ueid == entityd.docker.swarm.DockerSwarm.get_ueid(
             client_info['Swarm']['Cluster']['ID'])
         assert len(plugin._secrets) == 2
         assert plugin._secrets[secrets[0].id] is secrets[0]
@@ -380,11 +380,11 @@ class TestCollectionBefore:
 class TestCollectionAfter:
 
     def test(self, session, plugin, secret, service):
-        plugin._swarm = '86063fb5b7e8a5ae9ef249972f656b18'
+        plugin._swarm_ueid = '86063fb5b7e8a5ae9ef249972f656b18'
         plugin._secrets = {secret.id: secret}
         plugin._services = [(service, service.tasks())]
         plugin.entityd_collection_after(session, ())
-        assert plugin._swarm is None
+        assert plugin._swarm_ueid is None
         assert plugin._secrets == {}
         assert plugin._services == []
 
@@ -393,7 +393,7 @@ class TestFindEntity:
 
     @pytest.mark.parametrize('type_', ['Docker:Secret', 'Docker:Mount'])
     def test(self, monkeypatch, plugin, type_):
-        plugin._swarm = cobe.UEID('86063fb5b7e8a5ae9ef249972f656b18')
+        plugin._swarm_ueid = cobe.UEID('86063fb5b7e8a5ae9ef249972f656b18')
         generator_function = unittest.mock.Mock()
         monkeypatch.setattr(plugin, '_generate_secrets', generator_function)
         monkeypatch.setattr(plugin, '_generate_mounts', generator_function)
@@ -405,7 +405,7 @@ class TestFindEntity:
 
     @pytest.mark.parametrize('type_', ['Docker:Secret', 'Docker:Mount'])
     def test_filtering(self, plugin, type_):
-        plugin._swarm = cobe.UEID('86063fb5b7e8a5ae9ef249972f656b18')
+        plugin._swarm_ueid = cobe.UEID('86063fb5b7e8a5ae9ef249972f656b18')
         with pytest.raises(LookupError) as exception:
             plugin.entityd_find_entity(type_, attrs={'foo': 'bar'})
         assert 'filtering not supported' in str(exception.value)
@@ -415,5 +415,5 @@ class TestFindEntity:
         assert plugin.entityd_find_entity(type_) is None
 
     def test_type_not_implemented(self, plugin):
-        plugin._swarm = cobe.UEID('86063fb5b7e8a5ae9ef249972f656b18')
+        plugin._swarm_ueid = cobe.UEID('86063fb5b7e8a5ae9ef249972f656b18')
         assert plugin.entityd_find_entity('Foo') is None

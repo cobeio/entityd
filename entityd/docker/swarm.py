@@ -345,7 +345,7 @@ class DockerSecret:
     }
 
     def __init__(self):
-        self._swarm = None
+        self._swarm_ueid = None
         self._secrets = {}  # id : secret
         self._services = []  # (service, tasks), ...
 
@@ -355,7 +355,7 @@ class DockerSecret:
         if name in self._TYPES:
             if attrs is not None:
                 raise LookupError('Attribute based filtering not supported')
-            if self._swarm is not None:
+            if self._swarm_ueid is not None:
                 return getattr(self, self._TYPES[name])()
             else:
                 log.info('Not collecting Docker secrets on non-manager node')
@@ -379,7 +379,7 @@ class DockerSecret:
         client = entityd.docker.client.DockerClient.get_client()
         client_info = client.info()
         if DockerSwarm.swarm_exists(client_info):
-            self._swarm = entityd.docker.get_ueid(
+            self._swarm_ueid = entityd.docker.get_ueid(
                 'DockerSwarm', client_info['Swarm']['Cluster']['ID'])
             for secret in client.secrets.list():
                 self._secrets[secret.id] = secret
@@ -389,7 +389,7 @@ class DockerSecret:
     @entityd.pm.hookimpl
     def entityd_collection_after(self, session, updates):  # pylint: disable=unused-argument
         """Clear secrets that were collected during collection."""
-        self._swarm = None
+        self._swarm_ueid = None
         self._secrets.clear()
         del self._services[:]
 
@@ -414,7 +414,7 @@ class DockerSecret:
                 'created', secret.attrs['CreatedAt'], {'time:rfc3339'})
             update.attrs.set(
                 'updated', secret.attrs['UpdatedAt'], {'time:rfc3339'})
-            update.parents.add(self._swarm)
+            update.parents.add(self._swarm_ueid)
             yield update
 
     def _generate_mounts(self):

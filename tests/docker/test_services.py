@@ -7,7 +7,7 @@ from entityd.docker.swarm import DockerService
 
 
 @pytest.fixture
-def docker_service(pm, host_entity_plugin):  # pylint: disable=unused-argument
+def docker_service(pm, session, host_entity_plugin):  # pylint: disable=unused-argument
     """A DockerContainer instance.
 
     The plugin will be registered with the PluginManager but no hooks
@@ -21,16 +21,40 @@ def docker_service(pm, host_entity_plugin):  # pylint: disable=unused-argument
 @pytest.fixture
 def replicated_service():
     service = pytest.MagicMock()
+    service.daemon_id = 'foo'
     service.container_id1 = 'container_id1'
     service.container_id2 = 'container_id2'
     service.container_ueid1 = entityd.docker.get_ueid(
         'DockerContainer', service.container_id1)
     service.container_ueid2 = entityd.docker.get_ueid(
         'DockerContainer', service.container_id2)
-    service.children = [service.container_ueid1, service.container_ueid2]
+
+    service.network_id = 'bbbbbb'
+    service.network_ueid = entityd.docker.get_ueid(
+        'DockerNetwork', service.network_id)
+
+    service.volume_name = 'bill'
+    service.volume_ueid = entityd.docker.get_ueid(
+        'DockerVolume', service.daemon_id, service.volume_name)
+
+    service.mount_target = "/" + service.volume_name
+    service.mount_ueid1 = entityd.docker.get_ueid(
+        'DockerVolumeMount',
+        service.mount_target,
+        service.container_id1)
+    service.mount_ueid2 = entityd.docker.get_ueid(
+        'DockerVolumeMount',
+        service.mount_target,
+        service.container_id2)
+
+    service.children = [service.container_ueid1,
+                        service.container_ueid2,
+                        service.volume_ueid,
+                        service.mount_ueid1,
+                        service.mount_ueid2]
 
     service.attrs = {
-        'ID': 'aaaaaa',
+        'ID': 'service1',
         'Spec': {
             'EndpointSpec': {'Mode': 'vip'},
             'Labels': {'label1': 'value1'},
@@ -38,7 +62,15 @@ def replicated_service():
             'Name': 'replicated-service',
             'TaskTemplate': {
                 'Networks': [
-                    {'Aliases': ['node'], 'Target': 'bbbbbb'}],
+                    {'Aliases': ['node'], 'Target': service.network_id}],
+                'ContainerSpec': {
+                    'Mounts': [
+                        {
+                            'Source': service.volume_name,
+                            'Target': service.mount_target,
+                            'Type': 'volume'}
+                    ]
+                }
             }
         },
         'Version': {'Index': 56}
@@ -106,13 +138,36 @@ def replicated_service():
 @pytest.fixture
 def global_service():
     service = pytest.MagicMock()
+    service.daemon_id = 'foo'
     service.container_id1 = 'container_id1'
     service.container_id2 = 'container_id2'
     service.container_ueid1 = entityd.docker.get_ueid(
         'DockerContainer', service.container_id1)
     service.container_ueid2 = entityd.docker.get_ueid(
         'DockerContainer', service.container_id2)
-    service.children = [service.container_ueid1, service.container_ueid2]
+    service.network_id = 'bbbbbb'
+    service.network_ueid = entityd.docker.get_ueid(
+        'DockerNetwork', service.network_id)
+
+    service.volume_name = 'bill'
+    service.volume_ueid = entityd.docker.get_ueid(
+        'DockerVolume', service.daemon_id, service.volume_name)
+
+    service.mount_target = "/" + service.volume_name
+    service.mount_ueid1 = entityd.docker.get_ueid(
+        'DockerVolumeMount',
+        service.mount_target,
+        service.container_id1)
+    service.mount_ueid2 = entityd.docker.get_ueid(
+        'DockerVolumeMount',
+        service.mount_target,
+        service.container_id2)
+
+    service.children = [service.container_ueid1,
+                        service.container_ueid2,
+                        service.volume_ueid,
+                        service.mount_ueid1,
+                        service.mount_ueid2]
 
     service.attrs = {
         'ID': 'service2',
@@ -123,7 +178,15 @@ def global_service():
             'Name': 'global-service',
             'TaskTemplate': {
                 'Networks': [
-                    {'Aliases': ['node'], 'Target': 'bbbbbb'}],
+                    {'Aliases': ['node'], 'Target': service.network_id}],
+                'ContainerSpec': {
+                    'Mounts': [
+                        {
+                            'Source': service.volume_name,
+                            'Target': service.mount_target,
+                            'Type': 'volume'}
+                    ]
+                }
             }
         },
         'Version': {'Index': 56}
@@ -217,8 +280,10 @@ def test_find_entities_no_swarm(session, docker_service, services):
     services(client_info, testing_services)
 
     docker_service.entityd_configure(session.config)
+    docker_service.entityd_collection_before(session)
     entities = docker_service.entityd_find_entity(DockerService.name)
     entities = list(entities)
+    docker_service.entityd_collection_after(session, None)
     assert len(entities) == 0
 
 
@@ -236,6 +301,7 @@ def test_find_entities_with_swarm(session, docker_service, services,
         'Managers': 1,
         'Nodes': 1,
         'NodeID': 'aaaa',
+        'RemoteManagers': [{'NodeID': 'aaaa'}],
     }
 
     client_info = {
@@ -244,7 +310,7 @@ def test_find_entities_with_swarm(session, docker_service, services,
         'Swarm': swarm,
     }
 
-    testing_services = [global_service, replicated_service]
+    testing_services = [replicated_service, global_service]
     services(client_info, testing_services)
 
     swarm_ueid = entityd.docker.get_ueid(
@@ -252,11 +318,14 @@ def test_find_entities_with_swarm(session, docker_service, services,
 
     network_ueid = entityd.docker.get_ueid(
         'DockerNetwork', replicated_service.attrs['Spec']['TaskTemplate']['Networks'][0]['Target'])
-
     docker_service.entityd_configure(session.config)
+    docker_service.entityd_collection_before(session)
     entities = docker_service.entityd_find_entity(DockerService.name)
     entities = list(entities)
+    docker_service.entityd_collection_after(session, None)
     assert len(entities) == 2
+
+    entities = sorted(entities, key=lambda entity: entity.attrs.get('id').value)
 
     for entity, service in zip(entities, testing_services) :
         assert entity.attrs.get('id').value == service.attrs['ID']

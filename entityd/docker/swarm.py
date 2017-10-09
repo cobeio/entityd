@@ -5,7 +5,6 @@ entity will be generated
 """
 
 import logbook
-from docker.errors import APIError
 
 import entityd
 from entityd.docker.client import DockerClient
@@ -39,22 +38,15 @@ class DockerSwarm:
         entity.attrs.set('id', docker_swarm_id, traits={'entity:id'})
         return entity.ueid
 
-    @classmethod
-    def swarm_exists(cls, client_info):
-        """Checks if the docker client is connected to a docker swarm."""
-        if client_info['Swarm']['LocalNodeState'] == 'active':
-            return True
-        return False
-
     def generate_updates(self):
         """Generates the entity updates for the docker swarm."""
         if not DockerClient.client_available():
             return
 
         client = DockerClient.get_client()
-        client_info = client.info()
+        client_info = DockerClient.info()
 
-        if self.swarm_exists(client_info):
+        if DockerClient.swarm_exists() and DockerClient.is_swarm_manager():
             swarm_attrs = client_info['Swarm']
             swarm_spec = swarm_attrs['Cluster']['Spec']
             swarm_spec_raft = swarm_spec['Raft']
@@ -90,15 +82,9 @@ class DockerSwarm:
             update.attrs.set('raft:snapshot-interval',
                              swarm_spec_raft['SnapshotInterval'])
 
-            try:
-                for node in client.nodes.list():
-                    update.children.add(entityd.docker.get_ueid(
-                        'DockerNode', node.attrs['ID']))
-            except APIError as error:
-                if error.status_code == 503:
-                    log.debug("Can't get node list on non manager nodes")
-                else:
-                    raise
+            for node in client.nodes.list():
+                update.children.add(entityd.docker.get_ueid(
+                    'DockerNode', node.attrs['ID']))
 
             yield update
 
@@ -134,47 +120,55 @@ class DockerNode:
             return
 
         client = DockerClient.get_client()
-        client_info = client.info()
 
-        if DockerSwarm.swarm_exists(client_info):
-            try:
-                for node in client.nodes.list():
-                    update = entityd.EntityUpdate(self.name)
-                    update.label = node.attrs['Description']['Hostname']
-                    update.attrs.set('id', node.attrs['ID'],
-                                     traits={'entity:id'})
+        if DockerClient.swarm_exists() and DockerClient.is_swarm_manager():
+            for node in client.nodes.list():
+                update = entityd.EntityUpdate(self.name)
+                update.label = node.attrs['Description']['Hostname']
+                update.attrs.set('id', node.attrs['ID'],
+                                 traits={'entity:id'})
 
-                    update.attrs.set('role',
-                                     node.attrs['Spec']['Role'])
-                    update.attrs.set('availability',
-                                     node.attrs['Spec']['Availability'])
-                    update.attrs.set('labels',
-                                     node.attrs['Spec']['Labels'])
-                    update.attrs.set('state',
-                                     node.attrs['Status']['State'])
-                    update.attrs.set('address',
-                                     node.attrs['Status']['Addr'])
-                    update.attrs.set('version',
-                                     node.attrs['Version']['Index'])
+                update.attrs.set('role',
+                                 node.attrs['Spec']['Role'])
+                update.attrs.set('availability',
+                                 node.attrs['Spec']['Availability'])
+                update.attrs.set('labels',
+                                 node.attrs['Spec']['Labels'])
+                update.attrs.set('state',
+                                 node.attrs['Status']['State'])
+                update.attrs.set('address',
+                                 node.attrs['Status']['Addr'])
+                update.attrs.set('version',
+                                 node.attrs['Version']['Index'])
 
+                if 'ManagerStatus' in node.attrs:
                     manager_attrs = node.attrs['ManagerStatus']
                     update.attrs.set('manager:reachability',
                                      manager_attrs['Reachability'])
-                    update.attrs.set('manager:leader',
-                                     manager_attrs['Leader'])
                     update.attrs.set('manager:addr',
                                      manager_attrs['Addr'])
-                    yield update
-            except APIError as error:
-                if error.status_code == 503:
-                    log.debug("Can't get node list on non manager nodes")
+                    if 'Leader' in manager_attrs:
+                        update.attrs.set('manager:leader',
+                                         manager_attrs['Leader'])
+                    else:
+                        update.attrs.set('manager:leader', False)
                 else:
-                    raise
+                    update.attrs.set('manager:reachability', None)
+                    update.attrs.set('manager:leader', None)
+                    update.attrs.set('manager:addr', None)
+
+                yield update
 
 
 class DockerService:
     """An entity for the docker service."""
     name = "Docker:Service"
+
+    def __init__(self):
+        self._services = {}
+        self._service_tasks = {}
+        self._service_container_ids = {}
+        self._service_container_states = {}
 
     @entityd.pm.hookimpl
     def entityd_configure(self, config):
@@ -190,12 +184,64 @@ class DockerService:
                 raise LookupError('Attribute based filtering not supported')
             return self.generate_updates()
 
+    @entityd.pm.hookimpl
+    def entityd_collection_before(self, session):  # pylint: disable=unused-argument
+        """Collect services from available Docker daemon.
+
+        If no connection to a Docker daemon is available this
+        does nothing.
+        """
+        if (not DockerClient.client_available() or
+                not DockerClient.swarm_exists() or
+                not DockerClient.is_swarm_manager()):
+            return
+        client = DockerClient.get_client()
+        self._services = {service.id: service for
+                          service in client.services.list()}
+
+        for service in self._services.values():
+            self._service_tasks[service.id] = list(service.tasks())
+
+        for service in self._services.values():
+            self._service_container_ids[service.id] = \
+                self.get_container_ids(service)
+
+        for service in self._services.values():
+            self._service_container_states[service.id] = \
+                self.get_container_states(service)
+
+    @entityd.pm.hookimpl
+    def entityd_collection_after(self, session, updates):  # pylint: disable=unused-argument
+        """Clear services that were collected during collection."""
+        self._services.clear()
+        self._service_tasks.clear()
+        self._service_container_ids.clear()
+        self._service_container_states.clear()
+
     @classmethod
     def get_ueid(cls, docker_node_id):
         """Create a ueid for a docker service."""
         entity = entityd.EntityUpdate(cls.name)
         entity.attrs.set('id', docker_node_id, traits={'entity:id'})
         return entity.ueid
+
+    def get_container_ids(self, service):
+        """Returns a set of container ids for a service."""
+        container_ids = set()
+        for task in self._service_tasks[service.id]:
+            task_status = task['Status']
+            if ('ContainerStatus' in task_status and
+                    'ContainerID' in task_status['ContainerStatus']):
+                container_id = task_status['ContainerStatus']['ContainerID']
+                container_ids.add(container_id)
+        return container_ids
+
+    def get_container_states(self, service):
+        """Returns a list of container states."""
+        container_states = list()
+        for task in self._service_tasks[service.id]:
+            container_states.append(task['Status']['State'])
+        return container_states
 
     def populate_mode_fields(self, mode_attrs, update):
         """Add fields depending on the service mode."""
@@ -208,37 +254,60 @@ class DockerService:
 
     def populate_task_fields(self, service, update):
         """Add fields for the tasks of a service."""
-        possible_states = ['pending', 'assigned', 'accepted', 'preparing',
-                           'ready', 'starting', 'running', 'complete',
-                           'shutdown', 'failed', 'rejected']
+        possible_states = ['new', 'pending', 'assigned', 'accepted',
+                           'preparing', 'ready', 'starting', 'running',
+                           'complete', 'shutdown', 'failed', 'rejected',
+                           'orphaned']
         totals = {state: 0 for state in possible_states}
-        for task in service.tasks():
-            task_status = task['Status']
-            totals[task_status['State']] += 1
-            if ('ContainerStatus' in task_status and
-                    'ContainerID' in task_status['ContainerStatus']):
-                container_id = task_status['ContainerStatus']['ContainerID']
-                container_ueid = entityd.docker.get_ueid(
-                    'DockerContainer', container_id)
-                update.children.add(container_ueid)
+        for state in \
+                self._service_container_states[service.id]:
+            totals[state] += 1
 
         for key, value in totals.items():
             update.attrs.set('replicas:' + key, value)
 
+    def add_mount_relationships(self, service, mount, update):
+        """Adds relationships based on the services mounts"""
+        if mount['Type'] == 'volume':
+            volume_ueid = entityd.docker.get_ueid(
+                'DockerVolume',
+                DockerClient.info()['ID'],
+                mount['Source'])
+            update.children.add(volume_ueid)
+            for container_id in \
+                    self._service_container_ids[service.id]:
+                mount_ueid = entityd.docker.get_ueid(
+                    'DockerVolumeMount',
+                    mount['Target'],
+                    container_id)
+                update.children.add(mount_ueid)
+
     def populate_service_fields(self, service):
         """Creates an EntityUpdate object for a docker service."""
+        service_spec = service.attrs['Spec']
         update = entityd.EntityUpdate(self.name)
-        update.label = service.attrs['Spec']['Name']
+        update.label = service_spec['Name']
         update.attrs.set('id', service.attrs['ID'], traits={'entity:id'})
-        update.attrs.set('labels', service.attrs['Spec']['Labels'])
-        self.populate_mode_fields(service.attrs['Spec']['Mode'], update)
+        update.attrs.set('labels', service_spec['Labels'])
+        self.populate_mode_fields(service_spec['Mode'], update)
         self.populate_task_fields(service, update)
 
-        if 'Networks' in service.attrs['Spec']['TaskTemplate']:
-            for network in service.attrs['Spec']['TaskTemplate']['Networks']:
+        task_template = service_spec['TaskTemplate']
+
+        if 'Networks' in task_template:
+            for network in task_template['Networks']:
                 network_ueid = entityd.docker.get_ueid(
                     'DockerNetwork', network['Target'])
                 update.parents.add(network_ueid)
+
+        if 'Mounts' in task_template['ContainerSpec']:
+            for mount in task_template['ContainerSpec']['Mounts']:
+                self.add_mount_relationships(service, mount, update)
+
+        for container_id in self._service_container_ids[service.id]:
+            container_ueid = entityd.docker.get_ueid(
+                'DockerContainer', container_id)
+            update.children.add(container_ueid)
 
         return update
 
@@ -247,25 +316,18 @@ class DockerService:
         if not DockerClient.client_available():
             return
 
-        client = DockerClient.get_client()
-        client_info = client.info()
+        client_info = DockerClient.info()
 
-        if DockerSwarm.swarm_exists(client_info):
-            try:
-                for service in client.services.list():
-                    update = self.populate_service_fields(service)
+        if DockerClient.swarm_exists() and DockerClient.is_swarm_manager():
+            for service in self._services.values():
+                update = self.populate_service_fields(service)
 
-                    swarm_id = client_info['Swarm']['Cluster']['ID']
-                    swarm_ueid = entityd.docker.get_ueid(
-                        'DockerSwarm', swarm_id)
-                    update.parents.add(swarm_ueid)
+                swarm_id = client_info['Swarm']['Cluster']['ID']
+                swarm_ueid = entityd.docker.get_ueid(
+                    'DockerSwarm', swarm_id)
+                update.parents.add(swarm_ueid)
 
-                    yield update
-            except APIError as error:
-                if error.status_code == 503:
-                    log.debug("Can't get services list on non manager nodes")
-                else:
-                    raise
+                yield update
 
 
 class DockerNetwork:
@@ -314,10 +376,10 @@ class DockerNetwork:
             return
 
         client = DockerClient.get_client()
-        client_info = client.info()
+        client_info = DockerClient.info()
 
         swarm_ueid = None
-        if DockerSwarm.swarm_exists(client_info):
+        if DockerClient.swarm_exists() and DockerClient.is_swarm_manager():
             swarm_id = client_info['Swarm']['Cluster']['ID']
             swarm_ueid = entityd.docker.get_ueid('DockerSwarm', swarm_id)
 
@@ -325,11 +387,13 @@ class DockerNetwork:
                                               client_info['ID'])
 
         for network in client.networks.list():
-            update = self.populate_network_fields(network)
-            if update.attrs.get('scope').value == "local":
-                update.parents.add(daemon_ueid)
-            elif update.attrs.get('scope').value == "swarm" and swarm_ueid:
+            update = None
+            if network.attrs['Scope'] == "swarm" and swarm_ueid:
+                update = self.populate_network_fields(network)
                 update.parents.add(swarm_ueid)
+            elif network.attrs['Scope'] == "local":
+                update = self.populate_network_fields(network)
+                update.parents.add(daemon_ueid)
 
-            yield update
-
+            if update:
+                yield update

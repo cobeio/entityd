@@ -7,11 +7,13 @@ from entityd.docker.client import DockerClient
 def clear_client():
     yield
     DockerClient._client = None
+    DockerClient._client_info = None
 
 
 @pytest.fixture
 def running_container():
     network_id = 'aaaa'
+    volume_name = 'volume1'
     attrs = {
         "State": {
             "ExitCode": 0,
@@ -27,6 +29,16 @@ def running_container():
             },
             'Ports': {'6379/tcp': None},
         },
+        'Mounts': [{
+            'Destination': '/data',
+            'Driver': 'local',
+            'Mode': '',
+            'Name': volume_name,
+            'Propagation': '',
+            'RW': True,
+            'Source': '/var/lib/docker/volumes/volume1/_data',
+            'Type': 'volume'
+        }],
     }
     image = pytest.MagicMock(id='image_id', tags=['debian:latest'])
     container = pytest.Mock(
@@ -37,20 +49,22 @@ def running_container():
         image=image,
         attrs=attrs,
         should_exist=True,
-        network_id=network_id,
-    )
+        network_id=network_id,        
+        volume_name=volume_name)
     container.top.return_value = {
         "Titles": ["PID"],
         "Processes": [
             ['0'], ['1'], ['3']
         ]
     }
+
     return container
 
 
 @pytest.fixture()
 def finished_container():
     network_id = 'aaaa'
+    volume_name = 'volume1'
     attrs = {
         "State": {
             "ExitCode": 21,
@@ -65,7 +79,17 @@ def finished_container():
                 }
             },
             'Ports': {'6379/tcp': None},
-        }
+        },
+        'Mounts': [{
+            'Destination': '/data',
+            'Driver': 'local',
+            'Mode': '',
+            'Name': volume_name,
+            'Propagation': '',
+            'RW': True,
+            'Source': '/var/lib/docker/volumes/volume1/_data',
+            'Type': 'volume'
+        }],
     }
     image = pytest.MagicMock(id='image_id', tags=['debian:latest'])
     container = pytest.Mock(
@@ -76,7 +100,24 @@ def finished_container():
         image=image,
         attrs=attrs,
         network_id=network_id,
-    )
+        volume_name=volume_name)
     container.configure_mock(name="finished_container", should_exist=True)
 
     return container
+
+
+@pytest.fixture
+def docker_client(monkeypatch):
+    def make_docker_client(client_info=None, containers=None, volumes=None):
+        get_client = pytest.MagicMock()
+        client_instance = get_client.return_value
+        if client_info:
+            client_instance.info.return_value = client_info
+        if containers:
+            client_instance.containers.list.return_value = iter(containers)
+        if volumes:
+            client_instance.volumes.list.return_value = iter(volumes)
+
+        monkeypatch.setattr(DockerClient, "get_client", get_client)
+
+    return make_docker_client

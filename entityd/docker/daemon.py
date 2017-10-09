@@ -6,7 +6,6 @@ will be generated
 
 import entityd
 from entityd.docker.client import DockerClient
-from entityd.docker.swarm import DockerSwarm
 from entityd.mixins import HostEntity
 
 
@@ -39,8 +38,7 @@ class DockerDaemon(HostEntity):
     def generate_updates(self):
         """Generates the entity updates for the docker daemon."""
         if DockerClient.client_available():
-            client = DockerClient.get_client()
-            client_info = client.info()
+            client_info = DockerClient.info()
 
             update = entityd.EntityUpdate(self.name)
             update.label = client_info['Name']
@@ -54,7 +52,7 @@ class DockerDaemon(HostEntity):
                 'containers:stopped', client_info['ContainersStopped'])
             update.parents.add(self.host_ueid)
 
-            if DockerSwarm.swarm_exists(client_info):
+            if DockerClient.swarm_exists():
                 node_ueid = entityd.docker.get_ueid(
                     'DockerNode', client_info['Swarm']['NodeID'])
                 update.parents.add(node_ueid)

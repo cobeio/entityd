@@ -71,10 +71,6 @@ def inactive_node():
     node.attrs = {
         'ID': 'eeee',
         'Description': {'Hostname': 'ffff'},
-        'ManagerStatus': {
-            'Addr': '192.168.2.23:2377',
-            'Leader': True,
-            'Reachability': 'reachable'},
         'Spec': {
             'Availability': 'inactive',
             'Labels': {'foo': 'bar'},
@@ -151,6 +147,7 @@ def test_find_entities_with_swarm(session, docker_node, manager_node, nodes,
         'Swarm': {
             'LocalNodeState': 'active',
             'NodeID': 'aaaa',
+            'RemoteManagers': [{'NodeID': 'aaaa'}],
         },
     }
 
@@ -163,7 +160,6 @@ def test_find_entities_with_swarm(session, docker_node, manager_node, nodes,
     assert len(entities) == 3
 
     for entity, node in zip(entities, testing_nodes) :
-        manager_attrs = node.attrs['ManagerStatus']
         assert (entity.attrs.get('id').value == node.attrs['ID'])
         assert (entity.attrs.get('role').value == node.attrs['Spec']['Role'])
         assert (entity.attrs.get(
@@ -176,12 +172,20 @@ def test_find_entities_with_swarm(session, docker_node, manager_node, nodes,
             'address').value == node.attrs['Status']['Addr'])
         assert (entity.attrs.get(
             'version').value == node.attrs['Version']['Index'])
-        assert (entity.attrs.get(
-            'manager:reachability').value == manager_attrs['Reachability'])
-        assert (entity.attrs.get(
-            'manager:leader').value == manager_attrs['Leader'])
-        assert (entity.attrs.get(
-            'manager:addr').value == manager_attrs['Addr'])
+
+        if 'ManagerStatus' in node.attrs:
+            manager_attrs = node.attrs['ManagerStatus']
+            assert (entity.attrs.get(
+                'manager:reachability').value == manager_attrs['Reachability'])
+            assert (entity.attrs.get(
+                'manager:leader').value == manager_attrs['Leader'])
+            assert (entity.attrs.get(
+                'manager:addr').value == manager_attrs['Addr'])
+        else:
+            assert entity.attrs.get('manager:reachability').value is None
+            assert entity.attrs.get('manager:leader').value is None
+            assert entity.attrs.get('manager:addr').value is None
+
         assert entity.attrs.get('id').traits == {'entity:id'}
         assert entity.attrs.get('role').traits == set()
         assert entity.attrs.get('availability').traits == set()

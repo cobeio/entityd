@@ -1,5 +1,5 @@
 [MESSAGES CONTROL]
-disable = locally-disabled,fixme,too-few-public-methods,duplicate-code,no-self-use
+disable = locally-disabled,fixme,too-few-public-methods,duplicate-code,no-self-use,cyclic-import
 
 [BASIC]
 good-names = i,j,k,ex,Run,_,cb,fd,ip,fp

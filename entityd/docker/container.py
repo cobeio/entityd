@@ -40,8 +40,8 @@ class DockerContainer:
             return
 
         client = DockerClient.get_client()
-        daemon_ueid = entityd.docker.get_ueid('DockerDaemon',
-                                              client.info()['ID'])
+        daemon_id = client.info()['ID']
+        daemon_ueid = entityd.docker.get_ueid('DockerDaemon', daemon_id)
 
         for container in client.containers.list(all=True):
             attrs = container.attrs

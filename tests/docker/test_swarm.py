@@ -93,6 +93,8 @@ def test_find_entities(monkeypatch, session, docker_swarm):
         'LocalNodeState': 'active',
         'Managers': 1,
         'Nodes': 1,
+        'NodeID': 'aaaa',
+        'RemoteManagers': [{'NodeID': 'aaaa'}],
     }
 
     client_info = {'Swarm': swarm}

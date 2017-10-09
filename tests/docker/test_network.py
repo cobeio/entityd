@@ -131,8 +131,8 @@ def test_find_entities_no_swarm(session, docker_network,
         assert daemon_ueid in entity.parents
 
 
-def test_find_entities_with_swarm(session, docker_network, swarm_network,
-                                  local_network, networks):
+def test_find_entities_swarm_manager(session, docker_network, swarm_network,
+                                     local_network, networks):
     cluster = {
         'ID': 'v1w5dux11fec5252r3hciqgzp',
     }
@@ -145,6 +145,60 @@ def test_find_entities_with_swarm(session, docker_network, swarm_network,
         'Managers': 1,
         'Nodes': 1,
         'NodeID': 'aaaa',
+        'RemoteManagers': [{'NodeID': 'aaaa'}],
+    }
+
+    client_info = {
+        'ID': 'foo',
+        'Name': 'bar',
+        'Swarm': swarm,
+    }
+
+    testing_networks = [swarm_network, local_network]
+    networks(client_info, testing_networks)
+
+    swarm_ueid = entityd.docker.get_ueid(
+        'DockerSwarm', cluster['ID'])
+    daemon_ueid = entityd.docker.get_ueid(
+        'DockerDaemon', client_info['ID'])
+
+    docker_network.entityd_configure(session.config)
+    entities = docker_network.entityd_find_entity(DockerNetwork.name)
+    entities = list(entities)
+    assert len(entities) == 2
+
+    for entity, network in zip(entities, testing_networks) :
+        assert entity.label == network.attrs['Name']
+        assert entity.attrs.get('id').value == network.attrs['Id']
+        assert entity.attrs.get('id').traits == {'entity:id'}
+        assert entity.attrs.get('labels').value == network.attrs['Labels']
+        assert entity.attrs.get('options').value == network.attrs['Options']
+        assert entity.attrs.get('driver').value == network.attrs['Driver']
+        assert entity.attrs.get('ipv6-enabled').value == network.attrs['EnableIPv6']
+        assert entity.attrs.get('ingress').value == network.attrs['Ingress']
+        assert entity.attrs.get('internal').value == network.attrs['Internal']
+        scope = network.attrs['Scope']
+        assert entity.attrs.get('scope').value == scope
+
+        if scope == "local":
+            assert daemon_ueid in entity.parents
+        elif scope == "swarm":
+            assert swarm_ueid in entity.parents
+
+
+def test_find_entities_swarm_worker(session, docker_network, swarm_network,
+                                    local_network, networks):
+    cluster = {
+        'ID': 'v1w5dux11fec5252r3hciqgzp',
+    }
+
+    swarm = {
+        'Cluster': cluster,
+        'ControlAvailable': False,
+        'Error': '',
+        'LocalNodeState': 'active',
+        'NodeID': 'aaaa',
+        'RemoteManagers': [{'NodeID': 'aaaa'}],
     }
 
     client_info = {

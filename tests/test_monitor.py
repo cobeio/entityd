@@ -1,5 +1,4 @@
 import cobe
-import pytest
 
 import entityd.monitor
 

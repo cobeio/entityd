@@ -40,14 +40,15 @@ def test_find_entities(monkeypatch, session, docker_container,
                        running_container, finished_container):
 
     containers = [running_container, finished_container]
+    daemon_id = 'foo'
 
     get_client = pytest.MagicMock()
     client_instance = get_client.return_value
-    client_instance.info.return_value = {'ID': 'foo'}
+    client_instance.info.return_value = {'ID': daemon_id}
     client_instance.containers.list.return_value = iter(containers)
     monkeypatch.setattr(DockerClient, "get_client", get_client)
 
-    daemon_ueid = DockerDaemon.get_ueid('foo')
+    daemon_ueid = DockerDaemon.get_ueid(daemon_id)
 
     docker_container.entityd_configure(session.config)
     entities = docker_container.entityd_find_entity(DockerContainer.name)
@@ -82,5 +83,6 @@ def test_find_entities(monkeypatch, session, docker_container,
         network_ueid = entityd.docker.get_ueid('DockerNetwork',
                                                container.network_id)
         assert network_ueid in entity.parents
+
 
 

@@ -23,18 +23,6 @@ def container_group(pm, host_entity_plugin):  # pylint: disable=unused-argument
     return dcpg
 
 
-@pytest.fixture
-def docker_client(monkeypatch):
-    def make_docker_client(containers):
-        get_client = pytest.MagicMock()
-        client_instance = get_client.return_value
-        client_instance.info.return_value = {'ID': 'foo'}
-        client_instance.containers.list.return_value = iter(containers)
-        monkeypatch.setattr(DockerClient, "get_client", get_client)
-
-    return make_docker_client
-
-
 def test_docker_not_available(monkeypatch):
     monkeypatch.setattr('entityd.docker.client.docker.DockerClient',
                         pytest.Mock(side_effect=DockerException))
@@ -70,7 +58,7 @@ def test_non_runnning_containers(session, container_group,
                                  finished_container):
     containers = [running_container, finished_container]
 
-    docker_client(containers)
+    docker_client(client_info={'ID':'foo'}, containers=containers)
 
     container_group.entityd_sessionstart(session)
     container_group.entityd_configure(session.config)
@@ -95,7 +83,7 @@ def test_empty_processes_from_top(session, container_group,
     running_container.top.return_value = {"Processes": None}
     containers = [running_container]
 
-    docker_client(containers)
+    docker_client(client_info={'ID':'foo'}, containers=containers)
 
     container_group.entityd_sessionstart(session)
     container_group.entityd_configure(session.config)
@@ -107,7 +95,8 @@ def test_empty_processes_from_top(session, container_group,
     assert len(entities) == 0
 
 
-def test_generate_updates(monkeypatch, session, running_container, container_group):
+def test_generate_updates(monkeypatch, session, running_container,
+                          container_group):
 
     containers = [running_container]
 

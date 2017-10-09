@@ -448,7 +448,6 @@ class DockerSecret:
                 'ContainerID' in task_status['ContainerStatus']):
             update = entityd.EntityUpdate('Docker:Mount')
             update.label = service_secret['File']['Name']
-            update.attrs.set('service', service.id, {'entity:id'})
             update.attrs.set(
                 'container',
                 task_status['ContainerStatus']['ContainerID'],

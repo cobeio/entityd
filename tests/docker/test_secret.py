@@ -255,9 +255,6 @@ class TestGenerateMounts:
         # First secret
         assert update_1.metype == 'Docker:Mount'
         assert update_1.label == 'cobe-agent-test-key'
-        assert update_1.attrs.get('service').value \
-            == 'ocipr9lmcjdebr6jo64e8nqtf'
-        assert update_1.attrs.get('service').traits == {'entity:id'}
         assert update_1.attrs.get('container').value == (
             'adab79cca4e176592db386a10d8b964'
             'fecd4c8a3c4b5707e6b217598adeef802'
@@ -282,9 +279,6 @@ class TestGenerateMounts:
         # Second secret
         assert update_2.metype == 'Docker:Mount'
         assert update_2.label == 'cobe-agent-test-key-receiver'
-        assert update_2.attrs.get('service').value \
-            == 'ocipr9lmcjdebr6jo64e8nqtf'
-        assert update_2.attrs.get('service').traits == {'entity:id'}
         assert update_2.attrs.get('container').value == (
             'adab79cca4e176592db386a10d8b964'
             'fecd4c8a3c4b5707e6b217598adeef802'

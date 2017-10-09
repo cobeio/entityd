@@ -113,8 +113,7 @@ def test_find_volumes_no_swarm(session, docker_client, docker_volume, volume):
         assert entity.attrs.get('scope').traits == set()
 
 
-def test_find_volumes_with_swarm(session, docker_volume,
-                                volume, volumes):
+def test_find_volumes_with_swarm(session, docker_client, docker_volume, volume):
     daemon_id = 'foo'
     cluster = {
         'ID': 'v1w5dux11fec5252r3hciqgzp',
@@ -137,7 +136,7 @@ def test_find_volumes_with_swarm(session, docker_volume,
     }
 
     testing_volumes = [volume]
-    volumes(client_info, testing_volumes)
+    docker_client(client_info=client_info, volumes=testing_volumes)
 
     docker_volume.entityd_configure(session.config)
     entities = docker_volume.entityd_find_entity(DockerVolume.name)

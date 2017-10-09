@@ -163,11 +163,13 @@ def global_service():
         service.mount_target,
         service.container_id2)
 
-    service.children = [service.container_ueid1,
-                        service.container_ueid2,
-                        service.volume_ueid,
-                        service.mount_ueid1,
-                        service.mount_ueid2]
+    service.children = [
+        service.container_ueid1,
+        service.container_ueid2,
+        service.volume_ueid,
+        service.mount_ueid1,
+        service.mount_ueid2
+    ]
 
     service.attrs = {
         'ID': 'service2',
@@ -184,7 +186,8 @@ def global_service():
                         {
                             'Source': service.volume_name,
                             'Target': service.mount_target,
-                            'Type': 'volume'}
+                            'Type': 'volume',
+                        }
                     ]
                 }
             }

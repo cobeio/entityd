@@ -8,7 +8,7 @@ from entityd.docker.volume import DockerVolume, DockerVolumeMount
 
 @pytest.fixture
 def docker_volume(pm, host_entity_plugin):  # pylint: disable=unused-argument
-    """A DockerContainer instance.
+    """A DockerVolume instance.
 
     The plugin will be registered with the PluginManager but no hooks
     will have been called.
@@ -20,7 +20,7 @@ def docker_volume(pm, host_entity_plugin):  # pylint: disable=unused-argument
 
 @pytest.fixture
 def docker_volume_mount(pm, host_entity_plugin):  # pylint: disable=unused-argument
-    """A DockerContainer instance.
+    """A DockerVolumeMount instance.
 
     The plugin will be registered with the PluginManager but no hooks
     will have been called.
@@ -40,7 +40,8 @@ def volume():
         'Mountpoint': '/var/lib/docker/volumes/aaaa/_data',
         'Name': volume.name,
         'Options': {},
-        'Scope': 'local'}
+        'Scope': 'local',
+    }
 
     return volume
 
@@ -64,8 +65,8 @@ def test_attrs_raises_exception(entity_class):
         instance.entityd_find_entity(entity_class.name, attrs="foo")
 
 
-def test_not_provided():
-    docker_volume = DockerVolume()
+def test_not_provided(entity_class):
+    docker_volume = entity_class()
     assert docker_volume.entityd_find_entity('foo') is None
 
 
@@ -95,20 +96,20 @@ def test_find_volumes_no_swarm(session, docker_client, docker_volume, volume):
 
     for entity, volume in zip(entities, testing_volumes):
         assert entity.label == volume.attrs['Name']
-        assert entity.attrs.get('daemon_id').value == daemon_id
+        assert entity.attrs.get('daemon-id').value == daemon_id
         assert entity.attrs.get('name').value == volume.attrs['Name']
         assert entity.attrs.get('labels').value == volume.attrs['Labels']
         assert entity.attrs.get('options').value == volume.attrs['Options']
         assert entity.attrs.get('driver').value == volume.attrs['Driver']
-        assert entity.attrs.get('mountpoint').value == volume.attrs['Mountpoint']
+        assert entity.attrs.get('mount-point').value == volume.attrs['Mountpoint']
         assert entity.attrs.get('scope').value == volume.attrs['Scope']
 
-        assert entity.attrs.get('daemon_id').traits == {'entity:id'}
+        assert entity.attrs.get('daemon-id').traits == {'entity:id'}
         assert entity.attrs.get('name').traits == {'entity:id'}
         assert entity.attrs.get('labels').traits == set()
         assert entity.attrs.get('options').traits == set()
         assert entity.attrs.get('driver').traits == set()
-        assert entity.attrs.get('mountpoint').traits == set()
+        assert entity.attrs.get('mount-point').traits == set()
         assert entity.attrs.get('scope').traits == set()
 
 
@@ -145,20 +146,20 @@ def test_find_volumes_with_swarm(session, docker_volume,
 
     for entity, volume in zip(entities, testing_volumes):
         assert entity.label == volume.attrs['Name']
-        assert entity.attrs.get('daemon_id').value == daemon_id
+        assert entity.attrs.get('daemon-id').value == daemon_id
         assert entity.attrs.get('name').value == volume.attrs['Name']
         assert entity.attrs.get('labels').value == volume.attrs['Labels']
         assert entity.attrs.get('options').value == volume.attrs['Options']
         assert entity.attrs.get('driver').value == volume.attrs['Driver']
-        assert entity.attrs.get('mountpoint').value == volume.attrs['Mountpoint']
+        assert entity.attrs.get('mount-point').value == volume.attrs['Mountpoint']
         assert entity.attrs.get('scope').value == volume.attrs['Scope']
 
-        assert entity.attrs.get('daemon_id').traits == {'entity:id'}
+        assert entity.attrs.get('daemon-id').traits == {'entity:id'}
         assert entity.attrs.get('name').traits == {'entity:id'}
         assert entity.attrs.get('labels').traits == set()
         assert entity.attrs.get('options').traits == set()
         assert entity.attrs.get('driver').traits == set()
-        assert entity.attrs.get('mountpoint').traits == set()
+        assert entity.attrs.get('mount-point').traits == set()
         assert entity.attrs.get('scope').traits == set()
 
 
@@ -205,7 +206,7 @@ def test_find_mounts_no_swarm(session, docker_client, docker_volume_mount,
         assert entity.attrs.get('name').value == volume.attrs['Name']
         assert entity.attrs.get('volume:options').value == volume.attrs['Options']
         assert entity.attrs.get('volume:driver').value == volume.attrs['Driver']
-        assert entity.attrs.get('volume:mountpoint').value == volume.attrs['Mountpoint']
+        assert entity.attrs.get('volume:mount-point').value == volume.attrs['Mountpoint']
         assert entity.attrs.get('volume:scope').value == volume.attrs['Scope']
         assert entity.attrs.get('volume:mode').value == mount['Mode']
         assert entity.attrs.get('volume:read-write').value == mount['RW']
@@ -214,7 +215,7 @@ def test_find_mounts_no_swarm(session, docker_client, docker_volume_mount,
         assert entity.attrs.get('name').traits == set()
         assert entity.attrs.get('volume:options').traits == set()
         assert entity.attrs.get('volume:driver').traits == set()
-        assert entity.attrs.get('volume:mountpoint').traits == set()
+        assert entity.attrs.get('volume:mount-point').traits == set()
         assert entity.attrs.get('volume:scope').traits == set()
         assert entity.attrs.get('volume:mode').traits == set()
         assert entity.attrs.get('volume:read-write').traits == set()

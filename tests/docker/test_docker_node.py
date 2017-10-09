@@ -180,11 +180,11 @@ def test_find_entities_with_swarm(session, docker_node, manager_node, nodes,
             assert (entity.attrs.get(
                 'manager:leader').value == manager_attrs['Leader'])
             assert (entity.attrs.get(
-                'manager:addr').value == manager_attrs['Addr'])
+                'manager:address').value == manager_attrs['Addr'])
         else:
             assert entity.attrs.get('manager:reachability').value is None
             assert entity.attrs.get('manager:leader').value is None
-            assert entity.attrs.get('manager:addr').value is None
+            assert entity.attrs.get('manager:address').value is None
 
         assert entity.attrs.get('id').traits == {'entity:id'}
         assert entity.attrs.get('role').traits == set()
@@ -195,4 +195,4 @@ def test_find_entities_with_swarm(session, docker_node, manager_node, nodes,
         assert entity.attrs.get('version').traits == set()
         assert entity.attrs.get('manager:reachability').traits == set()
         assert entity.attrs.get('manager:leader').traits == set()
-        assert entity.attrs.get('manager:addr').traits == set()
+        assert entity.attrs.get('manager:address').traits == set()

@@ -233,6 +233,14 @@ def test_find_entities_swarm_worker(session, docker_network, swarm_network,
         scope = network.attrs['Scope']
         assert entity.attrs.get('scope').value == scope
 
+        assert entity.attrs.get('labels').traits == set()
+        assert entity.attrs.get('options').traits == set()
+        assert entity.attrs.get('driver').traits == set()
+        assert entity.attrs.get('ipv6-enabled').traits == set()
+        assert entity.attrs.get('ingress').traits == set()
+        assert entity.attrs.get('internal').traits == set()
+        assert entity.attrs.get('scope').traits == set()
+
         if scope == "local":
             assert daemon_ueid in entity.parents
         elif scope == "swarm":

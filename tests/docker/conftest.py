@@ -88,7 +88,7 @@ def finished_container():
             'Propagation': '',
             'RW': True,
             'Source': '/var/lib/docker/volumes/volume1/_data',
-            'Type': 'volume'
+            'Type': 'volume',
         }],
     }
     image = pytest.MagicMock(id='image_id', tags=['debian:latest'])
@@ -100,7 +100,8 @@ def finished_container():
         image=image,
         attrs=attrs,
         network_id=network_id,
-        volume_name=volume_name)
+        volume_name=volume_name,
+    )
     container.configure_mock(name="finished_container", should_exist=True)
 
     return container
@@ -108,15 +109,13 @@ def finished_container():
 
 @pytest.fixture
 def docker_client(monkeypatch):
+
     def make_docker_client(client_info=None, containers=None, volumes=None):
         get_client = pytest.MagicMock()
         client_instance = get_client.return_value
-        if client_info:
-            client_instance.info.return_value = client_info
-        if containers:
-            client_instance.containers.list.return_value = iter(containers)
-        if volumes:
-            client_instance.volumes.list.return_value = iter(volumes)
+        client_instance.info.return_value = client_info or {'ID': 'foo'}
+        client_instance.containers.list.return_value = iter(containers or [])
+        client_instance.volumes.list.return_value = iter(volumes or [])
 
         monkeypatch.setattr(DockerClient, "get_client", get_client)
 

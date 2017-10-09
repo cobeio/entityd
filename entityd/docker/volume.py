@@ -13,7 +13,7 @@ class DockerVolume(BaseDocker):
     def get_ueid(cls, daemon_id, docker_volume_name):
         """Create a ueid for a docker volume."""
         entity = EntityUpdate(cls.name)
-        entity.attrs.set('daemon_id', daemon_id, traits={'entity:id'})
+        entity.attrs.set('daemon-id', daemon_id, traits={'entity:id'})
         entity.attrs.set('name', docker_volume_name, traits={'entity:id'})
         return entity.ueid
 
@@ -21,12 +21,12 @@ class DockerVolume(BaseDocker):
         """Create EntityUpdate for a docker volume."""
         update = EntityUpdate(self.name)
         update.label = volume.attrs['Name']
-        update.attrs.set('daemon_id', daemon_id, traits={'entity:id'})
+        update.attrs.set('daemon-id', daemon_id, traits={'entity:id'})
         update.attrs.set('name', volume.attrs['Name'], traits={'entity:id'})
         update.attrs.set('labels', volume.attrs['Labels'])
         update.attrs.set('options', volume.attrs['Options'])
         update.attrs.set('driver', volume.attrs['Driver'])
-        update.attrs.set('mountpoint', volume.attrs['Mountpoint'])
+        update.attrs.set('mount-point', volume.attrs['Mountpoint'])
         update.attrs.set('scope', volume.attrs['Scope'])
 
         return update
@@ -67,7 +67,7 @@ class DockerVolumeMount(BaseDocker):
         update.attrs.set('name', volume.attrs['Name'])
         update.attrs.set('volume:options', volume.attrs['Options'])
         update.attrs.set('volume:driver', volume.attrs['Driver'])
-        update.attrs.set('volume:mountpoint', volume.attrs['Mountpoint'])
+        update.attrs.set('volume:mount-point', volume.attrs['Mountpoint'])
         update.attrs.set('volume:scope', volume.attrs['Scope'])
         update.attrs.set('volume:mode', mount['Mode'])
         update.attrs.set('volume:read-write', mount['RW'])

@@ -157,7 +157,7 @@ class DockerNode:
                                      manager_attrs['Reachability'])
                     update.attrs.set('manager:leader',
                                      manager_attrs['Leader'])
-                    update.attrs.set('manager:addr',
+                    update.attrs.set('manager:address',
                                      manager_attrs['Addr'])
                     if 'Leader' in manager_attrs:
                         update.attrs.set('manager:leader',
@@ -167,7 +167,7 @@ class DockerNode:
                 else:
                     update.attrs.set('manager:reachability', None)
                     update.attrs.set('manager:leader', None)
-                    update.attrs.set('manager:addr', None)
+                    update.attrs.set('manager:address', None)
                 yield update
 
 
@@ -230,10 +230,10 @@ class DockerService:
         self._service_container_states.clear()
 
     @classmethod
-    def get_ueid(cls, docker_node_id):
+    def get_ueid(cls, docker_service_id):
         """Create a ueid for a docker service."""
         entity = entityd.EntityUpdate(cls.name)
-        entity.attrs.set('id', docker_node_id, traits={'entity:id'})
+        entity.attrs.set('id', docker_service_id, traits={'entity:id'})
         return entity.ueid
 
     def get_container_ids(self, service):
@@ -270,27 +270,27 @@ class DockerService:
                            'complete', 'shutdown', 'failed', 'rejected',
                            'orphaned']
         totals = {state: 0 for state in possible_states}
-        for state in \
-                self._service_container_states[service.id]:
+        for state in self._service_container_states[service.id]:
             totals[state] += 1
 
         for key, value in totals.items():
             update.attrs.set('replicas:' + key, value)
 
     def add_mount_relationships(self, service, mount, update):
-        """Adds relationships based on the services mounts"""
+        """Adds relationships based on the services mounts."""
         if mount['Type'] == 'volume':
             volume_ueid = entityd.docker.get_ueid(
                 'DockerVolume',
                 DockerClient.info()['ID'],
-                mount['Source'])
+                mount['Source'],
+            )
             update.children.add(volume_ueid)
-            for container_id in \
-                    self._service_container_ids[service.id]:
+            for container_id in self._service_container_ids[service.id]:
                 mount_ueid = entityd.docker.get_ueid(
                     'DockerVolumeMount',
                     mount['Target'],
-                    container_id)
+                    container_id,
+                )
                 update.children.add(mount_ueid)
 
     def populate_service_fields(self, service):
@@ -398,15 +398,13 @@ class DockerNetwork:
                                               client_info['ID'])
 
         for network in client.networks.list():
-            update = None
             if network.attrs['Scope'] == "swarm" and swarm_ueid:
                 update = self.populate_network_fields(network)
                 update.parents.add(swarm_ueid)
+                yield update
             elif network.attrs['Scope'] == "local":
                 update = self.populate_network_fields(network)
                 update.parents.add(daemon_ueid)
-
-            if update:            
                 yield update
 
 
@@ -533,7 +531,7 @@ class DockerSecret:
                 {'entity:id'},
             )
             update.attrs.set(
-                'permissions',
+                'secret:permissions',
                 stat.filemode(service_secret['File']['Mode']),
             )
             update.attrs.set('secret:gid', service_secret['File']['GID'])

@@ -44,7 +44,7 @@ class DockerClient:
 
     @classmethod
     def info(cls):
-        """Returns & caches the results of the DockerClient.info() request.
+        """Docker client information.
 
         Lazy loads the client info from docker and stores for all subsequent
         requests this collection cycle.
@@ -57,9 +57,7 @@ class DockerClient:
     @classmethod
     def swarm_exists(cls):
         """Checks if the docker client is connected to a docker swarm."""
-        if cls.info()['Swarm']['LocalNodeState'] == 'active':
-            return True
-        return False
+        return cls.info()['Swarm']['LocalNodeState'] == 'active'
 
     @classmethod
     def is_swarm_manager(cls):

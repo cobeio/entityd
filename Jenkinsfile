@@ -21,6 +21,9 @@ pipeline {
         stage("Build") {
             steps{
                 node('docker') {
+                    script {
+                        rerunBuildOne(env.BUILD_ID, env.JOB_NAME)
+                    }
                     // Ensure the node has the latest code
                     cleanWs()
                     checkout scm

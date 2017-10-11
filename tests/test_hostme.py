@@ -200,7 +200,7 @@ def test_entity_label_when_in_container(host_gen, monkeypatch):
     monkeypatch.setattr(entityd.hostme.os.path, 'isfile', pytest.Mock(
         return_value=True))
     entity = next(host_gen.entityd_find_entity(name='Host', attrs=None))
-    assert entity.label is None
+    assert entity.label == socket.gethostname()
 
 
 CpuTimes = collections.namedtuple('CpuTimes',

@@ -180,11 +180,11 @@ class HostEntity:                    # pylint: disable=too-many-instance-attribu
     def hosts(self):
         """Generator of Host MEs."""
         update = entityd.EntityUpdate('Host')
-        if not self.incontainer:
-            hostname = socket.gethostname()
-            update.label = hostname
-            update.attrs.set('hostname', hostname)
-            update.attrs.set('fqdn', socket.getfqdn())
+
+        hostname = socket.gethostname()
+        update.label = hostname
+        update.attrs.set('hostname', hostname)
+        update.attrs.set('fqdn', socket.getfqdn())
         update.attrs.set('bootid', self.bootid, {'entity:id'})
         update.attrs.set('uptime', int(syskit.uptime()),
                          {'time:duration', 'unit:seconds', 'metric:counter'})

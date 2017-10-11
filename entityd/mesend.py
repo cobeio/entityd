@@ -195,7 +195,7 @@ class MonitoredEntitySender:  # pylint: disable=too-many-instance-attributes
                 data['attrs'][del_attr] = {'deleted': True}
         if entity.label is not None:
             data['label'] = entity.label
-        return msgpack.packb(data, use_bin_type=True)
+        return msgpack.packb(data, use_bin_type=True, unicode_errors='ignore')
 
     def _should_optimise_update(self, update):
         """Determine if an update should be optimised.

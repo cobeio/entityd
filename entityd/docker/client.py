@@ -57,7 +57,10 @@ class DockerClient:
     @classmethod
     def swarm_exists(cls):
         """Checks if the docker client is connected to a docker swarm."""
-        return cls.info()['Swarm']['LocalNodeState'] == 'active'
+        info = cls.info()
+        if 'Swarm' in info and 'LocalNodeState' in info['Swarm']:
+            return info['Swarm']['LocalNodeState'] == 'active'
+        return False
 
     @classmethod
     def is_swarm_manager(cls):

@@ -154,8 +154,6 @@ class DockerNode:
                     manager_attrs = node.attrs['ManagerStatus']
                     update.attrs.set('manager:reachability',
                                      manager_attrs['Reachability'])
-                    update.attrs.set('manager:leader',
-                                     manager_attrs['Leader'])
                     update.attrs.set('manager:address',
                                      manager_attrs['Addr'])
                     if 'Leader' in manager_attrs:
@@ -448,8 +446,8 @@ class DockerSecret:
         if not entityd.docker.client.DockerClient.client_available():
             return
         client = entityd.docker.client.DockerClient.get_client()
-        client_info = client.info()
-        if DockerSwarm.swarm_exists(client_info):
+        client_info = entityd.docker.client.DockerClient.info()
+        if entityd.docker.client.DockerClient.is_swarm_manager():
             self._swarm_ueid = entityd.docker.get_ueid(
                 'DockerSwarm', client_info['Swarm']['Cluster']['ID'])
             for secret in client.secrets.list():
@@ -495,7 +493,8 @@ class DockerSecret:
         """
         for service, tasks in self._services:
             service_task = service.attrs['Spec']['TaskTemplate']
-            if 'ContainerSpec' in service_task:
+            if ('ContainerSpec' in service_task and
+                    'Secrets' in service_task['ContainerSpec']):
                 for service_secret in service_task['ContainerSpec']['Secrets']:
                     for task in tasks:
                         yield from self._generate_mount(

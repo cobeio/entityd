@@ -12,7 +12,6 @@ import pytest
 import zmq
 
 import syskit
-from flaky import flaky
 
 import entityd.hookspec
 import entityd.hostme

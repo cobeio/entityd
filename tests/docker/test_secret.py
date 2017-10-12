@@ -77,6 +77,8 @@ def client_info():
             'LocalNodeState': 'active',
             'Managers': 1,
             'Nodes': 1,
+            'NodeID': 'aaaa',
+            'RemoteManagers': [{'NodeID': 'aaaa'}],
         },
     }
 

@@ -23,7 +23,7 @@ entityd "$@" &
 AGENT_PID=$!
 trap "kill $AGENT_PID" INT TERM EXIT
 while [ -e "/proc/$AGENT_PID" ]; do
-    do_curl -X PUT "$BEACON_URL?expires-after=12" -d '{"version": "$VERSION"}'
+    do_curl -X PUT "$BEACON_URL?expires-after=12" -d "{\"version\": \"$VERSION\"}"
     sleep 5s
 done
 do_curl -X DELETE "$BEACON_URL"

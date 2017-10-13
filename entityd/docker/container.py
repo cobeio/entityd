@@ -78,10 +78,11 @@ class DockerContainer:
                                  traits={'chrono:rfc3339'})
 
             update.parents.add(daemon_ueid)
-            for network in attrs['NetworkSettings']['Networks'].values():
-                network_ueid = entityd.docker.get_ueid(
-                    'DockerNetwork', network['NetworkID'])
-                update.parents.add(network_ueid)
+            if attrs['NetworkSettings']['Networks']:
+                for network in attrs['NetworkSettings']['Networks'].values():
+                    network_ueid = entityd.docker.get_ueid(
+                        'DockerNetwork', network['NetworkID'])
+                    update.parents.add(network_ueid)
 
             yield update
 

@@ -88,8 +88,9 @@ class DockerVolumeMount(BaseDocker):
 
         for container in containers.values():
             for mount in container.attrs['Mounts']:
-                if mount['Type'] == 'volume':
-                    volume = volumes[mount['Name']]
+                mount_name = mount.get('Name')
+                if mount_name in volumes:
+                    volume = volumes[mount_name]
                     update = self.populate_volume_mount_fields(
                         volume, mount, container.id)
                     container_ueid = get_ueid('DockerContainer', container.id)

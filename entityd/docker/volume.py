@@ -23,11 +23,11 @@ class DockerVolume(BaseDocker):
         update.label = volume.attrs['Name']
         update.attrs.set('daemon-id', daemon_id, traits={'entity:id'})
         update.attrs.set('name', volume.attrs['Name'], traits={'entity:id'})
-        update.attrs.set('labels', volume.attrs['Labels'])
-        update.attrs.set('options', volume.attrs['Options'])
-        update.attrs.set('driver', volume.attrs['Driver'])
-        update.attrs.set('mount-point', volume.attrs['Mountpoint'])
-        update.attrs.set('scope', volume.attrs['Scope'])
+        update.attrs.set('labels', volume.attrs.get('Labels'))
+        update.attrs.set('options', volume.attrs.get('Options'))
+        update.attrs.set('driver', volume.attrs.get('Driver'))
+        update.attrs.set('mount-point', volume.attrs.get('Mountpoint'))
+        update.attrs.set('scope', volume.attrs.get('Scope'))
 
         return update
 
@@ -65,13 +65,13 @@ class DockerVolumeMount(BaseDocker):
         update.attrs.set('target', target, traits={'entity:id'})
         update.attrs.set('container_id', container_id, traits={'entity:id'})
         update.attrs.set('name', volume.attrs['Name'])
-        update.attrs.set('volume:options', volume.attrs['Options'])
-        update.attrs.set('volume:driver', volume.attrs['Driver'])
-        update.attrs.set('volume:mount-point', volume.attrs['Mountpoint'])
-        update.attrs.set('volume:scope', volume.attrs['Scope'])
-        update.attrs.set('volume:mode', mount['Mode'])
-        update.attrs.set('volume:read-write', mount['RW'])
-        update.attrs.set('volume:source', mount['Source'])
+        update.attrs.set('volume:options', volume.attrs.get('Options'))
+        update.attrs.set('volume:driver', volume.attrs.get('Driver'))
+        update.attrs.set('volume:mount-point', volume.attrs.get('Mountpoint'))
+        update.attrs.set('volume:scope', volume.attrs.get('Scope'))
+        update.attrs.set('volume:mode', mount.get('Mode'))
+        update.attrs.set('volume:read-write', mount.get('RW'))
+        update.attrs.set('volume:source', mount.get('Source'))
 
         return update
 

@@ -372,7 +372,7 @@ class DockerNetwork:
         update.attrs.set('options', network.attrs['Options'])
         update.attrs.set('driver', network.attrs['Driver'])
         update.attrs.set('ipv6-enabled', network.attrs['EnableIPv6'])
-        update.attrs.set('ingress', network.attrs['Ingress'])
+        update.attrs.set('ingress', network.attrs.get('Ingress'))
         update.attrs.set('internal', network.attrs['Internal'])
         update.attrs.set('scope', network.attrs['Scope'])
 

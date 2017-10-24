@@ -42,6 +42,9 @@ class DockerVolume(BaseDocker):
         for volume in client.volumes.list():
             update = self.populate_volume_fields(volume, client_info['ID'])
 
+            daemon_ueid = get_ueid('DockerDaemon', client_info['ID'])
+            update.parents.add(daemon_ueid)
+
             yield update
 
 

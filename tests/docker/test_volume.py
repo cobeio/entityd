@@ -86,6 +86,8 @@ def test_find_volumes_no_swarm(session, docker_client, docker_volume, volume):
         },
     }
 
+    daemon_ueid = entityd.docker.get_ueid('DockerDaemon', daemon_id)
+
     testing_volumes = [volume]
     docker_client(client_info=client_info, volumes=testing_volumes)
 
@@ -111,6 +113,9 @@ def test_find_volumes_no_swarm(session, docker_client, docker_volume, volume):
         assert entity.attrs.get('driver').traits == set()
         assert entity.attrs.get('mount-point').traits == set()
         assert entity.attrs.get('scope').traits == set()
+
+        assert len(entity.parents) == 1
+        assert daemon_ueid in entity.parents
 
 
 def test_find_volumes_with_swarm(session, docker_client, docker_volume, volume):
@@ -135,6 +140,8 @@ def test_find_volumes_with_swarm(session, docker_client, docker_volume, volume):
         'Swarm': swarm,
     }
 
+    daemon_ueid = entityd.docker.get_ueid('DockerDaemon', daemon_id)
+
     testing_volumes = [volume]
     docker_client(client_info=client_info, volumes=testing_volumes)
 
@@ -160,6 +167,9 @@ def test_find_volumes_with_swarm(session, docker_client, docker_volume, volume):
         assert entity.attrs.get('driver').traits == set()
         assert entity.attrs.get('mount-point').traits == set()
         assert entity.attrs.get('scope').traits == set()
+
+        assert len(entity.parents) == 1
+        assert daemon_ueid in entity.parents
 
 
 def test_find_mounts_no_swarm(session, docker_client, docker_volume_mount,

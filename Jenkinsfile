@@ -24,10 +24,11 @@ pipeline {
                     script {
                         rerunBuildOne(env.BUILD_ID, env.JOB_NAME)
                     }
-                    // Ensure the node has the latest code
                     cleanWs()
-                    checkout scm
+
                     script {
+                        // Ensure the node has the latest code
+                        cobeCheckout()
                         entityd_image_id = dockerBuild('entityd')
                         entityd_test_image_id = dockerBuild('entityd-test')
                         kubectl_image_id = dockerBuild('kubectl-entityd')
@@ -40,13 +41,11 @@ pipeline {
                 parallel (
                     "Unit Tests": {
                         node('docker'){
-                            // Ensure the node has the latest code
                             cleanWs()
-                            checkout changelog:false, scm: scm
 
                             script {
                                 sh "docker pull ${entityd_test_image_id}"
-                                // Try tests twice as entityd tests can hang and timeout
+                                // Try tests 3 times as entityd tests can hang and timeout
                                 runInvoke(entityd_test_image_id, "py.test",
                                     'Running unit tests', '',
                                     'jenkins-pytest', 5, true, 3){ String container_id ->
@@ -59,9 +58,7 @@ pipeline {
 
                     "Linting Tests": {
                         node('docker'){
-                            // Ensure the node has the latest code
                             cleanWs()
-                            checkout changelog:false, scm: scm
 
                             script {
                                 sh "docker pull ${entityd_test_image_id}"

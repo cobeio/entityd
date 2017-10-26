@@ -206,21 +206,21 @@ class TestGenerateLabels:
         plugin._images = {image.id: image}
         labels = {label.label: label for label in plugin._generate_labels()}
         assert len(labels) == 2
-        assert labels['foo = bar'].metype == 'Docker:Label'
+        assert labels['foo = bar'].metype == 'Group'
         assert labels['foo = bar'].label == 'foo = bar'  # sanity check
-        assert labels['foo = bar'].attrs.get('key').value == 'foo'
-        assert labels['foo = bar'].attrs.get('key').traits == {'entity:id'}
-        assert labels['foo = bar'].attrs.get('value').value == 'bar'
-        assert labels['foo = bar'].attrs.get('value').traits == {'entity:id'}
+        assert labels['foo = bar'].attrs.get('kind').value == 'label:foo'
+        assert labels['foo = bar'].attrs.get('kind').traits == {'entity:id'}
+        assert labels['foo = bar'].attrs.get('id').value == 'bar'
+        assert labels['foo = bar'].attrs.get('id').traits == {'entity:id'}
         assert len(labels['foo = bar'].parents) == 0
         assert len(labels['foo = bar'].children) == 1
         assert plugin.get_ueid(image.id) in labels['foo = bar'].children
-        assert labels['spam = eggs'].metype == 'Docker:Label'
+        assert labels['spam = eggs'].metype == 'Group'
         assert labels['spam = eggs'].label == 'spam = eggs'  # sanity check
-        assert labels['spam = eggs'].attrs.get('key').value == 'spam'
-        assert labels['spam = eggs'].attrs.get('key').traits == {'entity:id'}
-        assert labels['spam = eggs'].attrs.get('value').value == 'eggs'
-        assert labels['spam = eggs'].attrs.get('value').traits == {'entity:id'}
+        assert labels['spam = eggs'].attrs.get('kind').value == 'label:spam'
+        assert labels['spam = eggs'].attrs.get('kind').traits == {'entity:id'}
+        assert labels['spam = eggs'].attrs.get('id').value == 'eggs'
+        assert labels['spam = eggs'].attrs.get('id').traits == {'entity:id'}
         assert len(labels['spam = eggs'].parents) == 0
         assert len(labels['spam = eggs'].children) == 1
         assert plugin.get_ueid(image.id) in labels['spam = eggs'].children
@@ -232,12 +232,12 @@ class TestGenerateLabels:
         image_2.attrs['Config']['Labels'] = {'foo': 'bar'}
         labels = {label.label: label for label in plugin._generate_labels()}
         assert len(labels) == 1
-        assert labels['foo = bar'].metype == 'Docker:Label'
+        assert labels['foo = bar'].metype == 'Group'
         assert labels['foo = bar'].label == 'foo = bar'  # sanity check
-        assert labels['foo = bar'].attrs.get('key').value == 'foo'
-        assert labels['foo = bar'].attrs.get('key').traits == {'entity:id'}
-        assert labels['foo = bar'].attrs.get('value').value == 'bar'
-        assert labels['foo = bar'].attrs.get('value').traits == {'entity:id'}
+        assert labels['foo = bar'].attrs.get('kind').value == 'label:foo'
+        assert labels['foo = bar'].attrs.get('kind').traits == {'entity:id'}
+        assert labels['foo = bar'].attrs.get('id').value == 'bar'
+        assert labels['foo = bar'].attrs.get('id').traits == {'entity:id'}
         assert len(labels['foo = bar'].parents) == 0
         assert len(labels['foo = bar'].children) == 2
         assert plugin.get_ueid(image_1.id) in labels['foo = bar'].children
@@ -363,13 +363,13 @@ class TestConfigure:
         plugin.entityd_configure(config)
         assert set(config.entities.keys()) == {
             'Docker:Image',
-            'Docker:Label',
+            'Group',
         }
         assert len(config.entities['Docker:Image']) == 1
-        assert len(config.entities['Docker:Label']) == 1
+        assert len(config.entities['Group']) == 1
         assert list(config.entities['Docker:Image'])[0].name \
             == 'entityd.docker.image.DockerImage'
-        assert list(config.entities['Docker:Label'])[0].name \
+        assert list(config.entities['Group'])[0].name \
             == 'entityd.docker.image.DockerImage'
 
 
@@ -418,7 +418,7 @@ class TestCollectionAfter:
 
 class TestFindEntity:
 
-    @pytest.mark.parametrize('type_', ['Docker:Image', 'Docker:Label'])
+    @pytest.mark.parametrize('type_', ['Docker:Image', 'Group'])
     def test(self, monkeypatch, plugin, type_):
         generator_function = unittest.mock.Mock()
         monkeypatch.setattr(plugin, '_generate_images', generator_function)
@@ -429,7 +429,7 @@ class TestFindEntity:
         assert generator_function.call_args[0] == ()
         assert generator_function.call_args[1] == {}
 
-    @pytest.mark.parametrize('type_', ['Docker:Image', 'Docker:Label'])
+    @pytest.mark.parametrize('type_', ['Docker:Image', 'Group'])
     def test_filtering(self, plugin, type_):
         with pytest.raises(LookupError) as exception:
             plugin.entityd_find_entity(type_, attrs={'foo': 'bar'})

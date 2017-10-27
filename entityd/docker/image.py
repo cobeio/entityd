@@ -15,28 +15,13 @@ log = logbook.Logger(__name__)
 class DockerImage:
     """Entity for a Docker Container."""
 
-    _TYPES = {
-        'Docker:Image': '_generate_images',
-        'Group': '_generate_labels',
-    }
-
     def __init__(self):
         self._images = {}  # digest : image
 
     @entityd.pm.hookimpl
-    def entityd_find_entity(self, name, attrs=None, include_ondemand=False):  # pylint: disable=unused-argument
-        """Find Docker entities."""
-        if name in self._TYPES:
-            if attrs is not None:
-                raise LookupError('Attribute based filtering not supported')
-            return getattr(self, self._TYPES[name])()
-
-    @entityd.pm.hookimpl
-    def entityd_configure(self, config):
-        """Register the Process Monitored Entity."""
-        for type_ in self._TYPES:
-            config.addentity(
-                type_, __name__ + '.' + self.__class__.__name__)
+    def entityd_emit_entities(self):
+        yield from self._generate_images()
+        yield from self._generate_labels()
 
     @entityd.pm.hookimpl
     def entityd_collection_before(self, session):  # pylint: disable=unused-argument

@@ -8,6 +8,7 @@ The app main loop will call monitor.gather()
 """
 
 import collections
+import itertools
 
 import cobe
 import logbook
@@ -26,6 +27,10 @@ class Monitor:
         self.config = None
         self.session = None
         self.last_batch = collections.defaultdict(set)
+
+    @property
+    def types(self):
+        return set(self.config.entities) | set(self.last_batch)
 
     @entityd.pm.hookimpl(after='entityd.kvstore')
     def entityd_sessionstart(self, session):
@@ -58,15 +63,10 @@ class Monitor:
         self.session.svc.kvstore.add('metypes', list(self.last_batch.keys()))
         entityd.health.die()
 
-    def collect_entities(self):
-        """Collect and send all Monitored Entities."""
-        log.info('Starting entity collection')
-        self.session.pluginmanager.hooks.entityd_collection_before(
-            session=self.session)
-        types = set(self.config.entities) | set(self.last_batch)
-        updates = []
-        this_batch = collections.defaultdict(set)
-        for metype in types:
+    @entityd.pm.hookimpl
+    def entityd_emit_entities(self):
+        """Wrapper for old-style entity update collection."""
+        for metype in self.types:
             results = self.session.pluginmanager.hooks.entityd_find_entity(
                 name=metype,
                 attrs=None,
@@ -74,17 +74,26 @@ class Monitor:
                 session=self.session,
             )
             for result in results:
-                for entity in result:
-                    entityd.health.heartbeat()
-                    updates.append(entity)
-                    this_batch[entity.metype].add(entity.ueid)
-            if this_batch[metype]:
-                log.debug('Collected {} {!r} entity updates',
-                          len(this_batch[metype]), metype)
-        for metype in types:
+                yield from result
+
+    def collect_entities(self):
+        """Collect and send all Monitored Entities."""
+        log.info('Starting entity collection')
+        self.session.pluginmanager.hooks.entityd_collection_before(
+            session=self.session)
+        updates = []
+        this_batch = collections.defaultdict(set)
+        for entity in itertools.chain.from_iterable(
+                self.session.pluginmanager.hooks.entityd_emit_entities()):
+            entityd.health.heartbeat()
+            updates.append(entity)
+            this_batch[entity.metype].add(entity.ueid)
+        for metype, updates_type in this_batch.items():
+            log.debug(
+                'Collected {} {!r} entity updates', len(updates_type), metype)
+        for metype in self.types:
             non_existent_ueids = self.last_batch[metype] - this_batch[metype]
             for ueid in non_existent_ueids:
-                entityd.health.heartbeat()
                 update = entityd.entityupdate.EntityUpdate(metype, str(ueid))
                 update.set_not_exists()
                 updates.append(update)
@@ -95,8 +104,8 @@ class Monitor:
                 del this_batch[metype]
         updates_merged = self._merge_updates(updates)
         if len(updates_merged) < len(updates):
-            log.info('Merged {} entity updates',
-                 len(updates) - len(updates_merged))
+            log.info('Merged {} entity updates; {} total',
+                 len(updates) - len(updates_merged), len(updates))
         self._send_updates(updates_merged)
         self.last_batch = this_batch
         self.session.pluginmanager.hooks.entityd_collection_after(

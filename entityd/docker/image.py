@@ -105,7 +105,7 @@ class DockerImage:
                 update.label = tags_filtered[0]
         else:
             digests = sorted(image.attrs['RepoDigests'], reverse=True)
-            digests = [digest for digest in digests if digest and '@' in digest]
+            digests = [x for x in digests if x and '@' in x]
             if digests:
                 digest = digests[0].split('@', 1)[0]
                 if digest:

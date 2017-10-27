@@ -6,7 +6,7 @@ import entityd
 def group(kind, id_):
     """Create a ``Group entity`` update."""
     group = entityd.EntityUpdate('Group')
-    group.label = '{kind} = {id_}'.format(**locals())
+    group.label = str(id_)
     group.attrs.set('kind', kind, traits={'entity:id'})
     group.attrs.set('id', id_, traits={'entity:id'})
     return group
@@ -23,4 +23,6 @@ def labels(mapping):
     """
     for key in mapping:
         value = mapping[key]
-        yield group('label:' + str(key), value)
+        update = group('label:' + str(key), value)
+        update.label = '{key} = {value}'.format(**locals())
+        yield update

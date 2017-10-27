@@ -45,13 +45,11 @@ class DockerContainer:
 
         for container in client.containers.list(all=True):
             attrs = container.attrs
-
             update = entityd.EntityUpdate(self.name)
             update.label = container.name
             update.attrs.set('id', container.id, traits={'entity:id'})
             update.attrs.set('name', container.name)
             update.attrs.set('state:status', container.status)
-            update.attrs.set('labels', container.labels)
             update.attrs.set('state:started-at', attrs['State']['StartedAt'],
                              traits={'chrono:rfc3339'})
             try:
@@ -85,4 +83,3 @@ class DockerContainer:
                     update.parents.add(network_ueid)
 
             yield update
-

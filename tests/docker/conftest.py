@@ -45,11 +45,11 @@ def running_container():
         id="bar",
         name="running_container",
         status="running",
-        labels=["label"],
+        labels={"label": "..."},
         image=image,
         attrs=attrs,
         should_exist=True,
-        network_id=network_id,        
+        network_id=network_id,
         volume_name=volume_name)
     container.top.return_value = {
         "Titles": ["PID"],
@@ -96,7 +96,7 @@ def finished_container():
         id="bar",
         name="finished_container",
         status="exited",
-        labels=["label"],
+        labels={"label": "..."},
         image=image,
         attrs=attrs,
         network_id=network_id,

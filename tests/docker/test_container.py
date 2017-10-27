@@ -62,7 +62,6 @@ def test_find_entities(monkeypatch, session, docker_container,
         assert entity.attrs.get('id').value == container.id
         assert entity.attrs.get('id').traits == {"entity:id"}
         assert entity.attrs.get('state:status').value == container.status
-        assert entity.attrs.get('labels').value == container.labels
         assert entity.attrs.get('image:id').value == container.image.id
         assert entity.attrs.get('image:name').value == container.image.tags
         assert entity.attrs.get('state:started-at').value == \

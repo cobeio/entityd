@@ -289,6 +289,7 @@ class TestImageLabel:
             'Id': ('sha256:abc123def45600000000000'
                    '00000000000000000000000000000000000000000'),
             'RepoTags': [],
+            'RepoDigests': []
         })
         plugin._image_label(update, image)
         assert update.label == 'abc123def456'
@@ -301,6 +302,10 @@ class TestImageLabel:
             'RepoTags': [
                 'repo/name:0.1.0',
             ],
+            'RepoDigests': [
+                'repo/name@sha256:abc123def45600000000000'
+                '00000000000000000000000000000000000000000',
+            ]
         })
         plugin._image_label(update, image)
         assert update.label == 'repo/name:0.1.0'
@@ -314,6 +319,10 @@ class TestImageLabel:
                 'repo/name:0.1.0',
                 'repo/name:0.2.0',
             ],
+            'RepoDigests': [
+                'repo/name@sha256:abc123def45600000000000'
+                '00000000000000000000000000000000000000000',
+            ]
         })
         plugin._image_label(update, image)
         assert update.label == 'repo/name:0.2.0'
@@ -326,6 +335,10 @@ class TestImageLabel:
             'RepoTags': [
                 'repo/name:latest',
             ],
+            'RepoDigests': [
+                'repo/name@sha256:abc123def45600000000000'
+                '00000000000000000000000000000000000000000',
+            ]
         })
         plugin._image_label(update, image)
         assert update.label == 'repo/name:latest'
@@ -339,6 +352,10 @@ class TestImageLabel:
                 'a/repo/name:latest',
                 'b/repo/name:latest',
             ],
+            'RepoDigests': [
+                'repo/name@sha256:abc123def45600000000000'
+                '00000000000000000000000000000000000000000',
+            ]
         })
         plugin._image_label(update, image)
         assert update.label == 'b/repo/name:latest'
@@ -352,9 +369,108 @@ class TestImageLabel:
                 'repo/name:0.1.0',
                 'repo/name:latest',
             ],
+            'RepoDigests': [
+                'repo/name@sha256:abc123def45600000000000'
+                '00000000000000000000000000000000000000000',
+            ]
         })
         plugin._image_label(update, image)
         assert update.label == 'repo/name:0.1.0'
+
+    def test_digest(self, plugin):
+        update = entityd.EntityUpdate('Test')
+        image = docker.models.images.Image({
+            'Id': ('sha256:abc123def45600000000000'
+                   '00000000000000000000000000000000000000000'),
+            'RepoTags': [
+            ],
+            'RepoDigests': [
+                'repo/name@sha256:abc123def45600000000000'
+                '00000000000000000000000000000000000000000',
+            ]
+        })
+        plugin._image_label(update, image)
+        assert update.label == 'repo/name'
+
+    def test_multiple_digests(self, plugin):
+        update = entityd.EntityUpdate('Test')
+        image = docker.models.images.Image({
+            'Id': ('sha256:abc123def45600000000000'
+                   '00000000000000000000000000000000000000000'),
+            'RepoTags': [
+            ],
+            'RepoDigests': [
+                'repo/a/name@sha256:abc123def45600000000000'
+                '00000000000000000000000000000000000000000',
+                'repo/b/name@sha256:abc123def45600000000000'
+                '00000000000000000000000000000000000000000',
+            ]
+        })
+        plugin._image_label(update, image)
+        assert update.label == 'repo/b/name'
+
+    def test_one_empty_digests(self, plugin):
+        update = entityd.EntityUpdate('Test')
+        image = docker.models.images.Image({
+            'Id': ('sha256:abc123def45600000000000'
+                   '00000000000000000000000000000000000000000'),
+            'RepoTags': [
+            ],
+            'RepoDigests': [
+                '',
+            ]
+        })
+        plugin._image_label(update, image)
+        assert update.label == 'abc123def456'
+
+    def test_empty_digests(self, plugin):
+        update = entityd.EntityUpdate('Test')
+        image = docker.models.images.Image({
+            'Id': ('sha256:abc123def45600000000000'
+                   '00000000000000000000000000000000000000000'),
+            'RepoTags': [
+            ],
+            'RepoDigests': [
+                '',
+                'repo/b/name@sha256:abc123def45600000000000'
+                '00000000000000000000000000000000000000000',
+            ]
+        })
+        plugin._image_label(update, image)
+        assert update.label == 'repo/b/name'
+
+    def test_no_at_digests(self, plugin):
+        update = entityd.EntityUpdate('Test')
+        image = docker.models.images.Image({
+            'Id': ('sha256:abc123def45600000000000'
+                   '00000000000000000000000000000000000000000'),
+            'RepoTags': [
+            ],
+            'RepoDigests': [
+                '',
+                'noatsymbolheresha256:abc123def45600000000000'
+                '00000000000000000000000000000000000000000',
+            ]
+        })
+        plugin._image_label(update, image)
+        assert update.label == 'abc123def456'
+
+    def test_mixed_digests(self, plugin):
+        update = entityd.EntityUpdate('Test')
+        image = docker.models.images.Image({
+            'Id': ('sha256:abc123def45600000000000'
+                   '00000000000000000000000000000000000000000'),
+            'RepoTags': [
+            ],
+            'RepoDigests': [
+                'noatsymbolheresha256:abc123def45600000000000'
+                '00000000000000000000000000000000000000000',
+                'repo/b/name@sha256:abc123def45600000000000'
+                '00000000000000000000000000000000000000000',
+            ]
+        })
+        plugin._image_label(update, image)
+        assert update.label == 'repo/b/name'
 
 
 class TestConfigure:

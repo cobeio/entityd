@@ -88,6 +88,9 @@ class DockerImage:
         default, giving prescedence to non-latest tags. However, if
         there are only ``latest`` tags, then they will be used.
 
+        If the image has no tags but has digests then the part before
+        the "@" is used as the label.
+
         :param update: Docker image update to give a label to.
         :type update: entityd.EntityUpdate
         :param image: Docker image to use to determine the label.
@@ -100,6 +103,13 @@ class DockerImage:
             update.label = tags[0]
             if tags_filtered:
                 update.label = tags_filtered[0]
+        else:
+            digests = sorted(image.attrs['RepoDigests'], reverse=True)
+            digests = [x for x in digests if x and '@' in x]
+            if digests:
+                digest = digests[0].split('@', 1)[0]
+                if digest:
+                    update.label = digest
 
     def _generate_images(self):
         """Generate updates for all Docker images.

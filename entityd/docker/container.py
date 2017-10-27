@@ -4,6 +4,7 @@ import logbook
 from docker.errors import ImageNotFound
 
 import entityd
+import entityd.groups
 from entityd.docker.client import DockerClient
 
 log = logbook.Logger(__name__)
@@ -11,21 +12,8 @@ log = logbook.Logger(__name__)
 
 class DockerContainer:
     """Entity for a Docker Container."""
+
     name = "Docker:Container"
-
-    @entityd.pm.hookimpl
-    def entityd_find_entity(self, name, attrs=None, include_ondemand=False):  # pylint: disable=unused-argument
-        """Find Docker Container entities."""
-
-        if name == self.name:
-            if attrs is not None:
-                raise LookupError('Attribute based filtering not supported')
-            return self.generate_updates()
-
-    @entityd.pm.hookimpl
-    def entityd_configure(self, config):
-        """Register the Process Monitored Entity."""
-        config.addentity(self.name, 'entityd.docker.container.DockerContainer')
 
     @classmethod
     def get_ueid(cls, container_id):
@@ -34,7 +22,8 @@ class DockerContainer:
         entity.attrs.set('id', container_id, traits={'entity:id'})
         return entity.ueid
 
-    def generate_updates(self):
+    @entityd.pm.hookimpl
+    def entityd_emit_entities(self):
         """Generate entity update objects for each container."""
         if not DockerClient.client_available():
             return
@@ -83,11 +72,6 @@ class DockerContainer:
                     update.parents.add(network_ueid)
 
             yield update
-
-            for key, value in container.labels.items():
-                group = entityd.EntityUpdate('Group')
-                group.label = '{} = {}'.format(key, value)
-                group.attrs.set('kind', 'label:' + key, traits={'entity:id'})
-                group.attrs.set('id', value, traits={'entity:id'})
+            for group in entityd.groups.labels(container.labels):
                 group.children.add(update)
                 yield group

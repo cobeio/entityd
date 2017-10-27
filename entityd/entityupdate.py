@@ -35,6 +35,53 @@ class EntityUpdate:
         else:
             self._ueid = None
 
+    def merge(self, other):
+        """Merge updates together.
+
+        This creates a new entity update which is the aggregate of the
+        current update and the other, given update.
+
+        Properties from the other update always override the current
+        update's. Attributes from the other update also take precedence.
+        If the current update deletes an attribute that is then set
+        by the other update, then the deletion will never occur. If
+        an attribute is defined on one update but not the other,
+        it will exist, unchanged, on the merged update.
+
+        It is only possible to merge entity updates together which
+        contain the exact same identifying attributes. As in, both
+        entity updates must have the same UEID.
+
+        Relations are simply added together.
+
+        :param other: Entity update to merge into the current one.
+        :type other: EntityUpdate
+
+        :raises ValueError: If attempting to merge updates with
+            different UEIDs.
+
+        :returns: New :class:`EntityUpdate`, with attributes merged.
+        """
+        if self.ueid != other.ueid:
+            raise ValueError('Cannot merge update for {0.ueid} with '
+                             'update for {0.ueid}'.format(self, other))
+        new = self.__class__(self.metype)
+        new.label = other.label
+        new.timestamp = other.timestamp
+        new.ttl = other.ttl
+        new.exists = other.exists
+        for attributes in (self.attrs, other.attrs):
+            for attribute in attributes:
+                new.attrs.set(attribute.name,
+                              attribute.value, attribute.traits)
+            for attribute_deleted in self.attrs.deleted():
+                new.attrs.delete(attribute_deleted)
+        for update in (self, other):
+            for relations_attribute in ('parents', 'children'):
+                for relation in getattr(update, relations_attribute):
+                    getattr(new, relations_attribute).add(relation)
+        return new
+
     def set_not_exists(self):
         """Mark this EntityUpdate as non existent."""
         self.exists = False

@@ -83,3 +83,11 @@ class DockerContainer:
                     update.parents.add(network_ueid)
 
             yield update
+
+            for key, value in container.labels.items():
+                group = entityd.EntityUpdate('Group')
+                group.label = '{} = {}'.format(key, value)
+                group.attrs.set('kind', 'label:' + key, traits={'entity:id'})
+                group.attrs.set('id', value, traits={'entity:id'})
+                group.children.add(update)
+                yield group

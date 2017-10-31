@@ -14,11 +14,11 @@ def group(kind, id_):
 
     :returns: :class:`entityd.EntityUpdate` for the group.
     """
-    group = entityd.EntityUpdate('Group')
-    group.label = str(id_)
-    group.attrs.set('kind', str(kind), traits={'entity:id'})
-    group.attrs.set('id', str(id_), traits={'entity:id'})
-    return group
+    group_ = entityd.EntityUpdate('Group')
+    group_.label = str(id_)
+    group_.attrs.set('kind', str(kind), traits={'entity:id'})
+    group_.attrs.set('id', str(id_), traits={'entity:id'})
+    return group_
 
 
 def labels(mapping):

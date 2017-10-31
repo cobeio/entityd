@@ -30,6 +30,7 @@ class Monitor:
 
     @property
     def types(self):
+        """Active entity types."""
         return set(self.config.entities) | set(self.last_batch)
 
     @entityd.pm.hookimpl(after='entityd.kvstore')
@@ -105,7 +106,7 @@ class Monitor:
         updates_merged = self._merge_updates(updates)
         if len(updates_merged) < len(updates):
             log.info('Merged {} entity updates; {} total',
-                 len(updates) - len(updates_merged), len(updates))
+                     len(updates) - len(updates_merged), len(updates))
         self._send_updates(updates_merged)
         self.last_batch = this_batch
         self.session.pluginmanager.hooks.entityd_collection_after(

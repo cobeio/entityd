@@ -218,7 +218,7 @@ class TestMerge:
         assert merged.label == 'new'
         assert merged.timestamp == 2000.0
         assert merged.ttl == 5
-        assert merged.exists == False
+        assert merged.exists is False
 
     def test_attributes(self):
         old = entityd.EntityUpdate('Foo')

@@ -20,6 +20,7 @@ class DockerImage:
 
     @entityd.pm.hookimpl
     def entityd_emit_entities(self):
+        """Generate all Docker image entity updates."""
         yield from self._generate_images()
         yield from self._generate_labels()
 

@@ -64,7 +64,7 @@ class EntityUpdate:
         """
         if self.ueid != other.ueid:
             raise ValueError('Cannot merge update for {0.ueid} with '
-                             'update for {0.ueid}'.format(self, other))
+                             'update for {1.ueid}'.format(self, other))
         new = self.__class__(self.metype)
         new.label = other.label
         new.timestamp = other.timestamp

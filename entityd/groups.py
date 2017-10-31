@@ -4,11 +4,20 @@ import entityd
 
 
 def group(kind, id_):
-    """Create a ``Group entity`` update."""
+    """Create a ``Group entity`` update.
+
+    The group kind and identifier will be coerced to strings before
+    attaching them to the entity update as attributes.
+
+    :param kind: Kind/category of the group as a string.
+    :param id_: Group identifier for the given kind/category.
+
+    :returns: :class:`entityd.EntityUpdate` for the group.
+    """
     group = entityd.EntityUpdate('Group')
     group.label = str(id_)
-    group.attrs.set('kind', kind, traits={'entity:id'})
-    group.attrs.set('id', id_, traits={'entity:id'})
+    group.attrs.set('kind', str(kind), traits={'entity:id'})
+    group.attrs.set('id', str(id_), traits={'entity:id'})
     return group
 
 

@@ -74,7 +74,7 @@ class EntityUpdate:
             for attribute in attributes:
                 new.attrs.set(attribute.name,
                               attribute.value, attribute.traits)
-            for attribute_deleted in self.attrs.deleted():
+            for attribute_deleted in attributes.deleted():
                 new.attrs.delete(attribute_deleted)
         for update in (self, other):
             for relations_attribute in ('parents', 'children'):
@@ -135,7 +135,6 @@ class UpdateAttributes:
 
     Updates are stored as a map with a required 'value' field and
     optional 'type' and 'deleted' fields.
-
     """
 
     def __init__(self):
@@ -151,8 +150,8 @@ class UpdateAttributes:
         :param name: The attribute to set.
         :param value: The value of the attribute.
         :param traits: Optional set of traits for the attribute.
-
         """
+        self.clear(name)
         if traits is None:
             traits = set()
         else:
@@ -165,6 +164,7 @@ class UpdateAttributes:
 
     def delete(self, name):
         """Mark the named attribute as deleted."""
+        self.clear(name)
         self._deleted_attrs.add(name)
         try:
             del self._attrs[name]

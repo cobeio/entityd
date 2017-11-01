@@ -157,6 +157,7 @@ class MonitoredEntitySender:  # pylint: disable=too-many-instance-attributes
                                         packed_entity],
                                        flags=zmq.DONTWAIT)
         except zmq.Again:
+            # TODO: Purge optimisation caches
             log.warning("Could not send, message buffers are full. "
                         "Discarding buffer.")
             self.socket.close()

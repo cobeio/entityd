@@ -48,10 +48,12 @@ def session(pm, config):
 
 
 @pytest.fixture
-def monitor(session, kvstore):  # pylint: disable=unused-argument
+def monitor(pm, session, kvstore):  # pylint: disable=unused-argument
     """An entityd.monitor.Monitor instance."""
     monitor = entityd.monitor.Monitor()
     monitor.entityd_sessionstart(session)
+    pm.register(monitor, 'monitor')
+    return monitor
 
 
 @pytest.fixture

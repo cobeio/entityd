@@ -122,6 +122,19 @@ def entityd_find_entity(name, attrs=None,
 
 
 @entityd.pm.hookdef
+def entityd_emit_entities():
+    """Return an iterator of entity updates.
+
+    As with :func:`entityd_find_entity`, plugins can use this hook
+    to emit a sequence of entities. However, this hook should never
+    be invoked by other plugins when searching for dependent entities.
+
+    Unlike :func:`entity_send_entity`, the iterator returned may return
+    entities of varying types.
+    """
+
+
+@entityd.pm.hookdef
 def entityd_send_entity(session, entity):
     """Send a Monitored Entity to a modeld destination."""
 

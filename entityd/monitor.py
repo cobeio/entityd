@@ -8,6 +8,7 @@ The app main loop will call monitor.gather()
 """
 
 import collections
+import itertools
 
 import cobe
 import logbook
@@ -26,6 +27,11 @@ class Monitor:
         self.config = None
         self.session = None
         self.last_batch = collections.defaultdict(set)
+
+    @property
+    def types(self):
+        """Active entity types."""
+        return set(self.config.entities) | set(self.last_batch)
 
     @entityd.pm.hookimpl(after='entityd.kvstore')
     def entityd_sessionstart(self, session):
@@ -58,15 +64,10 @@ class Monitor:
         self.session.svc.kvstore.add('metypes', list(self.last_batch.keys()))
         entityd.health.die()
 
-    def collect_entities(self):
-        """Collect and send all Monitored Entities."""
-        log.info('Starting entity collection')
-        self.session.pluginmanager.hooks.entityd_collection_before(
-            session=self.session)
-        types = set(self.config.entities) | set(self.last_batch)
-        updates = []
-        this_batch = collections.defaultdict(set)
-        for metype in types:
+    @entityd.pm.hookimpl
+    def entityd_emit_entities(self):
+        """Wrapper for old-style entity update collection."""
+        for metype in self.types:
             results = self.session.pluginmanager.hooks.entityd_find_entity(
                 name=metype,
                 attrs=None,
@@ -74,30 +75,83 @@ class Monitor:
                 session=self.session,
             )
             for result in results:
-                for entity in result:
-                    entityd.health.heartbeat()
-                    self.session.pluginmanager.hooks.entityd_send_entity(
-                        session=self.session, entity=entity)
-                    updates.append(entity)
-                    this_batch[entity.metype].add(entity.ueid)
-            if this_batch[metype]:
-                log.debug('Sent {} {} entity updates.',
-                          len(this_batch[metype]), metype)
-        for metype in types:
+                yield from result
+
+    def collect_entities(self):
+        """Collect and send all Monitored Entities."""
+        log.info('Starting entity collection')
+        self.session.pluginmanager.hooks.entityd_collection_before(
+            session=self.session)
+        updates = []
+        this_batch = collections.defaultdict(set)
+        for entity in itertools.chain.from_iterable(
+                self.session.pluginmanager.hooks.entityd_emit_entities()):
+            entityd.health.heartbeat()
+            updates.append(entity)
+            this_batch[entity.metype].add(entity.ueid)
+        for metype, updates_type in this_batch.items():
+            log.debug(
+                'Collected {} {!r} entity updates', len(updates_type), metype)
+        for metype in self.types:
             non_existent_ueids = self.last_batch[metype] - this_batch[metype]
             for ueid in non_existent_ueids:
-                entityd.health.heartbeat()
                 update = entityd.entityupdate.EntityUpdate(metype, str(ueid))
                 update.set_not_exists()
-                self.session.pluginmanager.hooks.entityd_send_entity(
-                    session=self.session, entity=update)
                 updates.append(update)
             if non_existent_ueids:
-                log.debug('Sent {} {} entity deletions.',
+                log.debug('Generated {} {!r} entity deletions',
                           len(non_existent_ueids), metype)
             if not this_batch[metype]:
                 del this_batch[metype]
+        updates_merged = self._merge_updates(updates)
+        if len(updates_merged) < len(updates):
+            log.info('Merged {} entity updates; {} total',
+                     len(updates) - len(updates_merged), len(updates))
+        self._send_updates(updates_merged)
         self.last_batch = this_batch
         self.session.pluginmanager.hooks.entityd_collection_after(
-            session=self.session, updates=tuple(updates))
-        updates.clear()
+            session=self.session, updates=tuple(updates_merged))
+
+    def _merge_updates(self, updates):
+        """Attempt to merge entity updates.
+
+        For a given sequence of entity updates, if there are multiple
+        updates for a UEID, those updates will be merged together. The
+        resultant, merged entity update will be included in the new
+        sequence of returned entity updates.
+
+        If no merge is needed for a given UEID, the sole entity update
+        for that UEID is included in the new sequence of entity updates
+        unchanged.
+
+        The order of the updates is preserved. If a merge occurs, the
+        merged entity update will be placed at the position of the
+        *first* update of that UEID.
+
+        :param updates: Sequence of entity updates to merge.
+        :type updates: Iterable of entityd.EntityUpdate
+
+        :returns: List of entity updates.
+        """
+        updates_merged = []
+        updates_ordered = []  # UEID
+        updates_sequenced = {}  # UEID : updates
+        for update in updates:
+            if update.ueid not in updates_sequenced:
+                updates_ordered.append(update.ueid)
+                updates_sequenced[update.ueid] = []
+            updates_sequenced[update.ueid].append(update)
+        for ueid in updates_ordered:
+            final, *changes = updates_sequenced[ueid]
+            for change in changes:
+                final = final.merge(change)
+            updates_merged.append(final)
+        return updates_merged
+
+    def _send_updates(self, updates):
+        """Enqueue entity updates to be sent."""
+        for update in updates:
+            self.session.pluginmanager.hooks.entityd_send_entity(
+                session=self.session,
+                entity=update,
+            )

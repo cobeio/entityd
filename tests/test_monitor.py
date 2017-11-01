@@ -1,5 +1,6 @@
 import cobe
 
+import entityd
 import entityd.monitor
 
 
@@ -42,18 +43,26 @@ def test_sessionfinish_entities_saved(session, kvstore):
 
 
 def test_collect_entities(pm, session, monitor, hookrec):
-    update = entityd.entityupdate.EntityUpdate('foo')
+    update_1 = entityd.entityupdate.EntityUpdate('foo')
+    update_2 = entityd.entityupdate.EntityUpdate('bar')
 
     class FooPlugin:
         @entityd.pm.hookimpl
         def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
-            return [update]
+            return [update_1]
+
+        @entityd.pm.hookimpl
+        def entityd_emit_entities(self):
+            yield update_2
 
     plugin = pm.register(FooPlugin(), 'foo')
     session.config.addentity('foo', plugin)
     session.svc.monitor.collect_entities()
-    send_entity = dict(hookrec.calls)['entityd_send_entity']
-    assert send_entity == {'session': session, 'entity': update}
+    send_entity_calls = [call[1] for call
+                         in hookrec.calls if call[0] == 'entityd_send_entity']
+    assert len(send_entity_calls) == 2
+    assert send_entity_calls[0] == {'session': session, 'entity': update_1}
+    assert send_entity_calls[1] == {'session': session, 'entity': update_2}
 
 
 def test_collect_entities_none_registered(session, monitor, hookrec):
@@ -112,11 +121,10 @@ def test_collect_multiple_entities(pm, session, monitor, hookrec):
     session.config.addentity('foo2', plugin2)
     session.svc.monitor.collect_entities()
     assert hookrec.calls != []
-    for call in hookrec.calls:
-        if call[0] == 'entityd_find_entity':
-            expected = call[1]['name']
-        elif call[0] == 'entityd_send_entity':
-            assert call[1]['entity'].metype == expected
+    send_entity_calls = [call[1] for call
+                         in hookrec.calls if call[0] == 'entityd_send_entity']
+    assert send_entity_calls[0]['entity'].metype == 'foo1'
+    assert send_entity_calls[1]['entity'].metype == 'foo2'
 
 
 def test_collect_ondemand_entities(pm, session, monitor, hookrec):
@@ -124,17 +132,11 @@ def test_collect_ondemand_entities(pm, session, monitor, hookrec):
         @entityd.pm.hookimpl
         def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
             yield entityd.entityupdate.EntityUpdate(name)
-            yield entityd.entityupdate.EntityUpdate('ondemand')
-
-    class OnDemandPlugin:
-        @entityd.pm.hookimpl
-        def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
-            return iter([])
+            if include_ondemand:
+                yield entityd.entityupdate.EntityUpdate('ondemand')
 
     fooplugin = pm.register(FooPlugin(), 'foo')
-    ondemandplugin = pm.register(OnDemandPlugin(), 'ondemand')
     session.config.addentity('foo', fooplugin)
-    session.config.addentity('ondemand', ondemandplugin)
     session.svc.monitor.collect_entities()
     for call in hookrec.calls:
         if call[0] == 'entityd_find_entity':
@@ -142,5 +144,25 @@ def test_collect_ondemand_entities(pm, session, monitor, hookrec):
         elif call[0] == 'entityd_send_entity':
             assert call[1]['entity'].metype == expected
             expected = 'ondemand'
-    # assert len(session.svc.monitor.last_batch)
     assert len(session.svc.monitor.last_batch['ondemand'])
+
+
+def test_merge_updates(monkeypatch, monitor):
+    update_1 = entityd.EntityUpdate('Foo')
+    update_1.attrs.set('spam', 1)
+    update_2 = entityd.EntityUpdate('Bar')
+    update_2.attrs.set('spam', 2)
+    update_3 = entityd.EntityUpdate('Foo')
+    update_3.attrs.set('spam', 3)
+    update_4 = entityd.EntityUpdate('Foo')
+    update_4.attrs.set('spam', 4)
+    update_5 = entityd.EntityUpdate('Baz')
+    update_5.attrs.set('spam', 5)
+    updates = [update_1, update_2, update_3, update_4, update_5]
+    merged_1, merged_2, merged_3 = monitor._merge_updates(updates)
+    assert merged_1.ueid == update_1.ueid
+    assert merged_1.ueid == update_3.ueid
+    assert merged_1.ueid == update_4.ueid
+    assert merged_2.ueid == update_2.ueid
+    assert merged_3.ueid == update_5.ueid
+    assert merged_1.attrs.get('spam').value == 4

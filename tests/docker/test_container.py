@@ -22,21 +22,10 @@ def docker_container(pm, host_entity_plugin):  # pylint: disable=unused-argument
 def test_docker_not_available(monkeypatch, docker_container):
     monkeypatch.setattr('entityd.docker.client.docker.DockerClient',
                         pytest.MagicMock(side_effect=DockerException))
-    assert len(list(docker_container.entityd_find_entity(docker_container.name))) == 0
+    assert len(list(docker_container.entityd_emit_entities())) == 0
 
 
-def test_attrs_raises_exception():
-    with pytest.raises(LookupError):
-        dc = DockerContainer()
-        dc.entityd_find_entity(DockerContainer.name, attrs="foo")
-
-
-def test_not_provided():
-    dc = DockerContainer()
-    assert dc.entityd_find_entity('foo') is None
-
-
-def test_find_entities(monkeypatch, session, docker_container,
+def test_emit_entities(monkeypatch, docker_container,
                        running_container, finished_container):
 
     containers = [running_container, finished_container]
@@ -50,12 +39,17 @@ def test_find_entities(monkeypatch, session, docker_container,
 
     daemon_ueid = DockerDaemon.get_ueid(daemon_id)
 
-    docker_container.entityd_configure(session.config)
-    entities = docker_container.entityd_find_entity(DockerContainer.name)
-    entities = list(entities)
-    assert len(entities) == 2
+    entities = list(docker_container.entityd_emit_entities())
+    entities_containers = [entity for entity
+                           in entities if entity.metype == "Docker:Container"]
+    entities_labels = [entity for entity
+                       in entities if entity.metype == "Group"]
+    assert len(entities) == 4
+    assert len(entities_containers) == 2
+    assert len(entities_labels) == 2
 
-    for entity, container in zip(entities, containers):
+
+    for entity, container in zip(entities_containers, containers):
         assert daemon_ueid in entity.parents
         assert entity.exists == container.should_exist
         assert entity.attrs.get('name').value == container.name
@@ -83,5 +77,12 @@ def test_find_entities(monkeypatch, session, docker_container,
                                                container.network_id)
         assert network_ueid in entity.parents
 
-
+    for label, container in zip(entities_labels, containers):
+        assert label.metype == 'Group'
+        assert label.attrs.get('kind').value == 'label:label'
+        assert label.attrs.get('kind').traits == {'entity:id'}
+        assert label.attrs.get('id').value == container.labels['label']
+        assert label.attrs.get('id').traits == {'entity:id'}
+        assert len(label.children) == 1
+        assert docker_container.get_ueid(container.id) in label.children
 

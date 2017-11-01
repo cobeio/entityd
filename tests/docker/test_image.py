@@ -473,22 +473,6 @@ class TestImageLabel:
         assert update.label == 'repo/b/name'
 
 
-class TestConfigure:
-
-    def test(self, config, plugin):
-        plugin.entityd_configure(config)
-        assert set(config.entities.keys()) == {
-            'Docker:Image',
-            'Group',
-        }
-        assert len(config.entities['Docker:Image']) == 1
-        assert len(config.entities['Group']) == 1
-        assert list(config.entities['Docker:Image'])[0].name \
-            == 'entityd.docker.image.DockerImage'
-        assert list(config.entities['Group'])[0].name \
-            == 'entityd.docker.image.DockerImage'
-
-
 class TestCollectionBefore:
 
     @pytest.fixture
@@ -532,24 +516,17 @@ class TestCollectionAfter:
         assert plugin._images == {}
 
 
-class TestFindEntity:
+class TestEmitEntities:
 
-    @pytest.mark.parametrize('type_', ['Docker:Image', 'Group'])
-    def test(self, monkeypatch, plugin, type_):
+    def test(self, monkeypatch, plugin):
         generator_function = unittest.mock.Mock()
+        generator_function.side_effect = lambda: iter([...])
         monkeypatch.setattr(plugin, '_generate_images', generator_function)
         monkeypatch.setattr(plugin, '_generate_labels', generator_function)
-        generator = plugin.entityd_find_entity(type_)
-        assert generator is generator_function.return_value
-        assert generator_function.call_count == 1
-        assert generator_function.call_args[0] == ()
-        assert generator_function.call_args[1] == {}
-
-    @pytest.mark.parametrize('type_', ['Docker:Image', 'Group'])
-    def test_filtering(self, plugin, type_):
-        with pytest.raises(LookupError) as exception:
-            plugin.entityd_find_entity(type_, attrs={'foo': 'bar'})
-        assert 'filtering not supported' in str(exception.value)
-
-    def test_type_not_implemented(self, plugin):
-        assert plugin.entityd_find_entity('Foo') is None
+        generator = plugin.entityd_emit_entities()
+        assert list(generator) == [..., ...]
+        assert generator_function.call_count == 2
+        assert generator_function.call_args_list[0][0] == ()
+        assert generator_function.call_args_list[0][1] == {}
+        assert generator_function.call_args_list[1][0] == ()
+        assert generator_function.call_args_list[1][1] == {}

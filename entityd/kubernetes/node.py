@@ -9,6 +9,7 @@ plugins.
 
 import collections
 
+import datetime
 import kube
 import logbook
 import requests
@@ -118,7 +119,14 @@ class NodeEntity:
         try:
             pods_on_nodes = self.determine_pods_on_nodes()
             for node in self._cluster.nodes:
-                yield self.create_entity(node, pods_on_nodes)
+                from pprint import pprint
+                node_entity = self.create_entity(node, pods_on_nodes)
+                if node.raw['spec'].get('unschedulable'):
+                    observation_entity = \
+                        self.create_cordoned_observation(node)
+                    observation_entity.children.add(node_entity)
+                    yield observation_entity
+                yield node_entity
         except requests.ConnectionError:
             if not self._logged_k8s_unreachable:
                 log.info('Kubernetes API server unreachable')
@@ -148,4 +156,16 @@ class NodeEntity:
             update.children.add(self.create_pod_ueid(pod_data.name,
                                                      pod_data.namespace))
         update.parents.add(self.cluster_ueid)
+        return update
+
+    def create_cordoned_observation(self,node):
+        meta = node.meta
+        node_name = meta.name
+        update = entityd.EntityUpdate('Observation')
+        update.label = "node is cordoned"
+        update.attrs.set('kubernetes:node:name', node_name,traits={'entity:id'})
+        update.attrs.set('kubernetes:meta:observed',
+                        datetime.datetime.now().strftime(
+                            entityd.kubernetes.RFC_3339_FORMAT),
+                        traits={'chrono:rfc3339'})
         return update

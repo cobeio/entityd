@@ -119,7 +119,6 @@ class NodeEntity:
         try:
             pods_on_nodes = self.determine_pods_on_nodes()
             for node in self._cluster.nodes:
-                from pprint import pprint
                 node_entity = self.create_entity(node, pods_on_nodes)
                 if node.raw['spec'].get('unschedulable'):
                     observation_entity = \

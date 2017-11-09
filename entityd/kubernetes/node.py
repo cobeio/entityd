@@ -8,8 +8,8 @@ plugins.
 """
 
 import collections
-
 import datetime
+
 import kube
 import logbook
 import requests
@@ -31,12 +31,6 @@ class NodeEntity:
         self._cluster_ueid = None
         self._logged_k8s_unreachable = None
 
-    @staticmethod
-    @entityd.pm.hookimpl
-    def entityd_configure(config):
-        """Register the Node Entity."""
-        config.addentity('Kubernetes:Node',
-                         'entityd.kubernetes.node.NodeEntity')
 
     @entityd.pm.hookimpl
     def entityd_sessionstart(self, session):
@@ -50,12 +44,9 @@ class NodeEntity:
         self._cluster.close()
 
     @entityd.pm.hookimpl
-    def entityd_find_entity(self, name, attrs, include_ondemand=False):  # pylint: disable=unused-argument
-        """Return an iterator of Kubernetes "Node" Entities."""
-        if name == 'Kubernetes:Node':
-            if attrs is not None:
-                raise LookupError('Attribute based filtering not supported')
-            return self.nodes()
+    def entityd_emit_entities(self):
+        """Generate all Kubernetes "Node" entity updates."""
+        yield from self.nodes()
 
     @property
     def cluster_ueid(self):
@@ -122,7 +113,7 @@ class NodeEntity:
                 node_entity = self.create_entity(node, pods_on_nodes)
                 if node.raw['spec'].get('unschedulable'):
                     observation_entity = \
-                        self.create_cordoned_observation(node)
+                        self.create_cordoned_observation(str(node_entity.ueid))
                     observation_entity.children.add(node_entity)
                     yield observation_entity
                 yield node_entity
@@ -147,7 +138,8 @@ class NodeEntity:
         update.attrs.set('kubernetes:meta:created',
                          meta.created.strftime(
                              entityd.kubernetes.RFC_3339_FORMAT),
-                         traits={'chrono:rfc3339'})
+                         traits={'chrono:rfc3339'}
+                        )
         update.attrs.set('kubernetes:meta:link', meta.link, traits={'uri'})
         update.attrs.set('kubernetes:meta:uid', meta.uid)
         update.attrs.set('kubernetes:meta:labels', dict(meta.labels))
@@ -157,14 +149,15 @@ class NodeEntity:
         update.parents.add(self.cluster_ueid)
         return update
 
-    def create_cordoned_observation(self,node):
-        meta = node.meta
-        node_name = meta.name
+    def create_cordoned_observation(self, ueid):
+        """Generator of Cordoned Node Observation Entities."""
         update = entityd.EntityUpdate('Observation')
-        update.label = "node is cordoned"
-        update.attrs.set('kubernetes:node:name', node_name,traits={'entity:id'})
-        update.attrs.set('kubernetes:meta:observed',
-                        datetime.datetime.now().strftime(
-                            entityd.kubernetes.RFC_3339_FORMAT),
-                        traits={'chrono:rfc3339'})
+        update.label = "Node is cordoned"
+        update.attrs.set('node', ueid, traits={'entity:id',
+                                               'entity:ueid'})
+        update.attrs.set('start',
+                         datetime.datetime.now().strftime(
+                             entityd.kubernetes.RFC_3339_FORMAT),
+                         traits={'chrono:rfc3339'}
+                        )
         return update

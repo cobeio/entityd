@@ -115,10 +115,7 @@ class CpuUsage(threading.Thread):
                     timer.schedule(self._timer_interval * 1000)
                 elif event is sock:
                     pid = sock.recv_pyobj()
-                    if pid is None:
-                        response = self.last_run_percentages
-                    else:
-                        response = self.last_run_percentages.get(pid, None)
+                    response = self.last_run_percentages
                     sock.send_pyobj(response)
         finally:
             sock.close(linger=0)

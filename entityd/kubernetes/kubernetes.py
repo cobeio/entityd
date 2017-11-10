@@ -24,6 +24,7 @@ ENTITIES_PROVIDED = {
     'Kubernetes:Container': 'generate_containers',
     'Kubernetes:Namespace': 'generate_namespaces',
     'Kubernetes:Pod': 'generate_pods',
+    'Kubernetes:Probe': 'generate_probes',
 }
 Point = collections.namedtuple('Point', ('timestamp', 'data'))
 Point.__doc__ = """Container statistics at a point in time.
@@ -326,6 +327,83 @@ def pod_update(pod, update, session):
         else:
             update.attrs.set(attribute, value)
     return update
+
+
+def generate_probes(cluster, session):
+    """Generate updates for readiness and liveness probes.
+
+    :returns: a generator of :class:`entityd.EntityUpdate`s.
+    """
+    for pod_update in generate_updates(generate_pods, session):  # pylint: disable=redefined-outer-name
+        try:
+            namespace = cluster.namespaces.fetch(
+                pod_update.attrs.get('kubernetes:meta:namespace').value)
+            pod = cluster.pods.fetch(
+                pod_update.attrs.get('kubernetes:meta:name').value,
+                namespace=namespace.meta.name
+            )
+        except LookupError:
+            pass
+        else:
+            try:
+                liveness_probe = pod.raw['spec']['containers'][0][
+                    'livenessProbe']
+                update = yield
+                pod_name = pod.meta.name
+                update.label = 'Liveness probe'
+                update.attrs.set('name', "Liveness probe:" + pod_name,
+                                 traits={'entity:id'}
+                                )
+                populate_probe_update(update, liveness_probe)
+                update.children.add(pod_update)
+            except KeyError:
+                pass
+
+            try:
+                readiness_probe = pod.raw['spec']['containers'][0][
+                    'readinessProbe']
+                update = yield
+                pod_name = pod.meta.name
+                update.label = "Readiness probe"
+                update.attrs.set('name', "Readiness probe:" + pod_name,
+                                 traits={'entity:id'}
+                                )
+                populate_probe_update(update, readiness_probe)
+                update.children.add(pod_update)
+            except KeyError:
+                pass
+
+
+def populate_probe_update(update, probe):
+    """Populate update with attributes for a probe.
+
+    :param entityd.EntityUpdate update: the update to set the attributes on.
+    :param probe: a dictionary of probe attributes from Kube:pod
+    """
+    update.attrs.set('failureThreshold', probe.get('failureThreshold'))
+    update.attrs.set('initialDelaySeconds', probe.get('initialDelaySeconds'))
+    update.attrs.set('periodSeconds', probe.get('periodSeconds'))
+    update.attrs.set('successThreshold', probe.get('successThreshold'))
+    update.attrs.set('timeoutSeconds', probe.get('timeoutSeconds'))
+    try:
+        probe_exec = probe['exec']
+        update.attrs.set('exec:command', probe_exec.get('command')[0])
+    except KeyError:
+        pass
+    try:
+        http_get = probe['httpGet']
+        update.attrs.set('httpGet:path', http_get.get('path'))
+        update.attrs.set('httpGet:port', http_get.get('port'))
+        update.attrs.set('httpGet:scheme', http_get.get('scheme'))
+    except KeyError:
+        pass
+    try:
+        tcp_socket = probe['tcpSocket']
+        update.attrs.set('tcpSocket:port', tcp_socket.get('port'))
+    except KeyError:
+        pass
+
+
 
 
 def generate_containers(cluster, session):

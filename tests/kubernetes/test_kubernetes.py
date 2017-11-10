@@ -40,6 +40,7 @@ def test_entityd_configure(pm, config):
         'Kubernetes:Container',
         'Kubernetes:Pod',
         'Kubernetes:Namespace',
+        'Kubernetes:Probe',
     }
     for entity_plugins in config.entities.values():
         assert plugin in entity_plugins
@@ -450,6 +451,163 @@ class TestPods:
         assert meta_update.call_count == 1
         assert meta_update.call_args_list[0][0] == (
             pod_resources[0].meta, pods[0], None)
+
+
+@pytest.mark.usefixtures("cluster_ueid")
+class TestProbes:
+
+    @pytest.fixture
+    def raw_pods_resource(self):
+        return  [{
+                'metadata': {
+                    'name': 'pod-1',
+                    'namespace': 'andromeda',
+                    'resourceVersion': '12345678',
+                    'creationTimestamp': '2017-09-01T14:11:03Z',
+                    'selfLink': '',
+                    'uid': 'aaaabbbbccccddddeeeeffffgggghhhhiiii',
+                },
+                'spec': {
+                    'containers': [
+                        {
+                            'livenessProbe': {
+                                'failureThreshold': 3,
+                                'initialDelaySeconds': 15,
+                                'periodSeconds': 20,
+                                'successThreshold': 1,
+                                'tcpSocket': {
+                                    'port': 8080
+                                },
+                                'timeoutSeconds': 1
+                            },
+                         }
+                    ]
+                },
+                'status': {
+                    'phase': 'Running',
+                    'podIP': '10.120.0.5',
+                    'startTime': '2015-01-14T17:01:37Z',
+                },
+            },
+
+             {
+                'metadata': {
+                    'name': 'pod-2',
+                    'namespace': 'andromeda',
+                    'resourceVersion': '12345678',
+                    'creationTimestamp': '2017-09-01T14:11:03Z',
+                    'selfLink': '',
+                    'uid': 'aaaabbbbccccddddeeeeffffgggghhhhiiii',
+                },
+                'spec': {
+                    'containers': [
+                        {
+                            'readinessProbe': {
+                                'failureThreshold': 3,
+                                'initialDelaySeconds': 15,
+                                'periodSeconds': 20,
+                                'successThreshold': 1,
+                                'httpGet': {
+                                    'path': '/#/status',
+                                    'port': 9093,
+                                    'scheme': 'HTTP'
+                                },
+                                'timeoutSeconds': 1
+                            },
+                        }
+                    ]
+                },
+                'status': {
+                    'phase': 'Running',
+                    'podIP': '10.120.0.7',
+                    'startTime': '2016-01-14T17:01:37Z',
+                },
+            },
+
+             {
+                'metadata': {
+                    'name': 'pod-3',
+                    'namespace': 'andromeda',
+                    'resourceVersion': '12345678',
+                    'creationTimestamp': '2017-09-01T14:11:03Z',
+                    'selfLink': '',
+                    'uid': 'aaaabbbbccccddddeeeeffffgggghhhhiiii',
+
+                },
+                'spec': {
+                    'containers': [
+                        {
+                            'livenessProbe': {
+                                'exec': {
+                                    'command': [
+                                        'entityd-health-check'
+                                    ]
+                                },
+                                'failureThreshold': 3,
+                                'initialDelaySeconds': 15,
+                                'periodSeconds': 20,
+                                'successThreshold': 1,
+                                'timeoutSeconds': 1
+                            },
+
+                        }
+                    ]
+                },
+                'status': {
+                    'phase': 'Running',
+                    'podIP': '10.120.0.7',
+                    'startTime': '2016-01-14T17:01:37Z',
+                },
+            },
+        ]
+
+    def test(self, cluster, raw_pods_resource):
+        for i,pod_resource in enumerate(raw_pods_resource):
+            pod = kube.PodItem(cluster, pod_resource)
+            cluster.pods.__iter__.return_value = iter([pod])
+            cluster.pods.fetch.return_value = pod
+            probes = list(kubernetes.entityd_find_entity('Kubernetes:Probe'))
+            assert len(probes) == 1
+            probe = probes[0]
+            assert probe.attrs.get('failureThreshold').value == 3
+            assert probe.attrs.get('initialDelaySeconds').value == 15
+            assert probe.attrs.get('periodSeconds').value == 20
+            assert probe.attrs.get('successThreshold').value == 1
+            assert probe.attrs.get('timeoutSeconds').value == 1
+            if i == 0:
+                assert probe.attrs.get('name').value.\
+                    startswith("Liveness probe:")
+                assert probe.attrs.get('name').traits == {'entity:id'}
+                assert probe.attrs.get('tcpSocket:port').value == 8080
+            elif i == 1:
+                assert probe.attrs.get('name').value.\
+                    startswith("Readiness probe:")
+                assert probe.attrs.get('name').traits == {'entity:id'}
+                assert probe.attrs.get('httpGet:path').value == '/#/status'
+                assert probe.attrs.get('httpGet:port').value == 9093
+                assert probe.attrs.get('httpGet:scheme').value == 'HTTP'
+            else:
+                assert probe.attrs.get('name').value.\
+                    startswith("Liveness probe:")
+                assert probe.attrs.get('name').traits == {'entity:id'}
+                assert probe.attrs.get('exec:command').value == \
+                       'entityd-health-check'
+
+    def test_missing_namespace(self, cluster, raw_pods_resource):
+        pod = kube.PodItem(cluster, raw_pods_resource[0])
+        cluster.pods.__iter__.return_value = iter([pod])
+        cluster.namespaces.fetch.side_effect = LookupError
+        probes = list(kubernetes.entityd_find_entity('Kubernetes:Probe'))
+        assert not probes
+
+    def test_missing_pod(self, cluster, raw_pods_resource):
+        pod = kube.PodItem(cluster, raw_pods_resource[0])
+        cluster.pods.__iter__.return_value = iter([pod])
+        cluster.pods.fetch.side_effect = LookupError
+        mock_namespace = cluster.namespaces.fetch.return_value
+        mock_namespace.pods.fetch.side_effect = LookupError
+        probes = list(kubernetes.entityd_find_entity('Kubernetes:Probe'))
+        assert not probes
 
 
 @pytest.mark.usefixtures("cluster_ueid")

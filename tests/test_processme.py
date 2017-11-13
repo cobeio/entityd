@@ -680,22 +680,6 @@ class TestCpuUsage:
         proc2.refreshed.timestamp.return_value = now
         assert cpuusage.percent_cpu_usage(proc1, proc2) == 50
 
-    def test_get_one(self, request, context, cpuusage):
-        cpuusage.start()
-        request.addfinalizer(cpuusage.join)
-        request.addfinalizer(cpuusage.stop)
-        req = context.socket(zmq.PAIR)
-        req.connect('inproc://cpuusage')
-        pid = os.getpid()
-        while True:
-            req.send_pyobj(pid)
-            pc = req.recv_pyobj()
-            if pc is None:
-                continue
-            else:
-                assert isinstance(pc, float)
-                break
-
     def test_get_all(self, request, context, cpuusage):
         cpuusage.start()
         request.addfinalizer(cpuusage.join)
@@ -711,4 +695,23 @@ class TestCpuUsage:
             else:
                 assert isinstance(pc, dict)
                 assert isinstance(pc[pid], float)
+                break
+
+    def test_cpu_usage_returns_dictionary(self, request, context, cpuusage):
+        """ processme.py used to return a float if a pid was sent in, which
+        caused it to throw a TypeError and crash. This test is to ensure that
+        it always returns a dictionary"""
+        cpuusage.start()
+        request.addfinalizer(cpuusage.join)
+        request.addfinalizer(cpuusage.stop)
+        req = context.socket(zmq.PAIR)
+        req.connect('inproc://cpuusage')
+        pid = os.getpid()
+        while True:
+            req.send_pyobj(pid)
+            pc = req.recv_pyobj()
+            if pc is None:
+                continue
+            else:
+                assert isinstance(pc, dict)
                 break

@@ -17,9 +17,8 @@ import entityd.pm
 class CpuUsage(threading.Thread):
     """A background thread to fetch CPU times and calculate percentages.
 
-    Accessible via ZMQ Pair/Pair sockets; receiving a pid or ``None``,
-    and returning the percentage cpu time calculated most recently
-    for the given pid, or all known processes.
+    Accessible via ZMQ Pair/Pair sockets; returning the percentage cpu time
+    calculated most recently, for all known processes.
 
     :param Context context: The ZMQ context to use
     :param str endpoint: The ZMQ endpoint to listen for requests on
@@ -114,7 +113,7 @@ class CpuUsage(threading.Thread):
                     self.update()
                     timer.schedule(self._timer_interval * 1000)
                 elif event is sock:
-                    pid = sock.recv_pyobj()
+                    sock.recv_pyobj()
                     response = self.last_run_percentages
                     sock.send_pyobj(response)
         finally:
@@ -272,9 +271,9 @@ class ProcessEntity:
                     return
                 entity = self.create_process_me(self.active_processes,
                                                 proc, proc_containers)
-                cpupc = self.get_cpu_percentage(proc)
+                cpupc = self.get_all_cpu_percentages()
                 if cpupc:
-                    entity.attrs.set('cpu', cpupc,
+                    entity.attrs.set('cpu', cpupc[proc.pid],
                                      traits={'metric:gauge', 'unit:percent'})
                 yield entity
             else:
@@ -366,21 +365,6 @@ class ProcessEntity:
                     except (syskit.NoSuchProcessError, ProcessLookupError):
                         pass
             return active
-
-    def get_cpu_percentage(self, proc):
-        """Return CPU usage percentage since the last sample or process start.
-
-        :param proc: syskit.Process instance.
-        :returns float or None: the percentage value; None if no value
-
-        """
-        if not self.cpu_usage_sock:
-            return None
-        self.cpu_usage_sock.send_pyobj(proc.pid)
-        if self.cpu_usage_sock.poll(timeout=1000, flags=zmq.POLLIN):
-            return self.cpu_usage_sock.recv_pyobj()
-        else:
-            return None
 
     def get_all_cpu_percentages(self):
         """Return CPU usage percentage since the last sample or process start.

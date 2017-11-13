@@ -123,8 +123,8 @@ def test_collect_multiple_entities(pm, session, monitor, hookrec):
     assert hookrec.calls != []
     send_entity_calls = [call[1] for call
                          in hookrec.calls if call[0] == 'entityd_send_entity']
-    assert send_entity_calls[0]['entity'].metype == 'foo1'
-    assert send_entity_calls[1]['entity'].metype == 'foo2'
+    assert {send_entity_calls[0]['entity'].metype,
+            send_entity_calls[1]['entity'].metype} == {'foo1', 'foo2'}
 
 
 def test_collect_ondemand_entities(pm, session, monitor, hookrec):

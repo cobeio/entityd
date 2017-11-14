@@ -24,7 +24,7 @@ ENTITIES_PROVIDED = {
     'Kubernetes:Container': 'generate_containers',
     'Kubernetes:Namespace': 'generate_namespaces',
     'Kubernetes:Pod': 'generate_pods',
-    'Kubernetes:Probe': 'generate_probes',
+    'Kubernetes:Pod:Probe': 'generate_probes',
 }
 Point = collections.namedtuple('Point', ('timestamp', 'data'))
 Point.__doc__ = """Container statistics at a point in time.
@@ -345,65 +345,75 @@ def generate_probes(cluster, session):
         except LookupError:
             pass
         else:
+            pod_ip = pod.raw['status']['podIP']
             try:
-                liveness_probe = pod.raw['spec']['containers'][0][
-                    'livenessProbe']
-                update = yield
-                pod_name = pod.meta.name
-                update.label = 'Liveness probe'
-                update.attrs.set('name', "Liveness probe:" + pod_name,
-                                 traits={'entity:id'}
-                                )
-                populate_probe_update(update, liveness_probe)
-                update.children.add(pod_update)
+                liveness_probe = \
+                    pod.raw['spec']['containers'][0]['livenessProbe']
             except KeyError:
                 pass
+            else:
+                update = yield
+                update.label = 'Liveness:'
+                update.attrs.set('kubernetes:pod', pod.meta.name,
+                                 traits={'entity:id'},
+                                )
+                update.attrs.set('kubernetes:probe:type', 'Liveness probe',
+                                 traits={'entity:id'},
+                                )
+                populate_probe_update(update, liveness_probe, pod_ip)
+                update.children.add(pod_update)
 
             try:
-                readiness_probe = pod.raw['spec']['containers'][0][
-                    'readinessProbe']
-                update = yield
-                pod_name = pod.meta.name
-                update.label = "Readiness probe"
-                update.attrs.set('name', "Readiness probe:" + pod_name,
-                                 traits={'entity:id'}
-                                )
-                populate_probe_update(update, readiness_probe)
-                update.children.add(pod_update)
+                readiness_probe =\
+                    pod.raw['spec']['containers'][0]['readinessProbe']
             except KeyError:
                 pass
+            else:
+                update = yield
+                update.label = 'Readiness:'
+                update.attrs.set('kubernetes:pod', pod.meta.name,
+                                 traits={'entity:id'},
+                                )
+                update.attrs.set('kubernetes:probe:type', 'Readiness probe',
+                                 traits={'entity:id'},
+                                )
+                populate_probe_update(update, readiness_probe, pod_ip)
+                update.children.add(pod_update)
 
 
-def populate_probe_update(update, probe):
+def populate_probe_update(update, probe, pod_ip):
     """Populate update with attributes for a probe.
 
     :param entityd.EntityUpdate update: the update to set the attributes on.
     :param probe: a dictionary of probe attributes from Kube:pod
+    :param pod_ip: a string of the pod IP address
     """
-    update.attrs.set('failureThreshold', probe.get('failureThreshold'))
-    update.attrs.set('initialDelaySeconds', probe.get('initialDelaySeconds'))
-    update.attrs.set('periodSeconds', probe.get('periodSeconds'))
-    update.attrs.set('successThreshold', probe.get('successThreshold'))
-    update.attrs.set('timeoutSeconds', probe.get('timeoutSeconds'))
-    try:
-        probe_exec = probe['exec']
-        update.attrs.set('exec:command', probe_exec.get('command')[0])
-    except KeyError:
-        pass
-    try:
-        http_get = probe['httpGet']
-        update.attrs.set('httpGet:path', http_get.get('path'))
+    update.attrs.set('failure-threshold', probe.get('failureThreshold'))
+    update.attrs.set('period-seconds', probe.get('periodSeconds'))
+    update.attrs.set('success-threshold', probe.get('successThreshold'))
+    update.attrs.set('timeout-seconds', probe.get('timeoutSeconds'))
+    update.attrs.set('initial-delay-seconds', probe.get('initialDelaySeconds'))
+    probe_exec = probe.get('exec')
+    http_get = probe.get('httpGet')
+    tcp_socket = probe.get('tcpSocket')
+    if probe_exec:
+        commands = list(probe_exec['command'])
+        if len(commands) > 0:
+            update.label += " ".join(commands)
+        update.attrs.set('exec:command', commands)
+    elif http_get:
+        path = http_get.get('path')
+        scheme = http_get.get('scheme')
+        if path and scheme:
+            update.label += scheme + "://" + pod_ip + path
+        if path:
+            update.attrs.set('httpGet:path', path)
+        if scheme:
+            update.attrs.set('httpGet:scheme', scheme)
         update.attrs.set('httpGet:port', http_get.get('port'))
-        update.attrs.set('httpGet:scheme', http_get.get('scheme'))
-    except KeyError:
-        pass
-    try:
-        tcp_socket = probe['tcpSocket']
-        update.attrs.set('tcpSocket:port', tcp_socket.get('port'))
-    except KeyError:
-        pass
-
-
+    elif tcp_socket:
+        update.label += 'port=' + str(tcp_socket['port'])
+        update.attrs.set('tcpSocket:port', tcp_socket['port'])
 
 
 def generate_containers(cluster, session):

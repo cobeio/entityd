@@ -40,7 +40,7 @@ def test_entityd_configure(pm, config):
         'Kubernetes:Container',
         'Kubernetes:Pod',
         'Kubernetes:Namespace',
-        'Kubernetes:Probe',
+        'Kubernetes:Pod:Probe',
     }
     for entity_plugins in config.entities.values():
         assert plugin in entity_plugins
@@ -566,38 +566,66 @@ class TestProbes:
             pod = kube.PodItem(cluster, pod_resource)
             cluster.pods.__iter__.return_value = iter([pod])
             cluster.pods.fetch.return_value = pod
-            probes = list(kubernetes.entityd_find_entity('Kubernetes:Probe'))
+            probes = \
+                list(kubernetes.entityd_find_entity('Kubernetes:Pod:Probe'))
             assert len(probes) == 1
             probe = probes[0]
-            assert probe.attrs.get('failureThreshold').value == 3
-            assert probe.attrs.get('initialDelaySeconds').value == 15
-            assert probe.attrs.get('periodSeconds').value == 20
-            assert probe.attrs.get('successThreshold').value == 1
-            assert probe.attrs.get('timeoutSeconds').value == 1
+            assert probe.attrs.get('failure-threshold').value == 3
+            assert probe.attrs.get('failure-threshold').traits == set()
+            assert probe.attrs.get('initial-delay-seconds').value == 15
+            assert probe.attrs.get('initial-delay-seconds').traits == set()
+            assert probe.attrs.get('period-seconds').value == 20
+            assert probe.attrs.get('period-seconds').traits == set()
+            assert probe.attrs.get('success-threshold').value == 1
+            assert probe.attrs.get('success-threshold').traits == set()
+            assert probe.attrs.get('timeout-seconds').value == 1
+            assert probe.attrs.get('timeout-seconds').traits == set()
+            assert probe.attrs.get('kubernetes:pod').traits == {'entity:id'}
+            assert probe.attrs.get('kubernetes:probe:type').traits ==\
+                   {'entity:id'}
             if i == 0:
-                assert probe.attrs.get('name').value.\
-                    startswith("Liveness probe:")
-                assert probe.attrs.get('name').traits == {'entity:id'}
+                assert probe.attrs.get('kubernetes:probe:type').value ==\
+                       "Liveness probe"
                 assert probe.attrs.get('tcpSocket:port').value == 8080
+                assert probe.attrs.get('tcpSocket:port').traits == set()
             elif i == 1:
-                assert probe.attrs.get('name').value.\
-                    startswith("Readiness probe:")
-                assert probe.attrs.get('name').traits == {'entity:id'}
+                assert probe.attrs.get('kubernetes:probe:type').value ==\
+                       "Readiness probe"
                 assert probe.attrs.get('httpGet:path').value == '/#/status'
+                assert probe.attrs.get('httpGet:path').traits == set()
                 assert probe.attrs.get('httpGet:port').value == 9093
+                assert probe.attrs.get('httpGet:port').traits == set()
                 assert probe.attrs.get('httpGet:scheme').value == 'HTTP'
+                assert probe.attrs.get('httpGet:scheme').traits == set()
             else:
-                assert probe.attrs.get('name').value.\
-                    startswith("Liveness probe:")
-                assert probe.attrs.get('name').traits == {'entity:id'}
-                assert probe.attrs.get('exec:command').value == \
+                assert probe.attrs.get('kubernetes:probe:type').value ==\
+                       "Liveness probe"
+                assert len(probe.attrs.get('exec:command').value) == 1
+                assert probe.attrs.get('exec:command').value[0] == \
                        'entityd-health-check'
+                assert probe.attrs.get('exec:command').traits == set()
+
+    @pytest.mark.parametrize("miss_attr", [
+        'failureThreshold',
+        'initialDelaySeconds',
+        'periodSeconds',
+        'successThreshold',
+        'timeoutSeconds',
+    ])
+    def test_missing_attribute(self, cluster, raw_pods_resource, miss_attr):
+        pod_resource = raw_pods_resource[0]
+        del(pod_resource['spec']['containers'][0]['livenessProbe'][miss_attr])
+        print(str(pod_resource['spec']['containers'][0]))
+        pod = kube.PodItem(cluster, pod_resource)
+        cluster.pods.__iter__.return_value = iter([pod])
+        cluster.pods.fetch.return_value = pod
+        assert list(kubernetes.entityd_find_entity('Kubernetes:Pod:Probe'))
 
     def test_missing_namespace(self, cluster, raw_pods_resource):
         pod = kube.PodItem(cluster, raw_pods_resource[0])
         cluster.pods.__iter__.return_value = iter([pod])
         cluster.namespaces.fetch.side_effect = LookupError
-        probes = list(kubernetes.entityd_find_entity('Kubernetes:Probe'))
+        probes = list(kubernetes.entityd_find_entity('Kubernetes:Pod:Probe'))
         assert not probes
 
     def test_missing_pod(self, cluster, raw_pods_resource):
@@ -606,7 +634,7 @@ class TestProbes:
         cluster.pods.fetch.side_effect = LookupError
         mock_namespace = cluster.namespaces.fetch.return_value
         mock_namespace.pods.fetch.side_effect = LookupError
-        probes = list(kubernetes.entityd_find_entity('Kubernetes:Probe'))
+        probes = list(kubernetes.entityd_find_entity('Kubernetes:Pod:Probe'))
         assert not probes
 
 

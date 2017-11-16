@@ -52,7 +52,8 @@ def cluster(request):
             'status': {
                 'nodeInfo': {
                     'bootID':
-                        'd4e0c0ae-290c-4e79-ae78-88b5d6cf215b'}}}),
+                        'd4e0c0ae-290c-4e79-ae78-88b5d6cf215b'},
+                'conditions': []}}),
         kube.NodeItem(cluster, {
             'metadata': {
                 'name': 'nodename2',
@@ -70,7 +71,8 @@ def cluster(request):
             'status': {
                 'nodeInfo': {
                     'bootID':
-                        'f5c1d4bf-173f-5c51-bf32-97c4e2eg123e'}}})]
+                        'f5c1d4bf-173f-5c51-bf32-97c4e2eg123e'},
+                'conditions': []}})]
     pods = [
         kube.PodItem(cluster, {
             'metadata': {
@@ -121,7 +123,8 @@ def cluster_missing_node():
             'status': {
                 'nodeInfo': {
                     'bootID':
-                        'd4e0c0ae-290c-4e79-ae78-88b5d6cf215b'}}})]
+                        'd4e0c0ae-290c-4e79-ae78-88b5d6cf215b'},
+                'conditions': []}})]
     pods = [
         kube.PodItem(cluster, {
             'metadata': {
@@ -139,6 +142,89 @@ def cluster_missing_node():
         })]
     mock_cluster = types.SimpleNamespace(nodes=nodes, pods=pods)
     return mock_cluster
+
+@pytest.fixture
+def notready_node():
+    """"Fill in this"""
+    return {
+            'metadata': {
+                'name': 'nodename1',
+                'resourceVersion': '12903054',
+                'creationTimestamp': '2016-10-03T12:49:32Z',
+                'selfLink': '/api/v1/nodes/nodename1',
+                'uid': '7b211c2e-9644-11e6-8a78-42010af00021',
+            },
+            'spec': {
+                'externalID': '1234567890123456789',
+                'podCIDR': '10.100.0.0/10',
+                'providerID': 'def://default/default/default',
+            },
+            'status': {
+                'nodeInfo': {
+                    'bootID':
+                        'd4e0c0ae-290c-4e79-ae78-88b5d6cf215b'},
+                'conditions': [
+                    {
+                        'lastHeartbeatTime': '2017-11-14T13:49:16Z',
+                        'lastTransitionTime': '2017-08-31T08:50:07Z',
+                        'message': 'kernel has no deadlock',
+                        'reason': 'KernelHasNoDeadlock',
+                        'status': 'False',
+                        'type': 'KernelDeadlock'
+                    },
+                    {
+                        'lastHeartbeatTime': '2017-08-31T08:50:30Z',
+                        'lastTransitionTime': '2017-08-31T08:50:30Z',
+                        'message': 'RouteController created a route',
+                        'reason': 'RouteCreated',
+                        'status': 'False',
+                        'type': 'NetworkUnavailable'
+                    },
+                    {
+                        'lastHeartbeatTime': '2017-11-14T13:49:35Z',
+                        'lastTransitionTime': '2017-08-31T08:50:07Z',
+                        'message': 'kubelet has sufficient disk space available',
+                        'reason': 'KubeletHasSufficientDisk',
+                        'status': 'False',
+                        'type': 'OutOfDisk'
+                    },
+                    {
+                        'lastHeartbeatTime': '2017-11-14T13:49:35Z',
+                        'lastTransitionTime': '2017-08-31T08:50:07Z',
+                        'message': 'kubelet has sufficient memory available',
+                        'reason': 'KubeletHasSufficientMemory',
+                        'status': 'False',
+                        'type': 'MemoryPressure'
+                    },
+                    {
+                        'lastHeartbeatTime': '2017-11-14T13:49:35Z',
+                        'lastTransitionTime': '2017-08-31T08:50:07Z',
+                        'message': 'kubelet has no disk pressure',
+                        'reason': 'KubeletHasNoDiskPressure',
+                        'status': 'False',
+                        'type': 'DiskPressure'
+                    },
+                    {
+                        'lastHeartbeatTime': '2017-11-14T13:49:35Z',
+                        'lastTransitionTime': '2017-08-31T08:50:28Z',
+                        'message': 'kubelet is posting notready status. AppArmor enabled',
+                        'reason': 'KubeletNotReady',
+                        'status': 'False',
+                        'type': 'Ready'
+                    }
+                ],
+            }}
+
+@pytest.fixture
+def notready_pod():
+   return  {
+            'metadata': {
+                'name': 'podname1-v3-ut4bz',
+                'namespace': 'namespace1',
+            },
+            'spec': {
+                'nodeName': 'nodename1'}}
+
 
 
 @pytest.fixture
@@ -165,6 +251,7 @@ def entities_missing_nodename(node, cluster_missing_node):
     node._cluster = cluster_missing_node
     entities = node.entityd_emit_entities()
     return entities
+
 
 def test_NodeEntity_has_kube_cluster_instance(node):
     assert isinstance(node._cluster, kube._cluster.Cluster)
@@ -274,12 +361,62 @@ def test_k8s_unreachable(node, monkeypatch):
     assert list(generator) == []
     assert node._logged_k8s_unreachable is True
 
+
 def test_cordoned_node_entity(entities):
     while True:
         entity = next(entities)
         if entity.metype == 'Observation':
             assert entity.label == 'Node is cordoned'
-            assert entity.attrs.get('node').traits == {'entity:id',
+            assert entity.attrs.get('kubernetes:node').traits == {'entity:id',
                                                     'entity:ueid'}
             assert entity.attrs.get('start').traits == {'chrono:rfc3339'}
+            break
+
+
+@pytest.mark.parametrize('set_conditions', [
+    ['KernelDeadlock'],
+    ['NetworkUnavailable'],
+    ['OutOfDisk'],
+    ['MemoryPressure'],
+    ['DiskPressure'],
+    ['DiskPressure','MemoryPressure'],
+    [],
+])
+def test_not_ready_node_entity(notready_node,
+                               notready_pod,
+                               set_conditions,
+                               node):
+    for set_condition in set_conditions:
+        for condition in notready_node['status']['conditions']:
+            if condition['type'] == set_condition:
+                condition['status'] = 'True'
+                break
+    notready_nodes = [kube.NodeItem(cluster,notready_node)]
+    notready_pods = [kube.NodeItem(cluster,notready_pod)]
+    mock_cluster = types.SimpleNamespace(nodes=notready_nodes,
+                                         pods=notready_pods)
+    node._cluster = mock_cluster
+    entities = node.entityd_emit_entities()
+    while True:
+        entity = next(entities)
+        if entity.metype == 'Observation':
+            assert entity.label == 'Node is not ready'
+            attrs = entity.attrs
+            assert attrs.get('kubernetes:node').traits == {
+                'entity:id',
+                'entity:ueid',
+            }
+            assert attrs.get('start').traits == {'chrono:rfc3339'}
+            assert len(attrs.get('KernelDeadlock').value) == 6
+            assert attrs.get('KernelDeadlock').traits == set()
+            assert len(attrs.get('NetworkUnavailable').value) == 6
+            assert attrs.get('NetworkUnavailable').traits == set()
+            assert len(attrs.get('OutOfDisk').value) == 6
+            assert attrs.get('OutOfDisk').traits == set()
+            assert len(attrs.get('MemoryPressure').value) == 6
+            assert attrs.get('MemoryPressure').traits == set()
+            assert len(attrs.get('DiskPressure').value) == 6
+            assert attrs.get('DiskPressure').traits == set()
+            assert len(attrs.get('Ready').value) == 6
+            assert attrs.get('Ready').traits == set()
             break

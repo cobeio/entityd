@@ -116,6 +116,16 @@ class NodeEntity:
                         self.create_cordoned_observation(str(node_entity.ueid))
                     observation_entity.children.add(node_entity)
                     yield observation_entity
+                for condition in list(node.raw['status']['conditions']):
+                    if condition['type'] == 'Ready'\
+                            and condition['status'] != 'True':
+                        observation_entity = \
+                            self.create_not_ready_observation(
+                                node,
+                                str(node_entity.ueid),
+                            )
+                        observation_entity.children.add(node_entity)
+                        yield observation_entity
                 yield node_entity
         except requests.ConnectionError:
             if not self._logged_k8s_unreachable:
@@ -152,12 +162,29 @@ class NodeEntity:
     def create_cordoned_observation(self, ueid):
         """Generator of Cordoned Node Observation Entities."""
         update = entityd.EntityUpdate('Observation')
-        update.label = "Node is cordoned"
-        update.attrs.set('node', ueid, traits={'entity:id',
-                                               'entity:ueid'})
+        update.label = 'Node is cordoned'
+        update.attrs.set('kubernetes:node',
+                         ueid,
+                         traits={'entity:id', 'entity:ueid'})
+        update.attrs.set('observation-type', 'cordoned', traits={'entity:id'})
         update.attrs.set('start',
                          datetime.datetime.now().strftime(
                              entityd.kubernetes.RFC_3339_FORMAT),
-                         traits={'chrono:rfc3339'}
-                        )
+                         traits={'chrono:rfc3339'})
+        return update
+
+    def create_not_ready_observation(self, node, ueid):
+        """Generator of Not Ready Node Observation Entities."""
+        update = entityd.EntityUpdate('Observation')
+        update.label = 'Node is not ready'
+        update.attrs.set('kubernetes:node',
+                         ueid,
+                         traits={'entity:id', 'entity:ueid'})
+        update.attrs.set('observation-type', 'notready', traits={'entity:id'})
+        update.attrs.set('start',
+                         datetime.datetime.now().strftime(
+                             entityd.kubernetes.RFC_3339_FORMAT),
+                         traits={'chrono:rfc3339'})
+        for condition in node.raw['status']['conditions']:
+            update.attrs.set(condition['type'], list(condition))
         return update

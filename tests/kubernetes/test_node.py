@@ -361,13 +361,12 @@ def test_k8s_unreachable(node, monkeypatch):
     assert list(generator) == []
     assert node._logged_k8s_unreachable is True
 
-
 def test_cordoned_node_entity(entities):
     while True:
         entity = next(entities)
         if entity.metype == 'Observation':
             assert entity.label == 'Node is cordoned'
-            assert entity.attrs.get('kubernetes:node').traits == {'entity:id',
+            assert entity.attrs.get('node').traits == {'entity:id',
                                                     'entity:ueid'}
             assert entity.attrs.get('start').traits == {'chrono:rfc3339'}
             break

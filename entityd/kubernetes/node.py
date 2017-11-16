@@ -153,11 +153,17 @@ class NodeEntity:
         """Generator of Cordoned Node Observation Entities."""
         update = entityd.EntityUpdate('Observation')
         update.label = "Node is cordoned"
-        update.attrs.set('node', ueid, traits={'entity:id',
-                                               'entity:ueid'})
+        update.attrs.set('kubernetes:node',
+                         ueid,
+                         traits={'entity:id', 'entity:ueid'},
+                        )
+        update.attrs.set('observation-type',
+                         'cordoned',
+                         traits={'entity:id'},
+                        )
         update.attrs.set('start',
                          datetime.datetime.now().strftime(
                              entityd.kubernetes.RFC_3339_FORMAT),
-                         traits={'chrono:rfc3339'}
+                         traits={'chrono:rfc3339'},
                         )
         return update

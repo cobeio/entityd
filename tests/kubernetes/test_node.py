@@ -279,7 +279,9 @@ def test_cordoned_node_entity(entities):
         entity = next(entities)
         if entity.metype == 'Observation':
             assert entity.label == 'Node is cordoned'
-            assert entity.attrs.get('node').traits == {'entity:id',
+            assert entity.attrs.get('kubernetes:node').traits == {'entity:id',
                                                     'entity:ueid'}
             assert entity.attrs.get('start').traits == {'chrono:rfc3339'}
+            assert entity.attrs.get('observation-type').value == 'cordoned'
+            assert entity.attrs.get('observation-type').traits == {'entity:id'}
             break

@@ -265,7 +265,6 @@ class ProcessEntity:
             if 'pid' in attrs and len(attrs) == 1:
                 proc_containers = self.get_process_containers([attrs['pid']])
                 try:
-
                     proc = syskit.Process(attrs['pid'])
                 except syskit.NoSuchProcessError:
                     return
@@ -273,8 +272,12 @@ class ProcessEntity:
                                                 proc, proc_containers)
                 cpupc = self.get_all_cpu_percentages()
                 if cpupc:
-                    entity.attrs.set('cpu', cpupc[proc.pid],
-                                     traits={'metric:gauge', 'unit:percent'})
+                    try:
+                        entity.attrs.set('cpu', cpupc[proc.pid],
+                                         traits={'metric:gauge',
+                                                 'unit:percent'})
+                    except KeyError:
+                        pass
                 yield entity
             else:
                 for proc in self.processes():

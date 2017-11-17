@@ -715,3 +715,25 @@ class TestCpuUsage:
             else:
                 assert isinstance(pc, dict)
                 break
+
+    def test_missing_pid(self, monkeypatch, request,
+                         session, host_entity_plugin):   # pylint: disable=unused-argument
+        procent = entityd.processme.ProcessEntity()
+        _cpuusage = entityd.processme.CpuUsage
+        monkeypatch.setattr(entityd.processme, 'CpuUsage',
+                            lambda context, **kwargs: _cpuusage(context,
+                                                                interval=10))
+        procent.entityd_sessionstart(session)
+        request.addfinalizer(procent.entityd_sessionfinish)
+        time.sleep(0.1)
+        procent.cpu_usage_thread.update()
+        time.sleep(0.1)
+        popen = subprocess.Popen(["sleep", "5"],
+                                 stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE,
+                                )
+        request.addfinalizer(popen.kill)
+        pid = popen.pid
+        entity = next(procent.filtered_processes({'pid': pid}))
+        with pytest.raises(KeyError):
+            entity.attrs.get('cpu')

@@ -178,12 +178,29 @@ class NodeEntity:
         update.label = 'Node is not ready'
         update.attrs.set('kubernetes:node',
                          ueid,
-                         traits={'entity:id', 'entity:ueid'})
+                         traits={'entity:id', 'entity:ueid'},
+                        )
         update.attrs.set('observation-type', 'notready', traits={'entity:id'})
         update.attrs.set('start',
                          datetime.datetime.now().strftime(
                              entityd.kubernetes.RFC_3339_FORMAT),
-                         traits={'chrono:rfc3339'})
+                         traits={'chrono:rfc3339'},
+                        )
+        update.attrs.set('kind', value='NotReady', traits=[])
+        update.attrs.set('message',
+                         value='The node is not ready.',
+                         traits=[],
+                        )
+        update.attrs.set('hints',
+                         value="Check the node's condition"
+                               "attributes to discover why.",
+                         traits=[],
+                        )
+        update.attrs.set('importance', 6, traits=[])
+        update.attrs.set('urgency', 6, traits=[])
+        update.attrs.set('certainty', 10, traits=[])
         for condition in node.raw['status']['conditions']:
-            update.attrs.set(condition['type'], list(condition))
+            update.attrs.set('condition:' + condition['type'],
+                             list(condition),
+                            )
         return update

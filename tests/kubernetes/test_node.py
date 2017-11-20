@@ -401,21 +401,35 @@ def test_not_ready_node_entity(notready_node,
         if entity.metype == 'Observation':
             assert entity.label == 'Node is not ready'
             attrs = entity.attrs
+            assert attrs.get('kubernetes:node')
             assert attrs.get('kubernetes:node').traits == {
                 'entity:id',
                 'entity:ueid',
             }
+            assert entity.attrs.get('start')
             assert attrs.get('start').traits == {'chrono:rfc3339'}
-            assert len(attrs.get('KernelDeadlock').value) == 6
-            assert attrs.get('KernelDeadlock').traits == set()
-            assert len(attrs.get('NetworkUnavailable').value) == 6
-            assert attrs.get('NetworkUnavailable').traits == set()
-            assert len(attrs.get('OutOfDisk').value) == 6
-            assert attrs.get('OutOfDisk').traits == set()
-            assert len(attrs.get('MemoryPressure').value) == 6
-            assert attrs.get('MemoryPressure').traits == set()
-            assert len(attrs.get('DiskPressure').value) == 6
-            assert attrs.get('DiskPressure').traits == set()
-            assert len(attrs.get('Ready').value) == 6
-            assert attrs.get('Ready').traits == set()
+            assert entity.attrs.get('kind').value == 'NotReady'
+            assert entity.attrs.get('kind').traits == set()
+            assert entity.attrs.get('message').value
+            assert entity.attrs.get('message').traits == set()
+            assert entity.attrs.get('hints').value
+            assert entity.attrs.get('hints').traits == set()
+            assert entity.attrs.get('importance').value
+            assert entity.attrs.get('importance').traits == set()
+            assert entity.attrs.get('urgency').value
+            assert entity.attrs.get('urgency').traits == set()
+            assert entity.attrs.get('certainty').value
+            assert entity.attrs.get('certainty').traits == set()
+            assert len(attrs.get('condition:KernelDeadlock').value) == 6
+            assert attrs.get('condition:KernelDeadlock').traits == set()
+            assert len(attrs.get('condition:NetworkUnavailable').value) == 6
+            assert attrs.get('condition:NetworkUnavailable').traits == set()
+            assert len(attrs.get('condition:OutOfDisk').value) == 6
+            assert attrs.get('condition:OutOfDisk').traits == set()
+            assert len(attrs.get('condition:MemoryPressure').value) == 6
+            assert attrs.get('condition:MemoryPressure').traits == set()
+            assert len(attrs.get('condition:DiskPressure').value) == 6
+            assert attrs.get('condition:DiskPressure').traits == set()
+            assert len(attrs.get('condition:Ready').value) == 6
+            assert attrs.get('condition:Ready').traits == set()
             break

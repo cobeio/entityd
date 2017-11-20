@@ -151,7 +151,6 @@ class NodeEntity:
 
     def create_cordoned_observation(self, ueid):
         """Generator of Cordoned Node Observation Entities."""
-
         update = entityd.EntityUpdate('Observation')
         update.label = "Node is cordoned"
         update.attrs.set('kubernetes:node',

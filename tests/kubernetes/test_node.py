@@ -274,6 +274,7 @@ def test_k8s_unreachable(node, monkeypatch):
     assert list(generator) == []
     assert node._logged_k8s_unreachable is True
 
+
 def test_cordoned_node_entity(entities):
     while True:
         entity = next(entities)

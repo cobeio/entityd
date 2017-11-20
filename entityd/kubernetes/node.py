@@ -151,6 +151,7 @@ class NodeEntity:
 
     def create_cordoned_observation(self, ueid):
         """Generator of Cordoned Node Observation Entities."""
+
         update = entityd.EntityUpdate('Observation')
         update.label = "Node is cordoned"
         update.attrs.set('kubernetes:node',
@@ -166,4 +167,15 @@ class NodeEntity:
                              entityd.kubernetes.RFC_3339_FORMAT),
                          traits={'chrono:rfc3339'},
                         )
+        update.attrs.set('kind', value='Unschedulable', traits=[])
+        update.attrs.set('message',
+                         value='The node has been cordoned '
+                         'and is unschedulable.', traits=[])
+        update.attrs.set('hints',
+                         value='Uncordon this node '
+                               'to make it schedulable.',
+                         traits=[])
+        update.attrs.set('importance', 2, traits=[])
+        update.attrs.set('urgency', 2, traits=[])
+        update.attrs.set('certainty', 10, traits=[])
         return update

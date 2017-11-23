@@ -145,7 +145,10 @@ def cluster_missing_node():
 
 @pytest.fixture
 def notready_node():
-    """"Fill in this"""
+    """Mock of ``kube.Node`` that includes conditions which can be used to
+    test the generation of 'NotReady' observations based on various different
+    causes.
+    """
     return {
             'metadata': {
                 'name': 'nodename1',
@@ -217,7 +220,10 @@ def notready_node():
 
 @pytest.fixture
 def notready_pod():
-   return  {
+    """Mock of a ``kube.Pod`` that can be used with notready_node in order
+     to generate a mock cluster.
+    """
+    return  {
             'metadata': {
                 'name': 'podname1-v3-ut4bz',
                 'namespace': 'namespace1',

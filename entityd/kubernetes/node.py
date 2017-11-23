@@ -135,7 +135,7 @@ class NodeEntity:
             self._logged_k8s_unreachable = False
 
     def create_entity(self, node, nodepods):
-        """Generator of Kubernetes Node Entities."""
+        """Creator of Kubernetes Node Entities."""
         meta = node.meta
         node_name = meta.name
         update = entityd.EntityUpdate('Host')
@@ -160,7 +160,7 @@ class NodeEntity:
         return update
 
     def create_cordoned_observation(self, ueid):
-        """Generator of Cordoned Node Observation Entities."""
+        """Creator of Cordoned Node Observation Entities."""
         update = entityd.EntityUpdate('Observation')
         update.label = "Node is cordoned"
         update.attrs.set('node', ueid, traits={'entity:id',
@@ -173,7 +173,7 @@ class NodeEntity:
         return update
 
     def create_not_ready_observation(self, node, ueid):
-        """Generator of Not Ready Node Observation Entities."""
+        """Creator of Not Ready Node Observation Entities."""
         update = entityd.EntityUpdate('Observation')
         update.label = 'Node is not ready'
         update.attrs.set('kubernetes:node',

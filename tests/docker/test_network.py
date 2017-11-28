@@ -60,6 +60,25 @@ def local_network():
 
 
 @pytest.fixture
+def local_network_no_labels():
+    network = pytest.MagicMock()
+    network.id = 'bbbb'
+    network.attrs = {
+        'Containers': {},
+        'Driver': 'bridge',
+        'EnableIPv6': False,
+        'Id': network.id,
+        'Ingress': False,
+        'Internal': False,
+        'Labels': None,
+        'Name': 'local-network',
+        'Options': {},
+        'Scope': 'local'}
+
+    return network
+
+
+@pytest.fixture
 def networks(monkeypatch):
     def make_client(client_info, networks):
         get_client = pytest.MagicMock()
@@ -76,18 +95,7 @@ def test_docker_not_available(monkeypatch):
                         pytest.MagicMock(side_effect=DockerException))
     docker_network = DockerNetwork()
 
-    assert not list(docker_network.entityd_find_entity(docker_network.name))
-
-
-def test_attrs_raises_exception():
-    with pytest.raises(LookupError):
-        docker_network = DockerNetwork()
-        docker_network.entityd_find_entity(DockerNetwork.name, attrs="foo")
-
-
-def test_not_provided():
-    docker_network = DockerNetwork()
-    assert docker_network.entityd_find_entity('foo') is None
+    assert not list(docker_network.entityd_emit_entities())
 
 
 def test_get_ueid():
@@ -112,23 +120,38 @@ def test_find_entities_no_swarm(session, docker_network,
     daemon_ueid = entityd.docker.get_ueid(
         'DockerDaemon', client_info['ID'])
 
-    docker_network.entityd_configure(session.config)
-    entities = docker_network.entityd_find_entity(DockerNetwork.name)
-    entities = list(entities)
-    assert len(entities) == len(testing_networks)
+    entities = list(docker_network.entityd_emit_entities())
+    network_entities = [x for x in entities if x.metype == DockerNetwork.name]
+    assert len(network_entities) == len(testing_networks)
 
-    for entity, network in zip(entities, testing_networks):
+    for entity, network in zip(network_entities, testing_networks):
         assert entity.label == network.attrs['Name']
         assert entity.attrs.get('id').value == network.attrs['Id']
         assert entity.attrs.get('id').traits == {'entity:id'}
-        assert entity.attrs.get('labels').value == network.attrs['Labels']
         assert entity.attrs.get('options').value == network.attrs['Options']
         assert entity.attrs.get('driver').value == network.attrs['Driver']
-        assert entity.attrs.get('ipv6-enabled').value == network.attrs['EnableIPv6']
+        assert entity.attrs.get('ipv6-enabled').value ==\
+               network.attrs['EnableIPv6']
         assert entity.attrs.get('ingress').value == network.attrs['Ingress']
         assert entity.attrs.get('internal').value == network.attrs['Internal']
         assert entity.attrs.get('scope').value == network.attrs['Scope']
         assert daemon_ueid in entity.parents
+
+
+def test_find_entities_no_labels(session, docker_network,
+                                local_network_no_labels, networks):
+    client_info = {
+        'ID': 'foo',
+        'Name': 'bar',
+        'Swarm': {
+            'LocalNodeState': 'inactive',
+            'NodeID': '',
+        },
+    }
+
+    testing_networks = [local_network_no_labels]
+    networks(client_info, testing_networks)
+    assert list(docker_network.entityd_emit_entities())
 
 
 def test_find_entities_swarm_manager(session, docker_network, swarm_network,
@@ -162,16 +185,14 @@ def test_find_entities_swarm_manager(session, docker_network, swarm_network,
     daemon_ueid = entityd.docker.get_ueid(
         'DockerDaemon', client_info['ID'])
 
-    docker_network.entityd_configure(session.config)
-    entities = docker_network.entityd_find_entity(DockerNetwork.name)
-    entities = list(entities)
-    assert len(entities) == 2
+    entities = docker_network.entityd_emit_entities()
+    network_entities = [x for x in entities if x.metype == DockerNetwork.name]
+    assert len(network_entities) == 2
 
-    for entity, network in zip(entities, testing_networks) :
+    for entity, network in zip(network_entities, testing_networks) :
         assert entity.label == network.attrs['Name']
         assert entity.attrs.get('id').value == network.attrs['Id']
         assert entity.attrs.get('id').traits == {'entity:id'}
-        assert entity.attrs.get('labels').value == network.attrs['Labels']
         assert entity.attrs.get('options').value == network.attrs['Options']
         assert entity.attrs.get('driver').value == network.attrs['Driver']
         assert entity.attrs.get('ipv6-enabled').value == network.attrs['EnableIPv6']
@@ -215,16 +236,14 @@ def test_find_entities_swarm_worker(session, docker_network, swarm_network,
     daemon_ueid = entityd.docker.get_ueid(
         'DockerDaemon', client_info['ID'])
 
-    docker_network.entityd_configure(session.config)
-    entities = docker_network.entityd_find_entity(DockerNetwork.name)
-    entities = list(entities)
-    assert len(entities) == 2
+    entities = list(docker_network.entityd_emit_entities())
+    network_entities = [x for x in entities if x.metype == DockerNetwork.name]
+    assert len(network_entities) == 2
 
-    for entity, network in zip(entities, testing_networks) :
+    for entity, network in zip(network_entities, testing_networks) :
         assert entity.label == network.attrs['Name']
         assert entity.attrs.get('id').value == network.attrs['Id']
         assert entity.attrs.get('id').traits == {'entity:id'}
-        assert entity.attrs.get('labels').value == network.attrs['Labels']
         assert entity.attrs.get('options').value == network.attrs['Options']
         assert entity.attrs.get('driver').value == network.attrs['Driver']
         assert entity.attrs.get('ipv6-enabled').value == network.attrs['EnableIPv6']
@@ -233,7 +252,6 @@ def test_find_entities_swarm_worker(session, docker_network, swarm_network,
         scope = network.attrs['Scope']
         assert entity.attrs.get('scope').value == scope
 
-        assert entity.attrs.get('labels').traits == set()
         assert entity.attrs.get('options').traits == set()
         assert entity.attrs.get('driver').traits == set()
         assert entity.attrs.get('ipv6-enabled').traits == set()
@@ -245,3 +263,17 @@ def test_find_entities_swarm_worker(session, docker_network, swarm_network,
             assert daemon_ueid in entity.parents
         elif scope == "swarm":
             assert swarm_ueid in entity.parents
+
+        group_entities = [x for x in entities if x.metype == 'Group']
+        assert len(group_entities) == 2
+
+        for entity in group_entities:
+            if entity.attrs.get('kind').value == 'label:foo':
+                assert entity.attrs.get('id').value == 'bar'
+            elif entity.attrs.get('kind').value == 'label:monty':
+                assert entity.attrs.get('id').value == 'python'
+            else:
+                assert False
+            assert entity.attrs.get('kind').traits == {'entity:id'}
+            assert entity.attrs.get('id').traits == {'entity:id'}
+

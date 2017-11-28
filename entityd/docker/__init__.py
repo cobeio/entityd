@@ -41,21 +41,9 @@ class BaseDocker(metaclass=abc.ABCMeta):
     name = None
 
     @entityd.pm.hookimpl
-    def entityd_configure(self, config):
-        """Register the Docker Entity."""
-        cls = self.__class__
-        config.addentity(self.name, cls.__module__ + "." + cls.__name__)
-        log.info('Adding docker entity name {} ({})'.format(
-            self.name, cls.__module__ + "." + cls.__name__))
-
-    @entityd.pm.hookimpl
-    def entityd_find_entity(self, name, attrs=None,
-                            include_ondemand=False):  # pylint: disable=unused-argument
-        """Find the docker entities."""
-        if name == self.name:
-            if attrs is not None:
-                raise LookupError('Attribute based filtering not supported')
-            return self.generate_updates()
+    def entityd_emit_entities(self):
+        """Generate all Docker daemon entity updates."""
+        yield from self.generate_updates()
 
     @abc.abstractmethod
     def generate_updates(self):

@@ -22,18 +22,7 @@ def test_docker_not_available(monkeypatch):
                         pytest.MagicMock(side_effect=DockerException))
     docker_swarm = DockerSwarm()
 
-    assert not list(docker_swarm.entityd_find_entity(docker_swarm.name))
-
-
-def test_attrs_raises_exception():
-    with pytest.raises(LookupError):
-        docker_swarm = DockerSwarm()
-        docker_swarm.entityd_find_entity(DockerSwarm.name, attrs="foo")
-
-
-def test_not_provided():
-    docker_swarm = DockerSwarm()
-    assert docker_swarm.entityd_find_entity('foo') is None
+    assert not list(docker_swarm.entityd_emit_entities())
 
 
 def test_get_ueid():
@@ -58,13 +47,11 @@ def test_non_swarm_docker(monkeypatch, session, docker_swarm):
     client_instance.info.return_value = client_info
     monkeypatch.setattr(DockerClient, "get_client", get_client)
 
-    docker_swarm.entityd_configure(session.config)
-    entities = docker_swarm.entityd_find_entity(docker_swarm.name)
-    entities = list(entities)
+    entities = list(docker_swarm.entityd_emit_entities())
     assert len(entities) == 0
 
 
-def test_find_entities(monkeypatch, session, docker_swarm):
+def test_emit_entities(monkeypatch, session, docker_swarm):
     raft = {
         'ElectionTick': 3,
         'HeartbeatTick': 1,
@@ -104,9 +91,7 @@ def test_find_entities(monkeypatch, session, docker_swarm):
     client_instance.info.return_value = client_info
     monkeypatch.setattr(DockerClient, "get_client", get_client)
 
-    docker_swarm.entityd_configure(session.config)
-    entities = docker_swarm.entityd_find_entity(docker_swarm.name)
-    entities = list(entities)
+    entities = list(docker_swarm.entityd_emit_entities())
     assert len(entities) == 1
 
     entity = entities[0]
@@ -148,3 +133,99 @@ def test_find_entities(monkeypatch, session, docker_swarm):
     assert (entity.attrs.get(
         'raft:log-entries-for-slow-followers').traits == set())
     assert entity.attrs.get('raft:snapshot-interval').traits == set()
+
+def test_emit_entities_with_Label(monkeypatch, session, docker_swarm):
+    raft = {
+        'ElectionTick': 3,
+        'HeartbeatTick': 1,
+        'KeepOldSnapshots': 0,
+        'LogEntriesForSlowFollowers': 500,
+        'SnapshotInterval': 10000,
+    }
+
+    spec = {
+        'EncryptionConfig': {'AutoLockManagers': False},
+        'Labels': {'foo':'bar'},
+        'Name': 'default',
+        'Raft': raft,
+    }
+
+    cluster = {
+        'CreatedAt': '2017-09-18T11:02:01.903734295Z',
+        'ID': 'v1w5dux11fec5252r3hciqgzp',
+        'Spec': spec,
+    }
+
+    swarm = {
+        'Cluster': cluster,
+        'ControlAvailable': True,
+        'Error': '',
+        'LocalNodeState': 'active',
+        'Managers': 1,
+        'Nodes': 1,
+        'NodeID': 'aaaa',
+        'RemoteManagers': [{'NodeID': 'aaaa'}],
+    }
+
+    client_info = {'Swarm': swarm}
+
+    get_client = pytest.MagicMock()
+    client_instance = get_client.return_value
+    client_instance.info.return_value = client_info
+    monkeypatch.setattr(DockerClient, "get_client", get_client)
+
+    entities = list(docker_swarm.entityd_emit_entities())
+    assert len(entities) == 2
+    group_entities = [x for x in entities if x.metype == 'Group']
+    assert len(group_entities) == 1
+    entity = group_entities[0]
+    assert entity.attrs.get('kind').value == 'label:foo'
+    assert entity.attrs.get('id').value == 'bar'
+    assert entity.attrs.get('kind').traits == {'entity:id'}
+    assert entity.attrs.get('id').traits == {'entity:id'}
+
+
+def test_emit_entities_with_Label_None(monkeypatch, session, docker_swarm):
+    raft = {
+        'ElectionTick': 3,
+        'HeartbeatTick': 1,
+        'KeepOldSnapshots': 0,
+        'LogEntriesForSlowFollowers': 500,
+        'SnapshotInterval': 10000,
+    }
+
+    spec = {
+        'EncryptionConfig': {'AutoLockManagers': False},
+        'Labels': None,
+        'Name': 'default',
+        'Raft': raft,
+    }
+
+    cluster = {
+        'CreatedAt': '2017-09-18T11:02:01.903734295Z',
+        'ID': 'v1w5dux11fec5252r3hciqgzp',
+        'Spec': spec,
+    }
+
+    swarm = {
+        'Cluster': cluster,
+        'ControlAvailable': True,
+        'Error': '',
+        'LocalNodeState': 'active',
+        'Managers': 1,
+        'Nodes': 1,
+        'NodeID': 'aaaa',
+        'RemoteManagers': [{'NodeID': 'aaaa'}],
+    }
+
+    client_info = {'Swarm': swarm}
+
+    get_client = pytest.MagicMock()
+    client_instance = get_client.return_value
+    client_instance.info.return_value = client_info
+    monkeypatch.setattr(DockerClient, "get_client", get_client)
+
+    entities = list(docker_swarm.entityd_emit_entities())
+    assert len(entities) == 1
+
+

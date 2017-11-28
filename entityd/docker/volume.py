@@ -23,7 +23,7 @@ class DockerVolume(BaseDocker):
         update.label = volume.attrs['Name']
         update.attrs.set('daemon-id', daemon_id, traits={'entity:id'})
         update.attrs.set('name', volume.attrs['Name'], traits={'entity:id'})
-        update.attrs.set('labels', volume.attrs.get('Labels'))
+        # update.attrs.set('labels', volume.attrs.get('Labels'))
         update.attrs.set('options', volume.attrs.get('Options'))
         update.attrs.set('driver', volume.attrs.get('Driver'))
         update.attrs.set('mount-point', volume.attrs.get('Mountpoint'))
@@ -44,8 +44,25 @@ class DockerVolume(BaseDocker):
 
             daemon_ueid = get_ueid('DockerDaemon', client_info['ID'])
             update.parents.add(daemon_ueid)
-
+            yield from self._generate_label_entities(volume, update)
             yield update
+
+    def _generate_label_entities(self, volume, update):
+        """Generate update for a Docker label."""
+        try:
+            for label_key, label_value in \
+                    volume.attrs.get('Labels').items():
+                label_entity = EntityUpdate('Group')
+                label_entity.label = "{0} = {1}".format(label_key,
+                                                        label_value)
+                label_entity.attrs.set('kind', 'label:' + label_key,
+                                       {'entity:id'})
+                label_entity.attrs.set('id', label_value,
+                                       {'entity:id'})
+                label_entity.children.add(update)
+                yield label_entity
+        except AttributeError:
+            pass
 
 
 class DockerVolumeMount(BaseDocker):

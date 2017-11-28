@@ -36,7 +36,22 @@ def volume():
     volume.name = 'volume1'
     volume.attrs = {
         'Driver': 'local',
-        'Labels': {},
+        'Labels': {'label':'test_label'},
+        'Mountpoint': '/var/lib/docker/volumes/aaaa/_data',
+        'Name': volume.name,
+        'Options': {},
+        'Scope': 'local',
+    }
+
+    return volume
+
+@pytest.fixture
+def volume_no_labels():
+    volume = pytest.MagicMock()
+    volume.name = 'volume1'
+    volume.attrs = {
+        'Driver': 'local',
+        'Labels': None,
         'Mountpoint': '/var/lib/docker/volumes/aaaa/_data',
         'Name': volume.name,
         'Options': {},
@@ -56,18 +71,7 @@ def test_docker_not_available(entity_class, monkeypatch):
                         pytest.MagicMock(side_effect=DockerException))
     instance = entity_class()
 
-    assert not list(instance.entityd_find_entity(entity_class.name))
-
-
-def test_attrs_raises_exception(entity_class):
-    instance = entity_class()
-    with pytest.raises(LookupError):
-        instance.entityd_find_entity(entity_class.name, attrs="foo")
-
-
-def test_not_provided(entity_class):
-    docker_volume = entity_class()
-    assert docker_volume.entityd_find_entity('foo') is None
+    assert not list(instance.entityd_emit_entities())
 
 
 def test_get_ueid(entity_class):
@@ -91,16 +95,14 @@ def test_find_volumes_no_swarm(session, docker_client, docker_volume, volume):
     testing_volumes = [volume]
     docker_client(client_info=client_info, volumes=testing_volumes)
 
-    docker_volume.entityd_configure(session.config)
-    entities = docker_volume.entityd_find_entity(DockerVolume.name)
-    entities = list(entities)
-    assert len(entities) == len(testing_volumes)
+    entities = list(docker_volume.entityd_emit_entities())
+    volume_entities = [x for x in entities if x.metype == DockerVolume.name]
+    assert len(volume_entities) == len(testing_volumes)
 
-    for entity, volume in zip(entities, testing_volumes):
+    for entity, volume in zip(volume_entities, testing_volumes):
         assert entity.label == volume.attrs['Name']
         assert entity.attrs.get('daemon-id').value == daemon_id
         assert entity.attrs.get('name').value == volume.attrs['Name']
-        assert entity.attrs.get('labels').value == volume.attrs['Labels']
         assert entity.attrs.get('options').value == volume.attrs['Options']
         assert entity.attrs.get('driver').value == volume.attrs['Driver']
         assert entity.attrs.get('mount-point').value == volume.attrs['Mountpoint']
@@ -108,7 +110,6 @@ def test_find_volumes_no_swarm(session, docker_client, docker_volume, volume):
 
         assert entity.attrs.get('daemon-id').traits == {'entity:id'}
         assert entity.attrs.get('name').traits == {'entity:id'}
-        assert entity.attrs.get('labels').traits == set()
         assert entity.attrs.get('options').traits == set()
         assert entity.attrs.get('driver').traits == set()
         assert entity.attrs.get('mount-point').traits == set()
@@ -116,6 +117,13 @@ def test_find_volumes_no_swarm(session, docker_client, docker_volume, volume):
 
         assert len(entity.parents) == 1
         assert daemon_ueid in entity.parents
+
+    group_entities = [x for x in entities if x.metype == 'Group']
+    assert len(group_entities) == len(testing_volumes)
+
+    for entity in group_entities:
+        assert entity.attrs.get('kind').value == 'label:label'
+        assert entity.attrs.get('id').value == 'test_label'
 
 
 def test_find_volumes_with_swarm(session, docker_client, docker_volume, volume):
@@ -145,16 +153,14 @@ def test_find_volumes_with_swarm(session, docker_client, docker_volume, volume):
     testing_volumes = [volume]
     docker_client(client_info=client_info, volumes=testing_volumes)
 
-    docker_volume.entityd_configure(session.config)
-    entities = docker_volume.entityd_find_entity(DockerVolume.name)
-    entities = list(entities)
-    assert len(entities) == len(testing_volumes)
+    entities = list(docker_volume.entityd_emit_entities())
+    volume_entities = [x for x in entities if x.metype == DockerVolume.name]
+    assert len(volume_entities) == len(testing_volumes)
 
-    for entity, volume in zip(entities, testing_volumes):
+    for entity, volume in zip(volume_entities, testing_volumes):
         assert entity.label == volume.attrs['Name']
         assert entity.attrs.get('daemon-id').value == daemon_id
         assert entity.attrs.get('name').value == volume.attrs['Name']
-        assert entity.attrs.get('labels').value == volume.attrs['Labels']
         assert entity.attrs.get('options').value == volume.attrs['Options']
         assert entity.attrs.get('driver').value == volume.attrs['Driver']
         assert entity.attrs.get('mount-point').value == volume.attrs['Mountpoint']
@@ -162,7 +168,6 @@ def test_find_volumes_with_swarm(session, docker_client, docker_volume, volume):
 
         assert entity.attrs.get('daemon-id').traits == {'entity:id'}
         assert entity.attrs.get('name').traits == {'entity:id'}
-        assert entity.attrs.get('labels').traits == set()
         assert entity.attrs.get('options').traits == set()
         assert entity.attrs.get('driver').traits == set()
         assert entity.attrs.get('mount-point').traits == set()
@@ -170,6 +175,30 @@ def test_find_volumes_with_swarm(session, docker_client, docker_volume, volume):
 
         assert len(entity.parents) == 1
         assert daemon_ueid in entity.parents
+
+    group_entities = [x for x in entities if x.metype == 'Group']
+    assert len(group_entities) == len(testing_volumes)
+
+    for entity in group_entities:
+        assert entity.attrs.get('kind').value == 'label:label'
+        assert entity.attrs.get('id').value == 'test_label'
+        assert entity.attrs.get('kind').traits == {'entity:id'}
+        assert entity.attrs.get('id').traits == {'entity:id'}
+
+def test_find_volumes_no_label(session, docker_client, docker_volume,
+                               volume_no_labels):
+    daemon_id = 'foo'
+    client_info = {
+        'ID': daemon_id,
+        'Name': 'bar',
+        'Swarm': {
+            'LocalNodeState': 'inactive',
+            'NodeID': '',
+        },
+    }
+    testing_volumes = [volume_no_labels]
+    docker_client(client_info=client_info, volumes=testing_volumes)
+    assert list(docker_volume.entityd_emit_entities())
 
 
 def test_find_mounts_no_swarm(session, docker_client, docker_volume_mount,
@@ -189,9 +218,7 @@ def test_find_mounts_no_swarm(session, docker_client, docker_volume_mount,
     docker_client(client_info=client_info,
                   containers=testing_containers, volumes=testing_volumes)
 
-    docker_volume_mount.entityd_configure(session.config)
-    entities = docker_volume_mount.entityd_find_entity(DockerVolumeMount.name)
-    entities = list(entities)
+    entities = list(docker_volume_mount.entityd_emit_entities())
     assert len(entities) == len(testing_containers)
 
     mounts_and_containers = []

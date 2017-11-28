@@ -250,18 +250,7 @@ def test_docker_not_available(monkeypatch):
                         pytest.MagicMock(side_effect=DockerException))
     docker_service = DockerService()
 
-    assert not list(docker_service.entityd_find_entity(docker_service.name))
-
-
-def test_attrs_raises_exception():
-    with pytest.raises(LookupError):
-        docker_service = DockerService()
-        docker_service.entityd_find_entity(DockerService.name, attrs="foo")
-
-
-def test_not_provided():
-    docker_service = DockerService()
-    assert docker_service.entityd_find_entity('foo') is None
+    assert not list(docker_service.entityd_emit_entities())
 
 
 def test_get_ueid():
@@ -282,10 +271,8 @@ def test_find_entities_no_swarm(session, docker_service, services):
     testing_services = []
     services(client_info, testing_services)
 
-    docker_service.entityd_configure(session.config)
     docker_service.entityd_collection_before(session)
-    entities = docker_service.entityd_find_entity(DockerService.name)
-    entities = list(entities)
+    entities = list(docker_service.entityd_emit_entities())
     docker_service.entityd_collection_after(session, None)
     assert len(entities) == 0
 
@@ -320,24 +307,25 @@ def test_find_entities_with_swarm(session, docker_service, services,
         'DockerSwarm', cluster['ID'])
 
     network_ueid = entityd.docker.get_ueid(
-        'DockerNetwork', replicated_service.attrs['Spec']['TaskTemplate']['Networks'][0]['Target'])
-    docker_service.entityd_configure(session.config)
+        'DockerNetwork', replicated_service.attrs['Spec']
+        ['TaskTemplate']['Networks'][0]['Target'])
     docker_service.entityd_collection_before(session)
-    entities = docker_service.entityd_find_entity(DockerService.name)
-    entities = list(entities)
+    entities = list(docker_service.entityd_emit_entities())
+    service_entities = [x for x in entities if x.metype == DockerService.name]
     docker_service.entityd_collection_after(session, None)
-    assert len(entities) == 2
+    assert len(service_entities) == 2
 
-    entities = sorted(entities, key=lambda entity: entity.attrs.get('id').value)
+    service_entities = sorted(service_entities,
+                              key=lambda entity: entity.attrs.get('id').value)
 
-    for entity, service in zip(entities, testing_services) :
+    for entity, service in zip(service_entities, testing_services) :
         assert entity.attrs.get('id').value == service.attrs['ID']
-        assert entity.attrs.get('labels').value == service.attrs['Spec']['Labels']
 
         mode_attrs = service['Spec']['Mode']
         if "Replicated" in mode_attrs:
             assert entity.attrs.get('mode').value == 'replicated'
-            assert entity.attrs.get('desired-replicas').value == mode_attrs['Replicated']['Replicas']
+            assert entity.attrs.get('desired-replicas').value ==\
+                   mode_attrs['Replicated']['Replicas']
 
             assert entity.attrs.get('mode').traits == set()
             assert entity.attrs.get('desired-replicas').traits == set()
@@ -346,7 +334,6 @@ def test_find_entities_with_swarm(session, docker_service, services,
             assert entity.attrs.get('mode').traits == set()
 
         assert entity.attrs.get('id').traits == {'entity:id'}
-        assert entity.attrs.get('labels').traits == set()
 
         for key, value in service.states.items():
             assert entity.attrs.get('replicas:' + key).value == value
@@ -359,3 +346,48 @@ def test_find_entities_with_swarm(session, docker_service, services,
         assert len(entity.parents) == 2
         assert swarm_ueid in entity.parents
         assert network_ueid in entity.parents
+
+    group_entities = [x for x in entities if x.metype == 'Group']
+    assert len(group_entities) == 2
+
+    for entity in group_entities:
+        assert entity.attrs.get('kind').value == 'label:label1'
+        assert entity.attrs.get('id').value == 'value1'
+        assert entity.attrs.get('kind').traits == {'entity:id'}
+        assert entity.attrs.get('id').traits == {'entity:id'}
+
+def test_find_entities_no_labels(session, docker_service, services,
+                                  global_service, replicated_service):
+    cluster = {
+        'ID': 'v1w5dux11fec5252r3hciqgzp',
+    }
+
+    swarm = {
+        'Cluster': cluster,
+        'ControlAvailable': True,
+        'Error': '',
+        'LocalNodeState': 'active',
+        'Managers': 1,
+        'Nodes': 1,
+        'NodeID': 'aaaa',
+        'RemoteManagers': [{'NodeID': 'aaaa'}],
+    }
+
+    client_info = {
+        'ID': 'foo',
+        'Name': 'bar',
+        'Swarm': swarm,
+    }
+    replicated_service.attrs['Spec']['Labels'] = None
+    testing_services = [replicated_service, global_service]
+    services(client_info, testing_services)
+
+    swarm_ueid = entityd.docker.get_ueid(
+        'DockerSwarm', cluster['ID'])
+
+    network_ueid = entityd.docker.get_ueid(
+        'DockerNetwork', replicated_service.attrs['Spec']
+        ['TaskTemplate']['Networks'][0]['Target'])
+    docker_service.entityd_collection_before(session)
+    assert list(docker_service.entityd_emit_entities())
+

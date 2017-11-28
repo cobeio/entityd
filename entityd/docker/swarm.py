@@ -19,19 +19,9 @@ class DockerSwarm:
     name = 'Docker:Swarm'
 
     @entityd.pm.hookimpl
-    def entityd_configure(self, config):
-        """Register the Process Monitored Entity."""
-        config.addentity(self.name, 'entityd.docker.swarm.DockerSwarm')
-
-    @entityd.pm.hookimpl
-    def entityd_find_entity(self, name, attrs=None,
-                            include_ondemand=False):  # pylint: disable=unused-argument
-        """Find the docker swarm entity."""
-
-        if name == self.name:
-            if attrs is not None:
-                raise LookupError('Attribute based filtering not supported')
-            return self.generate_updates()
+    def entityd_emit_entities(self):
+        """Generate all Docker daemon entity updates."""
+        yield from self.generate_updates()
 
     @classmethod
     def get_ueid(cls, docker_swarm_id):
@@ -94,8 +84,26 @@ class DockerSwarm:
             for node in client.nodes.list():
                 update.children.add(entityd.docker.get_ueid(
                     'DockerNode', node.attrs['ID']))
-
+            yield from self._generate_label_entities(swarm_spec, update)
             yield update
+
+    def _generate_label_entities(self, swarm_spec, update):
+        """Generate update for a Docker label."""
+        try:
+            for label_key, label_value in \
+                    swarm_spec.get('Labels').items():
+                label_entity = entityd.EntityUpdate('Group')
+                label_entity.label = "{0} = {1}".format(label_key, label_value)
+                label_entity.attrs.set('kind',
+                                       'label:' + label_key,
+                                       {'entity:id'},
+                                      )
+                label_entity.attrs.set('id', label_value, {'entity:id'})
+                label_entity.children.add(update)
+                yield label_entity
+        except AttributeError:
+            pass
+
 
 
 class DockerNode:
@@ -103,18 +111,9 @@ class DockerNode:
     name = 'Docker:Node'
 
     @entityd.pm.hookimpl
-    def entityd_configure(self, config):
-        """Register the Docker Node Entity."""
-        config.addentity(self.name, 'entityd.docker.swarm.DockerNode')
-
-    @entityd.pm.hookimpl
-    def entityd_find_entity(self, name, attrs=None,
-                            include_ondemand=False):  # pylint: disable=unused-argument
-        """Find the docker node entities."""
-        if name == self.name:
-            if attrs is not None:
-                raise LookupError('Attribute based filtering not supported')
-            return self.generate_updates()
+    def entityd_emit_entities(self):
+        """Generate all Docker daemon entity updates."""
+        yield from self.generate_updates()
 
     @classmethod
     def get_ueid(cls, docker_node_id):
@@ -141,8 +140,8 @@ class DockerNode:
                                  node.attrs['Spec']['Role'])
                 update.attrs.set('availability',
                                  node.attrs['Spec']['Availability'])
-                update.attrs.set('labels',
-                                 node.attrs['Spec']['Labels'])
+                # update.attrs.set('labels',
+                #                  node.attrs['Spec']['Labels'])
                 update.attrs.set('state',
                                  node.attrs['Status']['State'])
                 update.attrs.set('address',
@@ -165,7 +164,26 @@ class DockerNode:
                     update.attrs.set('manager:reachability', None)
                     update.attrs.set('manager:leader', None)
                     update.attrs.set('manager:address', None)
+                yield from self._generate_label_entities(node.attrs['Spec'],
+                                                         update)
                 yield update
+
+    def _generate_label_entities(self, node_spec, update):
+        """Generate update for a Docker label."""
+        try:
+            for label_key, label_value in \
+                    node_spec.get('Labels').items():
+                label_entity = entityd.EntityUpdate('Group')
+                label_entity.label = "{0} = {1}".format(label_key, label_value)
+                label_entity.attrs.set('kind',
+                                       'label:' + label_key,
+                                       {'entity:id'},
+                                      )
+                label_entity.attrs.set('id', label_value, {'entity:id'})
+                label_entity.children.add(update)
+                yield label_entity
+        except AttributeError:
+            pass
 
 
 class DockerService:
@@ -179,18 +197,9 @@ class DockerService:
         self._service_container_states = {}
 
     @entityd.pm.hookimpl
-    def entityd_configure(self, config):
-        """Register the Docker Service Entity."""
-        config.addentity(self.name, 'entityd.docker.swarm.DockerService')
-
-    @entityd.pm.hookimpl
-    def entityd_find_entity(self, name, attrs=None,
-                            include_ondemand=False):  # pylint: disable=unused-argument
-        """Find the docker service entities."""
-        if name == self.name:
-            if attrs is not None:
-                raise LookupError('Attribute based filtering not supported')
-            return self.generate_updates()
+    def entityd_emit_entities(self):
+        """Generate all Docker daemon entity updates."""
+        yield from self.generate_updates()
 
     @entityd.pm.hookimpl
     def entityd_collection_before(self, session):  # pylint: disable=unused-argument
@@ -296,7 +305,7 @@ class DockerService:
         update = entityd.EntityUpdate(self.name)
         update.label = service_spec['Name']
         update.attrs.set('id', service.attrs['ID'], traits={'entity:id'})
-        update.attrs.set('labels', service_spec['Labels'])
+ #       update.attrs.set('labels', service_spec['Labels'])
         self.populate_mode_fields(service_spec['Mode'], update)
         self.populate_task_fields(service, update)
 
@@ -334,8 +343,26 @@ class DockerService:
                 swarm_ueid = entityd.docker.get_ueid(
                     'DockerSwarm', swarm_id)
                 update.parents.add(swarm_ueid)
-
+                yield from self._generate_label_entities(service.attrs['Spec'],
+                                                         update)
                 yield update
+
+    def _generate_label_entities(self, service_spec, update):
+        """Generate update for a Docker label."""
+        try:
+            for label_key, label_value in \
+                    service_spec.get('Labels').items():
+                label_entity = entityd.EntityUpdate('Group')
+                label_entity.label = "{0} = {1}".format(label_key, label_value)
+                label_entity.attrs.set('kind',
+                                       'label:' + label_key,
+                                       {'entity:id'},
+                                      )
+                label_entity.attrs.set('id', label_value, {'entity:id'})
+                label_entity.children.add(update)
+                yield label_entity
+        except AttributeError:
+            pass
 
 
 class DockerNetwork:
@@ -343,18 +370,9 @@ class DockerNetwork:
     name = "Docker:Network"
 
     @entityd.pm.hookimpl
-    def entityd_configure(self, config):
-        """Register the Docker Network Entity."""
-        config.addentity(self.name, 'entityd.docker.swarm.DockerNetwork')
-
-    @entityd.pm.hookimpl
-    def entityd_find_entity(self, name, attrs=None,
-                            include_ondemand=False):  # pylint: disable=unused-argument
-        """Find the docker network entities."""
-        if name == self.name:
-            if attrs is not None:
-                raise LookupError('Attribute based filtering not supported')
-            return self.generate_updates()
+    def entityd_emit_entities(self):
+        """Generate all Docker daemon entity updates."""
+        yield from self.generate_updates()
 
     @classmethod
     def get_ueid(cls, docker_network_id):
@@ -368,7 +386,7 @@ class DockerNetwork:
         update = entityd.EntityUpdate(self.name)
         update.label = network.attrs['Name']
         update.attrs.set('id', network.id, traits={'entity:id'})
-        update.attrs.set('labels', network.attrs['Labels'])
+#        update.attrs.set('labels', network.attrs['Labels'])
         update.attrs.set('options', network.attrs['Options'])
         update.attrs.set('driver', network.attrs['Driver'])
         update.attrs.set('ipv6-enabled', network.attrs['EnableIPv6'])
@@ -398,11 +416,31 @@ class DockerNetwork:
             if network.attrs['Scope'] == "swarm" and swarm_ueid:
                 update = self.populate_network_fields(network)
                 update.parents.add(swarm_ueid)
+                yield from self._generate_label_entities(network, update)
                 yield update
             elif network.attrs['Scope'] == "local":
                 update = self.populate_network_fields(network)
                 update.parents.add(daemon_ueid)
+                yield from self._generate_label_entities(network, update)
                 yield update
+
+    def _generate_label_entities(self, network, update):
+        """Generate update for a Docker label."""
+        try:
+            for label_key, label_value in \
+                    network.attrs.get('Labels').items():
+                label_entity = entityd.EntityUpdate('Group')
+                label_entity.label = "{0} = {1}".format(label_key, label_value)
+                label_entity.attrs.set('kind',
+                                       'label:' + label_key,
+                                       {'entity:id'},
+                                      )
+                label_entity.attrs.set('id', label_value, {'entity:id'})
+                label_entity.children.add(update)
+                yield label_entity
+        except AttributeError:
+            pass
+
 
 
 class DockerSecret:

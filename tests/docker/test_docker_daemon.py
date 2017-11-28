@@ -23,18 +23,7 @@ def test_docker_not_available(monkeypatch):
                         pytest.MagicMock(side_effect=DockerException))
     docker_daemon = DockerDaemon()
 
-    assert not list(docker_daemon.entityd_find_entity(docker_daemon.name))
-
-
-def test_attrs_raises_exception():
-    with pytest.raises(LookupError):
-        docker_daemon = DockerDaemon()
-        docker_daemon.entityd_find_entity(DockerDaemon.name, attrs="foo")
-
-
-def test_not_provided():
-    docker_daemon = DockerDaemon()
-    assert docker_daemon.entityd_find_entity('foo') is None
+    assert not list(docker_daemon.entityd_emit_entities())
 
 
 def test_get_ueid():
@@ -46,6 +35,7 @@ def test_find_entities_no_swarm(monkeypatch, session, docker_daemon):
     client_info = {
         'ID': 'foo',
         'Name': 'bar',
+        'Labels': ["label=test_label"],
         'Containers': 6,
         'ContainersPaused': 1,
         'ContainersRunning': 3,
@@ -61,29 +51,39 @@ def test_find_entities_no_swarm(monkeypatch, session, docker_daemon):
     monkeypatch.setattr(DockerClient, "get_client", get_client)
 
     docker_daemon.entityd_sessionstart(session)
-    docker_daemon.entityd_configure(session.config)
-    entities = docker_daemon.entityd_find_entity(DockerDaemon.name)
-    entities = list(entities)
-    assert len(entities) == 1
-
-    entity = entities[0]
-    assert entity.exists == True
-    assert entity.attrs.get('id').value == client_info['ID']
-    assert entity.attrs.get('id').traits == {"entity:id"}
-    assert (entity.attrs.get('containers:total').value ==
-            client_info['Containers'])
-    assert (entity.attrs.get('containers:paused').value ==
-            client_info['ContainersPaused'])
-    assert (entity.attrs.get('containers:running').value ==
-            client_info['ContainersRunning'])
-    assert (entity.attrs.get('containers:stopped').value ==
-            client_info['ContainersStopped'])
+#    docker_daemon.entityd_configure(session.config)
+    entities = list(docker_daemon.entityd_emit_entities())
+#    entities = docker_daemon.entityd_find_entity(DockerDaemon.name)
+#    entities = list(entities)
+    assert len(entities) == 2
+    for entity in entities:
+ #       entity = entities[0]
+        assert entity.exists == True
+        if entity.metype == DockerDaemon.name:
+            assert entity.attrs.get('id').value == client_info['ID']
+            assert entity.attrs.get('id').traits == {"entity:id"}
+            assert (entity.attrs.get('containers:total').value ==
+                    client_info['Containers'])
+            assert (entity.attrs.get('containers:paused').value ==
+                    client_info['ContainersPaused'])
+            assert (entity.attrs.get('containers:running').value ==
+                    client_info['ContainersRunning'])
+            assert (entity.attrs.get('containers:stopped').value ==
+                    client_info['ContainersStopped'])
+        elif (entity.metype == 'Group'):
+            assert entity.attrs.get('kind').value == 'label:label'
+            assert entity.attrs.get('kind').traits == {'entity:id'}
+            assert entity.attrs.get('id').value == 'test_label'
+            assert entity.attrs.get('id').traits == {'entity:id'}
+        else:
+            assert False
 
 
 def test_find_entities_with_swarm(monkeypatch, session, docker_daemon):
     client_info = {
         'ID': 'foo',
         'Name': 'bar',
+        'Labels': ["test_label"],
         'Containers': 6,
         'ContainersPaused': 1,
         'ContainersRunning': 3,
@@ -100,25 +100,32 @@ def test_find_entities_with_swarm(monkeypatch, session, docker_daemon):
     monkeypatch.setattr(DockerClient, "get_client", get_client)
 
     docker_daemon.entityd_sessionstart(session)
-    docker_daemon.entityd_configure(session.config)
-    entities = docker_daemon.entityd_find_entity(DockerDaemon.name)
-    entities = list(entities)
-    assert len(entities) == 1
+#    docker_daemon.entityd_configure(session.config)
+    entities = list(docker_daemon.entityd_emit_entities())
+#    entities = docker_daemon.entityd_find_entity(DockerDaemon.name)
+#    entities = list(entities)
+    assert len(entities) == 2
+    for entity in entities:
+        if entity.metype == DockerDaemon.name:
+#    entity = entities[0]
+            assert entity.exists == True
+            assert entity.attrs.get('id').value == client_info['ID']
+            assert entity.attrs.get('id').traits == {'entity:id'}
+            assert (entity.attrs.get('containers:total').value ==
+                    client_info['Containers'])
+            assert (entity.attrs.get('containers:paused').value ==
+                    client_info['ContainersPaused'])
+            assert (entity.attrs.get('containers:running').value ==
+                    client_info['ContainersRunning'])
+            assert (entity.attrs.get('containers:stopped').value ==
+                    client_info['ContainersStopped'])
+            node_ueid = DockerNode.get_ueid(client_info['Swarm']['NodeID'])
+            assert node_ueid in entity.parents
+        elif entity.metype == 'Group':
+            assert entity.attrs.get('kind').value == 'label:test_label'
+            assert entity.attrs.get('kind').traits == {"entity:id"}
+        else:
+            assert False
 
-    entity = entities[0]
-    assert entity.exists == True
-    assert entity.attrs.get('id').value == client_info['ID']
-    assert entity.attrs.get('id').traits == {"entity:id"}
-    assert (entity.attrs.get('containers:total').value ==
-            client_info['Containers'])
-    assert (entity.attrs.get('containers:paused').value ==
-            client_info['ContainersPaused'])
-    assert (entity.attrs.get('containers:running').value ==
-            client_info['ContainersRunning'])
-    assert (entity.attrs.get('containers:stopped').value ==
-            client_info['ContainersStopped'])
-
-    node_ueid = DockerNode.get_ueid(client_info['Swarm']['NodeID'])
-    assert node_ueid in entity.parents
 
 

@@ -80,8 +80,6 @@ class Monitor:
     def collect_entities(self):
         """Collect and send all Monitored Entities."""
         log.info('Starting entity collection')
-        import time
-   #     time.sleep(20)
         self.session.pluginmanager.hooks.entityd_collection_before(
             session=self.session)
         updates = []

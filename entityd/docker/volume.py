@@ -23,7 +23,6 @@ class DockerVolume(BaseDocker):
         update.label = volume.attrs['Name']
         update.attrs.set('daemon-id', daemon_id, traits={'entity:id'})
         update.attrs.set('name', volume.attrs['Name'], traits={'entity:id'})
-        # update.attrs.set('labels', volume.attrs.get('Labels'))
         update.attrs.set('options', volume.attrs.get('Options'))
         update.attrs.set('driver', volume.attrs.get('Driver'))
         update.attrs.set('mount-point', volume.attrs.get('Mountpoint'))

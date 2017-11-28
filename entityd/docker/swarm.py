@@ -140,8 +140,6 @@ class DockerNode:
                                  node.attrs['Spec']['Role'])
                 update.attrs.set('availability',
                                  node.attrs['Spec']['Availability'])
-                # update.attrs.set('labels',
-                #                  node.attrs['Spec']['Labels'])
                 update.attrs.set('state',
                                  node.attrs['Status']['State'])
                 update.attrs.set('address',
@@ -305,7 +303,6 @@ class DockerService:
         update = entityd.EntityUpdate(self.name)
         update.label = service_spec['Name']
         update.attrs.set('id', service.attrs['ID'], traits={'entity:id'})
- #       update.attrs.set('labels', service_spec['Labels'])
         self.populate_mode_fields(service_spec['Mode'], update)
         self.populate_task_fields(service, update)
 
@@ -386,7 +383,6 @@ class DockerNetwork:
         update = entityd.EntityUpdate(self.name)
         update.label = network.attrs['Name']
         update.attrs.set('id', network.id, traits={'entity:id'})
-#        update.attrs.set('labels', network.attrs['Labels'])
         update.attrs.set('options', network.attrs['Options'])
         update.attrs.set('driver', network.attrs['Driver'])
         update.attrs.set('ipv6-enabled', network.attrs['EnableIPv6'])

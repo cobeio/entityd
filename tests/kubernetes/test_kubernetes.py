@@ -1,3 +1,6 @@
+from itertools import cycle
+from unittest.mock import MagicMock
+
 import cobe
 import collections        # pylint: disable=too-many-lines
 import datetime
@@ -41,6 +44,7 @@ def test_entityd_configure(pm, config):
         'Kubernetes:Pod',
         'Kubernetes:Namespace',
         'Kubernetes:Pod:Probe',
+        'Observation',
     }
     for entity_plugins in config.entities.values():
         assert plugin in entity_plugins
@@ -615,7 +619,6 @@ class TestProbes:
     def test_missing_attribute(self, cluster, raw_pods_resource, miss_attr):
         pod_resource = raw_pods_resource[0]
         del(pod_resource['spec']['containers'][0]['livenessProbe'][miss_attr])
-        print(str(pod_resource['spec']['containers'][0]))
         pod = kube.PodItem(cluster, pod_resource)
         cluster.pods.__iter__.return_value = iter([pod])
         cluster.pods.fetch.return_value = pod
@@ -636,6 +639,280 @@ class TestProbes:
         mock_namespace.pods.fetch.side_effect = LookupError
         probes = list(kubernetes.entityd_find_entity('Kubernetes:Pod:Probe'))
         assert not probes
+
+
+@pytest.mark.usefixtures("cluster_ueid")
+class TestProbeObservations:
+
+    @pytest.fixture
+    def raw_pods_resource(self):
+        return  [{
+                'metadata': {
+                    'name': 'pod-1',
+                    'namespace': 'andromeda',
+                    'resourceVersion': '12345678',
+                    'creationTimestamp': '2017-09-01T14:11:03Z',
+                    'selfLink': '',
+                    'uid': 'aaaabbbbccccddddeeeeffffgggghhhhiiii',
+                },
+                'spec': {
+                    'containers': [
+                        {
+                            'livenessProbe': {
+                                'failureThreshold': 3,
+                                'initialDelaySeconds': 15,
+                                'periodSeconds': 20,
+                                'successThreshold': 1,
+                                'tcpSocket': {
+                                    'port': 8080
+                                },
+                                'timeoutSeconds': 1
+                            },
+                         }
+                    ]
+                },
+                'status': {
+                    'phase': 'Running',
+                    'podIP': '10.120.0.5',
+                    'startTime': '2015-01-14T17:01:37Z',
+                },
+            },
+
+             {
+                'metadata': {
+                    'name': 'pod-2',
+                    'namespace': 'andromeda',
+                    'resourceVersion': '12345678',
+                    'creationTimestamp': '2017-09-01T14:11:03Z',
+                    'selfLink': '',
+                    'uid': 'jjjjkkkkllllmmmmnnnnooooppppqqqqrrrr',
+                },
+                'spec': {
+                    'containers': [
+                        {
+                            'readinessProbe': {
+                                'failureThreshold': 3,
+                                'initialDelaySeconds': 15,
+                                'periodSeconds': 20,
+                                'successThreshold': 1,
+                                'httpGet': {
+                                    'path': '/#/status',
+                                    'port': 9093,
+                                    'scheme': 'HTTP'
+                                },
+                                'timeoutSeconds': 1
+                            },
+                        }
+                    ]
+                },
+                'status': {
+                    'phase': 'Running',
+                    'podIP': '10.120.0.7',
+                    'startTime': '2016-01-14T17:01:37Z',
+                },
+            },
+       ]
+
+    @pytest.fixture
+    def raw_events_resource(self):
+        return [{
+            'type': 'Warning',
+            'count': 1,
+            'source': {
+                'component': 'kubelet',
+                'host': 'gke-cobetest-60058af9-node-4qiy'
+            },
+            'message': 'Liveness probe failed: ',
+            'involvedObject': {
+                'kind': 'Pod',
+                'uid': 'jjjjkkkkllllmmmmnnnnooooppppqqqqrrrr',
+                'apiVersion': 'v1',
+                'name': 'pod-1',
+                'resourceVersion': '66262865',
+                'namespace': 'ti-tindex6',
+                'fieldPath': 'spec.containers{ui}'
+            },
+            'firstTimestamp': '2017-12-01T08:57:14Z',
+            'reason': 'Unhealthy',
+            'lastTimestamp': '2017-12-01T14:21:14Z',
+            'metadata': {
+                'creationTimestamp': '2017-12-01T13:27:14Z',
+                'uid': '57f4f156-d69b-11e7-96f6-42010af00020',
+                'selfLink': '/api/v1/namespaces/ti-tindex6/events/abcdef',
+                'name': 'ui-2400496032-dlg5r.14fc1fe2e144f4e3',
+                'resourceVersion': '8195968',
+                'namespace': 'ti-tindex6'
+            },
+        },
+
+        {
+            'type': 'Warning',
+            'count': 21,
+            'source': {
+                'component': 'kubelet',
+                'host': 'gke-cobetest-60058af9-node-4qiy'
+            },
+            'message': 'Readiness probe failed: ',
+            'involvedObject': {
+                'kind': 'Pod',
+                'uid': 'aaaabbbbccccddddeeeeffffgggghhhhiiii',
+                'apiVersion': 'v1',
+                'name': 'pod-2',
+                'resourceVersion': '66262865',
+                'namespace': 'ti-tindex6',
+                'fieldPath': 'spec.containers{ui}'
+            },
+            'firstTimestamp': '2017-12-01T08:57:14Z',
+            'reason': 'Unhealthy',
+            'lastTimestamp': '2017-12-01T14:21:14Z',
+            'metadata': {
+                'creationTimestamp': '2017-12-01T13:27:14Z',
+                'uid': '57f4f156-d69b-11e7-96f6-42010af00020',
+                'selfLink': '/api/v1/namespaces/ti-tindex6/events/abcdef',
+                'name': 'ui-2400496032-dlg5r.14fc1fe2e144f4e3',
+                'resourceVersion': '8195968',
+                'namespace': 'ti-tindex6'
+            },
+        },
+    ]
+
+    @pytest.fixture
+    def unrelated_raw_event_resource(self):
+        return {
+
+                'type': 'Warning',
+            'count': 11,
+            'source': {
+                'component': 'kubelet',
+                'host': 'gke-cobetest-60058af9-node-4qiy'
+            },
+            'message': 'Some other message',
+            'involvedObject': {
+                'kind': 'Pod',
+                'uid': 'aaaabbbbccccddddeeeeffffgggghhhhiiii',
+                'apiVersion': 'v1',
+                'name': 'pod-2',
+                'resourceVersion': '66262865',
+                'namespace': 'ti-tindex6',
+                'fieldPath': 'spec.containers{ui}'
+            },
+            'firstTimestamp': '2017-12-01T08:57:14Z',
+            'reason': 'Unhealthy',
+            'lastTimestamp': '2017-12-01T14:21:14Z',
+            'metadata': {
+                'creationTimestamp': '2017-12-01T13:27:14Z',
+                'uid': '57f4f156-d69b-11e7-96f6-42010af00020',
+                'selfLink': '/api/v1/namespaces/ti-tindex6/events/abcdef',
+                'name': 'ui-2400496032-dlg5r.14fc1fe2e144f4e3',
+                'resourceVersion': '8195968',
+                'namespace': 'ti-tindex6'
+            },
+        }
+
+    @pytest.fixture
+    def unmatched_raw_event_resource(self):
+        return {
+
+                'type': 'Warning',
+            'count': 21,
+            'source': {
+                'component': 'kubelet',
+                'host': 'gke-cobetest-60058af9-node-4qiy'
+            },
+            'message': 'Readiness probe failed: ',
+            'involvedObject': {
+                'kind': 'Pod',
+                'uid': 'aaaabbbbccccddddeeeeffffgggghhhhiiii',
+                'apiVersion': 'v1',
+                'name': 'Unknown pod',
+                'resourceVersion': '66262865',
+                'namespace': 'ti-tindex6',
+                'fieldPath': 'spec.containers{ui}'
+            },
+            'firstTimestamp': '2017-12-01T08:57:14Z',
+            'reason': 'Unhealthy',
+            'lastTimestamp': '2017-12-01T14:21:14Z',
+            'metadata': {
+                'creationTimestamp': '2017-12-01T13:27:14Z',
+                'uid': '57f4f156-d69b-11e7-96f6-42010af00020',
+                'selfLink': '/api/v1/namespaces/ti-tindex6/events/abcdef',
+                'name': 'ui-2400496032-dlg5r.14fc1fe2e144f4e3',
+                'resourceVersion': '8195968',
+                'namespace': 'ti-tindex6'
+            },
+        }
+
+    def test(self, cluster, raw_pods_resource, raw_events_resource):
+        for pod_resource,event_resource in zip(raw_pods_resource,
+                                               raw_events_resource):
+            pod = kube.PodItem(cluster, pod_resource)
+            cluster.pods.__iter__.return_value = iter([pod])
+            cluster.pods.fetch.return_value = pod
+            kubernetes.get_cluster_ueid = MagicMock(return_value='a' * 32)
+            probes = \
+                list(kubernetes.entityd_find_entity('Kubernetes:Pod:Probe'))
+            assert len(probes) == 1
+            cluster.pods.__iter__.return_value = iter([pod])
+            cluster.pods.fetch.return_value = pod
+            cluster.proxy.get.return_value = {'items':[event_resource]}
+            observations = list(kubernetes.entityd_find_entity('Observation'))
+            assert len(observations) == 1
+            observation = observations[0]
+            assert observation.label
+            assert observation.attrs.get('kubernetes:'
+                                         'event:firstTimestamp').value
+            assert observation.attrs.get('kubernetes:'
+                                         'event:firstTimestamp').traits ==\
+                   {'chrono:rfc3339'}
+            assert observation.attrs.get('kubernetes:'
+                                         'event:lastTimestamp').value
+            assert observation.attrs.get('kubernetes:'
+                                         'event:lastTimestamp').traits ==\
+                   {'chrono:rfc3339'}
+            assert observation.attrs.get('kind').value
+            assert observation.attrs.get('kind').traits == set()
+            assert observation.attrs.get('message').value
+            assert observation.attrs.get('message').traits == set()
+            assert observation.attrs.get('hints').value
+            assert observation.attrs.get('hints').traits == set()
+            assert observation.attrs.get('importance').value
+            assert observation.attrs.get('importance').traits == set()
+            assert observation.attrs.get('urgency').value
+            assert observation.attrs.get('urgency').traits == set()
+            assert observation.attrs.get('certainty').value
+            assert observation.attrs.get('certainty').traits == set()
+
+    def test_non_probe_related_event(self, cluster, raw_pods_resource,
+                             unrelated_raw_event_resource):
+        event_resource = unrelated_raw_event_resource
+        pod = kube.PodItem(cluster, raw_pods_resource[0])
+        cluster.pods.__iter__.return_value = iter([pod])
+        cluster.pods.fetch.return_value = pod
+        kubernetes.get_cluster_ueid = MagicMock(return_value='a' * 32)
+        probes = \
+            list(
+                kubernetes.entityd_find_entity('Kubernetes:Pod:Probe'))
+        assert len(probes) == 1
+        cluster.pods.__iter__.return_value = iter([pod])
+        cluster.pods.fetch.return_value = pod
+        cluster.proxy.get.return_value = {'items': [event_resource]}
+        assert len(list(kubernetes.entityd_find_entity('Observation'))) == 0
+
+    def test_unmatched_pod_event(self, cluster, raw_pods_resource,
+                             unmatched_raw_event_resource):
+        event_resource = unmatched_raw_event_resource
+        pod = kube.PodItem(cluster, raw_pods_resource[0])
+        cluster.pods.__iter__.return_value = iter([pod])
+        cluster.pods.fetch.return_value = pod
+        kubernetes.get_cluster_ueid = MagicMock(return_value='a' * 32)
+        probes = \
+            list(
+                kubernetes.entityd_find_entity('Kubernetes:Pod:Probe'))
+        assert len(probes) == 1
+        cluster.pods.__iter__.return_value = iter([pod])
+        cluster.pods.fetch.return_value = pod
+        cluster.proxy.get.return_value = {'items': [event_resource]}
+        assert len(list(kubernetes.entityd_find_entity('Observation'))) == 0
 
 
 @pytest.mark.usefixtures("cluster_ueid")

@@ -1,6 +1,3 @@
-from itertools import cycle
-from unittest.mock import MagicMock
-
 import cobe
 import collections        # pylint: disable=too-many-lines
 import datetime
@@ -848,7 +845,7 @@ class TestProbeObservations:
             pod = kube.PodItem(cluster, pod_resource)
             cluster.pods.__iter__.return_value = iter([pod])
             cluster.pods.fetch.return_value = pod
-            kubernetes.get_cluster_ueid = MagicMock(return_value='a' * 32)
+            kubernetes.get_cluster_ueid = pytest.MagicMock(return_value='a'*32)
             probes = \
                 list(kubernetes.entityd_find_entity('Kubernetes:Pod:Probe'))
             assert len(probes) == 1
@@ -888,7 +885,7 @@ class TestProbeObservations:
         pod = kube.PodItem(cluster, raw_pods_resource[0])
         cluster.pods.__iter__.return_value = iter([pod])
         cluster.pods.fetch.return_value = pod
-        kubernetes.get_cluster_ueid = MagicMock(return_value='a' * 32)
+        kubernetes.get_cluster_ueid = pytest.MagicMock(return_value='a' * 32)
         probes = \
             list(
                 kubernetes.entityd_find_entity('Kubernetes:Pod:Probe'))
@@ -904,7 +901,7 @@ class TestProbeObservations:
         pod = kube.PodItem(cluster, raw_pods_resource[0])
         cluster.pods.__iter__.return_value = iter([pod])
         cluster.pods.fetch.return_value = pod
-        kubernetes.get_cluster_ueid = MagicMock(return_value='a' * 32)
+        kubernetes.get_cluster_ueid = pytest.MagicMock(return_value='a' * 32)
         probes = \
             list(
                 kubernetes.entityd_find_entity('Kubernetes:Pod:Probe'))

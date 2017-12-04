@@ -18,9 +18,7 @@ import entityd.pm
 from entityd.docker.container import DockerContainer
 
 log = logbook.Logger(__name__)
-Event_data = collections.namedtuple('Event_data',
-                                   'pod_name probe_kind event_name '
-                                   'message first last count')
+
 _LOGGED_K8S_UNREACHABLE = False
 _CLUSTER_UEID = None
 ENTITIES_PROVIDED = {
@@ -437,7 +435,7 @@ def generate_probe_observations(cluster, session):
                 probe_type = 'Readiness probe'
             else:
                 return
-            pod_name=involved_object['name']
+            pod_name = involved_object['name']
             try:
                 pod_ueid = create_pod_ueid(pod_name, cluster, session)
             except LookupError as err:
@@ -465,8 +463,11 @@ def generate_probe_observations(cluster, session):
                             )
             update.attrs.set('kubernetes:event:count', event['count'])
             update.attrs.set('kind', value=probe_type + ' failure', traits=[])
-            update.attrs.set('message',value=event['message'], traits=[])
-            update.attrs.set('hints',value='See message for details.',traits=[])
+            update.attrs.set('message', value=event['message'], traits=[])
+            update.attrs.set('hints',
+                             value='See message for details.',
+                             traits=[],
+                            )
             update.attrs.set('importance', 3, traits=[])
             update.attrs.set('urgency', 2, traits=[])
             update.attrs.set('certainty', 10, traits=[])
@@ -506,8 +507,8 @@ def create_probe_ueid(pod_name, probe_type):
     :returns: A :class:`cobe.UEID` for the probe.
     """
     update = entityd.EntityUpdate('Kubernetes:Pod:Probe')
-    update.attrs.set('kubernetes:pod', pod_name,traits={'entity:id'})
-    update.attrs.set('kubernetes:probe:type', probe_type,traits={'entity:id'})
+    update.attrs.set('kubernetes:pod', pod_name, traits={'entity:id'})
+    update.attrs.set('kubernetes:probe:type', probe_type, traits={'entity:id'})
     return update.ueid
 
 

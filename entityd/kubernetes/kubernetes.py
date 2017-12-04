@@ -18,7 +18,6 @@ import entityd.pm
 from entityd.docker.container import DockerContainer
 
 log = logbook.Logger(__name__)
-
 _LOGGED_K8S_UNREACHABLE = False
 _CLUSTER_UEID = None
 ENTITIES_PROVIDED = {

@@ -11,7 +11,7 @@ log = logbook.Logger(__name__)
 class NamespaceGroup:
     """Entity for Kubernetes Namespace Groups"""
 
-    name = "GroupK"
+    name = "Group"
     kind = "Kubernetes:Namespace"
     _cluster_ueid = None
 

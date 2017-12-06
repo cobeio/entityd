@@ -1,5 +1,6 @@
 """This module contains the entity types for Docker Volumes."""
 
+import entityd.groups
 from entityd import EntityUpdate
 from entityd.docker import BaseDocker, get_ueid
 from entityd.docker.client import DockerClient
@@ -40,28 +41,14 @@ class DockerVolume(BaseDocker):
 
         for volume in client.volumes.list():
             update = self.populate_volume_fields(volume, client_info['ID'])
-
             daemon_ueid = get_ueid('DockerDaemon', client_info['ID'])
             update.parents.add(daemon_ueid)
-            yield from self._generate_label_entities(volume, update)
+            labels = volume.attrs.get('Labels')
+            if labels:
+                for group in entityd.groups.labels(labels):
+                    group.children.add(update)
+                    yield group
             yield update
-
-    def _generate_label_entities(self, volume, update):
-        """Generate update for a Docker label."""
-        try:
-            for label_key, label_value in \
-                    volume.attrs.get('Labels').items():
-                label_entity = EntityUpdate('Group')
-                label_entity.label = "{0} = {1}".format(label_key,
-                                                        label_value)
-                label_entity.attrs.set('kind', 'label:' + label_key,
-                                       {'entity:id'})
-                label_entity.attrs.set('id', label_value,
-                                       {'entity:id'})
-                label_entity.children.add(update)
-                yield label_entity
-        except AttributeError:
-            pass
 
 
 class DockerVolumeMount(BaseDocker):

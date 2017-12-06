@@ -5,8 +5,10 @@ will be generated
 """
 
 import entityd
+import entityd.groups
 from entityd.docker.client import DockerClient
 from entityd.mixins import HostEntity
+
 
 
 class DockerDaemon(HostEntity):
@@ -52,15 +54,15 @@ class DockerDaemon(HostEntity):
 
     def _generate_label_entities(self, labels, update):
         """Generate update for a Docker label."""
-        for label in labels:
-            label_entity = entityd.EntityUpdate('Group')
-            label_entity.label = label
-            args = label.split('=')
-            if len(args) == 2:
-                label_entity.attrs.set('kind', 'label:' + args[0],
-                                       {'entity:id'})
-                label_entity.attrs.set('id', args[1], {'entity:id'})
-            else:
-                label_entity.attrs.set('kind', 'label:' + label, {'entity:id'})
-            label_entity.children.add(update)
-            yield label_entity
+        if labels:
+            label_dict = {}
+            for label in labels:
+                args = label.split('=')
+                if len(args) == 2:
+                    label_dict[args[0]] = args[1]
+                else:
+                    label_dict[args[0]] = ''
+            for group in entityd.groups.labels(label_dict):
+                group.children.add(update)
+                yield group
+

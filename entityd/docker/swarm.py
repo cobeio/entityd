@@ -9,6 +9,7 @@ import stat
 import logbook
 
 import entityd
+import entityd.groups
 from entityd.docker.client import DockerClient
 
 log = logbook.Logger(__name__)
@@ -84,26 +85,12 @@ class DockerSwarm:
             for node in client.nodes.list():
                 update.children.add(entityd.docker.get_ueid(
                     'DockerNode', node.attrs['ID']))
-            yield from self._generate_label_entities(swarm_spec, update)
+            labels = swarm_spec.get('Labels')
+            if labels:
+                for group in entityd.groups.labels(labels):
+                    group.children.add(update)
+                    yield group
             yield update
-
-    def _generate_label_entities(self, swarm_spec, update):
-        """Generate update for a Docker label."""
-        try:
-            for label_key, label_value in \
-                    swarm_spec.get('Labels').items():
-                label_entity = entityd.EntityUpdate('Group')
-                label_entity.label = "{0} = {1}".format(label_key, label_value)
-                label_entity.attrs.set('kind',
-                                       'label:' + label_key,
-                                       {'entity:id'},
-                                      )
-                label_entity.attrs.set('id', label_value, {'entity:id'})
-                label_entity.children.add(update)
-                yield label_entity
-        except AttributeError:
-            pass
-
 
 
 class DockerNode:
@@ -162,26 +149,12 @@ class DockerNode:
                     update.attrs.set('manager:reachability', None)
                     update.attrs.set('manager:leader', None)
                     update.attrs.set('manager:address', None)
-                yield from self._generate_label_entities(node.attrs['Spec'],
-                                                         update)
+                labels = node.attrs['Spec'].get('Labels')
+                if labels:
+                    for group in entityd.groups.labels(labels):
+                        group.children.add(update)
+                        yield group
                 yield update
-
-    def _generate_label_entities(self, node_spec, update):
-        """Generate update for a Docker label."""
-        try:
-            for label_key, label_value in \
-                    node_spec.get('Labels').items():
-                label_entity = entityd.EntityUpdate('Group')
-                label_entity.label = "{0} = {1}".format(label_key, label_value)
-                label_entity.attrs.set('kind',
-                                       'label:' + label_key,
-                                       {'entity:id'},
-                                      )
-                label_entity.attrs.set('id', label_value, {'entity:id'})
-                label_entity.children.add(update)
-                yield label_entity
-        except AttributeError:
-            pass
 
 
 class DockerService:
@@ -340,26 +313,12 @@ class DockerService:
                 swarm_ueid = entityd.docker.get_ueid(
                     'DockerSwarm', swarm_id)
                 update.parents.add(swarm_ueid)
-                yield from self._generate_label_entities(service.attrs['Spec'],
-                                                         update)
+                labels = service.attrs['Spec'].get('Labels')
+                if labels:
+                    for group in entityd.groups.labels(labels):
+                        group.children.add(update)
+                        yield group
                 yield update
-
-    def _generate_label_entities(self, service_spec, update):
-        """Generate update for a Docker label."""
-        try:
-            for label_key, label_value in \
-                    service_spec.get('Labels').items():
-                label_entity = entityd.EntityUpdate('Group')
-                label_entity.label = "{0} = {1}".format(label_key, label_value)
-                label_entity.attrs.set('kind',
-                                       'label:' + label_key,
-                                       {'entity:id'},
-                                      )
-                label_entity.attrs.set('id', label_value, {'entity:id'})
-                label_entity.children.add(update)
-                yield label_entity
-        except AttributeError:
-            pass
 
 
 class DockerNetwork:
@@ -407,36 +366,30 @@ class DockerNetwork:
 
         daemon_ueid = entityd.docker.get_ueid('DockerDaemon',
                                               client_info['ID'])
-
         for network in client.networks.list():
             if network.attrs['Scope'] == "swarm" and swarm_ueid:
                 update = self.populate_network_fields(network)
                 update.parents.add(swarm_ueid)
-                yield from self._generate_label_entities(network, update)
+                yield from self.generate_label_entities(
+                    network.attrs.get('Labels'),
+                    update,
+                )
                 yield update
             elif network.attrs['Scope'] == "local":
                 update = self.populate_network_fields(network)
                 update.parents.add(daemon_ueid)
-                yield from self._generate_label_entities(network, update)
+                yield from self.generate_label_entities(
+                    network.attrs.get('Labels'),
+                    update,
+                )
                 yield update
 
-    def _generate_label_entities(self, network, update):
-        """Generate update for a Docker label."""
-        try:
-            for label_key, label_value in \
-                    network.attrs.get('Labels').items():
-                label_entity = entityd.EntityUpdate('Group')
-                label_entity.label = "{0} = {1}".format(label_key, label_value)
-                label_entity.attrs.set('kind',
-                                       'label:' + label_key,
-                                       {'entity:id'},
-                                      )
-                label_entity.attrs.set('id', label_value, {'entity:id'})
-                label_entity.children.add(update)
-                yield label_entity
-        except AttributeError:
-            pass
-
+    def generate_label_entities(self, labels, update):
+        """Generate updates for network labels."""
+        if labels:
+            for group in entityd.groups.labels(labels):
+                group.children.add(update)
+                yield group
 
 
 class DockerSecret:

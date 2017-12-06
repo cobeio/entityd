@@ -355,10 +355,12 @@ def generate_probes(cluster, session):
             else:
                 update = yield
                 update.label = 'Liveness:'
-                update.attrs.set('kubernetes:pod', pod.meta.name,
-                                 traits={'entity:id'},
+                update.attrs.set('pod',
+                                 str(pod_update.ueid),
+                                 traits={'entity:id', 'entity:ueid'},
                                 )
-                update.attrs.set('kubernetes:probe:type', 'Liveness probe',
+                update.attrs.set('kubernetes:probe:type',
+                                 'Liveness probe',
                                  traits={'entity:id'},
                                 )
                 populate_probe_update(update, liveness_probe, pod_ip)
@@ -371,10 +373,12 @@ def generate_probes(cluster, session):
             else:
                 update = yield
                 update.label = 'Readiness:'
-                update.attrs.set('kubernetes:pod', pod.meta.name,
-                                 traits={'entity:id'},
+                update.attrs.set('pod',
+                                 str(pod_update.ueid),
+                                 traits={'entity:id', 'entity:ueid'},
                                 )
-                update.attrs.set('kubernetes:probe:type', 'Readiness probe',
+                update.attrs.set('kubernetes:probe:type',
+                                 'Readiness probe',
                                  traits={'entity:id'},
                                 )
                 populate_probe_update(update, readiness_probe, pod_ip)
@@ -416,8 +420,8 @@ def populate_probe_update(update, probe, pod_ip):
         update.attrs.set('tcpSocket:port', tcp_socket['port'])
 
 
-def generate_probe_observations(cluster, session):
-    """Generate updates for probe related observations
+def generate_probe_observations(cluster, session): # pylint: disable=unused-argument
+    """Generate updates for probe related observations.
 
     :returns: a generator of :class:`entityd.EntityUpdate`s.
     """
@@ -436,18 +440,15 @@ def generate_probe_observations(cluster, session):
                 return
             pod_name = involved_object['name']
             try:
-                pod_ueid = create_pod_ueid(pod_name, cluster, session)
+                pod_ueid = create_pod_ueid(pod_name, cluster)
             except LookupError as err:
                 log.info(err)
                 return
-            probe_ueid = create_probe_ueid(pod_name, probe_type)
+            probe_ueid = create_probe_ueid(pod_ueid, probe_type)
             update = yield
             meta = event['metadata']
             count = event['count']
-            if count == 1:
-                update.label = '1 probe failure'
-            else:
-                update.label = str(count) + ' probe failures'
+            update.label = str(count) + ' probe failure(s)'
             update.attrs.set('kubernetes:event:name',
                              meta['name'],
                              traits={'entity:id'},
@@ -474,7 +475,7 @@ def generate_probe_observations(cluster, session):
             update.children.add(probe_ueid)
 
 
-def create_pod_ueid(pod_name, cluster, session):
+def create_pod_ueid(pod_name, cluster):
     """Create the ueid for a pod.
 
     :param str podname: Pod's name.
@@ -482,7 +483,6 @@ def create_pod_ueid(pod_name, cluster, session):
 
     :returns: A :class:`cobe.UEID` for the pod.
     """
-    cluster_ueid = get_cluster_ueid(session)
     for pod in cluster.pods:
         if pod_name == pod.meta.name:
             update = entityd.EntityUpdate('Kubernetes:Pod')
@@ -492,21 +492,25 @@ def create_pod_ueid(pod_name, cluster, session):
                 'kubernetes:meta:namespace', pod.meta.namespace,
                 traits={'entity:id'})
             update.attrs.set(
-                'cluster', str(cluster_ueid), traits={'entity:id'})
+                'cluster', _CLUSTER_UEID, traits={'entity:id'})
             return update.ueid
     raise LookupError("Pod {} not found in the cluster".format(pod_name))
 
 
-def create_probe_ueid(pod_name, probe_type):
+def create_probe_ueid(pod_ueid, probe_type):
     """Create the ueid for a probe.
 
-    :param str pod_name: name of the pod
+    :param pod_ueid: The UEID of the pod associated with the probe.
+    :type pod_ueid: cobe.UEID
     :param str probe_type: 'Liveness probe' or 'Readiness probe'
 
     :returns: A :class:`cobe.UEID` for the probe.
     """
     update = entityd.EntityUpdate('Kubernetes:Pod:Probe')
-    update.attrs.set('kubernetes:pod', pod_name, traits={'entity:id'})
+    update.attrs.set('pod',
+                     str(pod_ueid),
+                     traits={'entity:id', 'entity:ueid'},
+                    )
     update.attrs.set('kubernetes:probe:type', probe_type, traits={'entity:id'})
     return update.ueid
 

@@ -581,7 +581,9 @@ class TestProbes:
             assert probe.attrs.get('success-threshold').traits == set()
             assert probe.attrs.get('timeout-seconds').value == 1
             assert probe.attrs.get('timeout-seconds').traits == set()
-            assert probe.attrs.get('kubernetes:pod').traits == {'entity:id'}
+            assert probe.attrs.get('pod').traits == {'entity:id',
+                                                     'entity:ueid',
+                                                    }
             assert probe.attrs.get('kubernetes:probe:type').traits ==\
                    {'entity:id'}
             if i == 0:

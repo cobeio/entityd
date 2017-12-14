@@ -95,6 +95,7 @@ pipeline {
                 unstash 'unit-tests'
                 unstash 'lint-tests'
                 collectResults()
+                sendResults()
             }
         }
     }

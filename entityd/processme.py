@@ -405,28 +405,23 @@ class ProcessEntity:
         """
         update = entityd.EntityUpdate('Process')
         update.label = proc.name
-        update.attrs.set('binary', proc.name)
-        update.attrs.set('pid', proc.pid, traits={'entity:id'})
+        update.attrs.set('binary', proc.name, {'index'})
+        update.attrs.set('pid', proc.pid, {'entity:id', 'index:numeric'})
         update.attrs.set('starttime', proc.start_time.timestamp(),
-                         traits={'entity:id', 'time:posix', 'unit:seconds'})
+                         {'entity:id', 'time:posix', 'unit:seconds'})
         update.attrs.set('ppid', proc.ppid)
         if proc.pid in proc_containers:
             update.attrs.set('containerid', proc_containers[proc.pid])
         update.attrs.set('host', str(self.host_ueid),
-                         traits={'entity:id', 'entity:ueid'})
+                         {'entity:id', 'entity:ueid'})
         update.attrs.set('cputime', float(proc.cputime),
-                         traits={'metric:counter',
-                                 'time:duration', 'unit:seconds'})
+                         {'metric:counter', 'time:duration', 'unit:seconds'})
         update.attrs.set('utime', float(proc.utime),
-                         traits={'metric:counter',
-                                 'time:duration', 'unit:seconds'})
+                         {'metric:counter', 'time:duration', 'unit:seconds'})
         update.attrs.set('stime', float(proc.stime),
-                         traits={'metric:counter',
-                                 'time:duration', 'unit:seconds'})
-        update.attrs.set('vsz', proc.vsz,
-                         traits={'metric:gauge', 'unit:bytes'})
-        update.attrs.set('rss', proc.rss,
-                         traits={'metric:gauge', 'unit:bytes'})
+                         {'metric:counter', 'time:duration', 'unit:seconds'})
+        update.attrs.set('vsz', proc.vsz, {'metric:gauge', 'unit:bytes'})
+        update.attrs.set('rss', proc.rss, {'metric:gauge', 'unit:bytes'})
         update.attrs.set('uid', proc.ruid)
         update.attrs.set('euid', proc.euid)
         update.attrs.set('suid', proc.suid)
@@ -438,7 +433,7 @@ class ProcessEntity:
         update.attrs.set('egid', proc.egid)
         update.attrs.set('sgid', proc.sgid)
         update.attrs.set('sessionid', proc.sid)
-        update.attrs.set('command', proc.command)
+        update.attrs.set('command', proc.command, {'index'})
         try:
             update.attrs.set('executable', proc.exe)
             update.attrs.set('args', proc.argv)

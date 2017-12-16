@@ -17,7 +17,6 @@ import entityd.hookspec
 import entityd.hostme
 import entityd.processme
 
-
 import entityd.core
 import entityd.kvstore
 
@@ -243,10 +242,9 @@ def test_non_container_entity_has_no_containerid_attr(process_entity):
         process_entity.attrs.get('containerid')
 
 
-@pytest.mark.xfail
 @pytest.mark.parametrize(
     ('attr', 'traits'),
-    [('pid', {'entity:id'}),
+    [('pid', {'entity:id', 'index:numeric'}),
      ('starttime', {'entity:id', 'time:posix', 'unit:seconds'}),
      ('host', {'entity:id', 'entity:ueid'}),
      ('cputime', {'metric:counter', 'time:duration', 'unit:seconds'}),
@@ -254,7 +252,7 @@ def test_non_container_entity_has_no_containerid_attr(process_entity):
      ('stime', {'metric:counter', 'time:duration', 'unit:seconds'}),
      ('vsz', {'metric:gauge', 'unit:bytes'}),
      ('rss', {'metric:gauge', 'unit:bytes'}),
-     ('binary', set()),
+     ('binary', {'index'}),
      ('ppid', set()),
      ('uid', set()),
      ('euid', set()),
@@ -264,7 +262,7 @@ def test_non_container_entity_has_no_containerid_attr(process_entity):
      ('sgid', set()),
      ('egid', set()),
      ('sessionid', set()),
-     ('command', set()),
+     ('command', {'index'}),
     ])
 def test_pid_traits(process_entity, attr, traits):
     assert process_entity.attrs.get(attr).traits == traits

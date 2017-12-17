@@ -88,7 +88,7 @@ def test_hostname_when_entityd_not_in_container(host_gen, monkeypatch):
                         'isfile', pytest.Mock(return_value=False))
     entity = next(host_gen.entityd_find_entity(name='Host', attrs=None))
     assert entity.attrs.get('hostname').value == socket.gethostname()
-    assert entity.attrs.get('hostname').traits == set()
+    assert entity.attrs.get('hostname').traits == {'index'}
 
 
 def test_hostname_when_entityd_in_container(host_gen, monkeypatch):
@@ -103,7 +103,7 @@ def test_fqdn_when_entityd_not_in_container(host_gen, monkeypatch):
                         'isfile', pytest.Mock(return_value=False))
     entity = next(host_gen.entityd_find_entity(name='Host', attrs=None))
     assert entity.attrs.get('fqdn').value == socket.getfqdn()
-    assert entity.attrs.get('fqdn').traits == set()
+    assert entity.attrs.get('fqdn').traits == {'index'}
 
 
 def test_fqdn_when_entityd_in_container(host_gen, monkeypatch):
@@ -126,12 +126,12 @@ def test_boottime(host):
 
 def test_os(host):
     assert host.attrs.get('os').value == platform.system()
-    assert host.attrs.get('os').traits == set()
+    assert host.attrs.get('os').traits == {'index'}
 
 
 def test_osversion(host):
     assert host.attrs.get('osversion').value == platform.release()
-    assert host.attrs.get('osversion').traits == set()
+    assert host.attrs.get('osversion').traits == {'index'}
 
 
 def test_free(host):

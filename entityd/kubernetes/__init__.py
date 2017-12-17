@@ -283,9 +283,9 @@ class BasePlugin(metaclass=ABCMeta):
         update.attrs.set('kubernetes:kind', kind)
         update.attrs.set('kubernetes:meta:labels', dict(resource.meta.labels))
         update.attrs.set('kubernetes:meta:name',
-                         meta.name, traits={'entity:id'})
+                         meta.name, {'entity:id', 'index'})
         update.attrs.set('kubernetes:meta:namespace',
-                         meta.namespace, traits={'entity:id'})
+                         meta.namespace, {'entity:id', 'index'})
         update.attrs.set('cluster', str(self.cluster_ueid),
                          traits={'entity:id', 'entity:ueid'})
         update.attrs.set('kubernetes:meta:version', meta.version)

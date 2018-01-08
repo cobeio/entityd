@@ -161,11 +161,11 @@ def get_cluster_ueid(session):
     """
     results = session.pluginmanager.hooks.entityd_find_entity(
         name='Kubernetes:Cluster', attrs=None)
-    if results and results[0]:
-        for cluster_entity in results[0]:
-            return cluster_entity.ueid
-    else:
-        raise LookupError('Could not find the Cluster UEID')
+    for result in list(results):
+        if result:
+            for cluster_entity in list(result):
+                return cluster_entity.ueid
+    raise LookupError('Could not find the Cluster UEID')
 
 
 def generate_updates(generator_function, session):

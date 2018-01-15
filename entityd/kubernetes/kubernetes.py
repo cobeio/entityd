@@ -161,9 +161,9 @@ def get_cluster_ueid(session):
     """
     results = session.pluginmanager.hooks.entityd_find_entity(
         name='Kubernetes:Cluster', attrs=None)
-    for result in list(results):
+    for result in results:
         if result:
-            for cluster_entity in list(result):
+            for cluster_entity in result:
                 return cluster_entity.ueid
     raise LookupError('Could not find the Cluster UEID')
 

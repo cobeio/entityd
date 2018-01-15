@@ -21,7 +21,7 @@ class DockerSwarm:
 
     @entityd.pm.hookimpl
     def entityd_emit_entities(self):
-        """Generate all Docker daemon entity updates."""
+        """Generate all Docker swarm entity updates."""
         yield from self.generate_updates()
 
     @classmethod
@@ -99,7 +99,7 @@ class DockerNode:
 
     @entityd.pm.hookimpl
     def entityd_emit_entities(self):
-        """Generate all Docker daemon entity updates."""
+        """Generate all Docker node entity updates."""
         yield from self.generate_updates()
 
     @classmethod
@@ -169,7 +169,7 @@ class DockerService:
 
     @entityd.pm.hookimpl
     def entityd_emit_entities(self):
-        """Generate all Docker daemon entity updates."""
+        """Generate all Docker service entity updates."""
         yield from self.generate_updates()
 
     @entityd.pm.hookimpl
@@ -327,7 +327,7 @@ class DockerNetwork:
 
     @entityd.pm.hookimpl
     def entityd_emit_entities(self):
-        """Generate all Docker daemon entity updates."""
+        """Generate all Docker network entity updates."""
         yield from self.generate_updates()
 
     @classmethod
@@ -370,19 +370,14 @@ class DockerNetwork:
             if network.attrs['Scope'] == "swarm" and swarm_ueid:
                 update = self.populate_network_fields(network)
                 update.parents.add(swarm_ueid)
-                yield from self.generate_label_entities(
-                    network.attrs.get('Labels'),
-                    update,
-                )
-                yield update
             elif network.attrs['Scope'] == "local":
                 update = self.populate_network_fields(network)
                 update.parents.add(daemon_ueid)
-                yield from self.generate_label_entities(
-                    network.attrs.get('Labels'),
-                    update,
-                )
-                yield update
+            yield from self.generate_label_entities(
+                network.attrs.get('Labels'),
+                update,
+            )
+            yield update
 
     def generate_label_entities(self, labels, update):
         """Generate updates for network labels."""

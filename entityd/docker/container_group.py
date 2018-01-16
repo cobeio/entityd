@@ -84,7 +84,8 @@ class DockerContainerGroup(HostEntity):
                 continue
             try:
                 top_results = container.top(ps_args="-o pid")
-            except docker.errors.APIError:
+            except docker.errors.APIError as err:
+                log.warning("Docker APIError: {}", err)
                 continue
             processes = top_results['Processes']
             if not processes:

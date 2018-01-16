@@ -3,6 +3,7 @@
 Each running container will have a container group with
 a child for each process.
 """
+import docker
 import logbook
 import syskit
 
@@ -81,8 +82,10 @@ class DockerContainerGroup(HostEntity):
         for container in client.containers.list():
             if container.status != "running":
                 continue
-
-            top_results = container.top(ps_args="-o pid")
+            try:
+                top_results = container.top(ps_args="-o pid")
+            except docker.errors.APIError:
+                continue
             processes = top_results['Processes']
             if not processes:
                 continue

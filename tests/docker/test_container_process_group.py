@@ -1,11 +1,10 @@
 import os
 from datetime import datetime
 
-import docker
 import pytest
 import syskit
-from docker.errors import DockerException
 
+from docker.errors import DockerException, APIError
 from entityd.docker.client import DockerClient
 from entityd.docker.container import DockerContainer
 from entityd.docker.container_group import DockerContainerGroup
@@ -53,7 +52,7 @@ def test_get_process_ueid(session, container_group):
     assert ueid
 
 
-def test_non_runnning_containers(session, container_group,
+def test_non_running_containers(session, container_group,
                                  docker_client, running_container,
                                  finished_container):
     containers = [running_container, finished_container]
@@ -75,6 +74,14 @@ def test_non_runnning_containers(session, container_group,
         container_ueid = DockerContainer.get_ueid(running_container.id)
         assert entity.attrs.get('id').value == str(container_ueid)
         assert entity.attrs.get('id').traits == {'entity:id'}
+
+
+def test_not_running_container_exception_mk2(running_container, docker_client):
+    running_container.top.side_effect = APIError("Mocked APIError")
+    containers = [running_container]
+    docker_client(client_info={'ID':'foo'}, containers=containers)
+    dockerContainerGroup = DockerContainerGroup()
+    assert len(list(dockerContainerGroup.generate_updates())) == 0
 
 
 def test_empty_processes_from_top(session, container_group,

@@ -32,7 +32,9 @@ class DockerContainer:
         daemon_id = client.info()['ID']
         daemon_ueid = entityd.docker.get_ueid('DockerDaemon', daemon_id)
 
-        for container in client.containers.list(all=True):
+        images = {}
+
+        for container in DockerClient.all_containers():
             attrs = container.attrs
             update = entityd.EntityUpdate(self.name)
             update.label = container.name
@@ -41,17 +43,24 @@ class DockerContainer:
             update.attrs.set('state:status', container.status)
             update.attrs.set('state:started-at', attrs['State']['StartedAt'],
                              traits={'chrono:rfc3339'})
-            try:
-                update.attrs.set('image:id', container.image.id)
-                update.attrs.set('image:name', container.image.tags)
-            except ImageNotFound:
-                log.debug("Docker image ({}) not found",
-                          container.attrs['Image'])
+
+            if attrs['Image'] not in images:
+                try:
+                    images[attrs['Image']] = container.image
+                except ImageNotFound:
+                    log.debug("Docker image ({}) not found",
+                              container.attrs['Image'])
+
+            image = images.get(attrs['Image'])
+
+            if image:
+                update.attrs.set('image:id', image.id)
+                update.attrs.set('image:name', image.tags)
+                update.parents.add(
+                    entityd.docker.get_ueid('DockerImage', image.id))
+            else:
                 update.attrs.set('image:id', None)
                 update.attrs.set('image:name', None)
-            else:
-                update.parents.add(
-                    entityd.docker.get_ueid('DockerImage', container.image.id))
 
             if container.status not in ["exited", "dead"]:
                 update.attrs.set('state:exit-code', None)

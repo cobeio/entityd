@@ -11,6 +11,7 @@ import pytest
 import zmq.auth
 
 import entityd.core
+import entityd.docker.client
 import entityd.hookspec
 import entityd.hostme
 import entityd.kvstore
@@ -237,3 +238,12 @@ def cluster_entity_plugin(pm, session, kvstore):  # pylint: disable=unused-argum
     cluster_plugin.entityd_sessionstart(session)
     yield cluster_plugin
     cluster_plugin.entityd_sessionfinish()
+
+
+@pytest.fixture(autouse=True)
+def clear_docker_client():
+    yield
+    entityd.docker.client.DockerClient._client = None
+    entityd.docker.client.DockerClient._client_info = None
+    entityd.docker.client.DockerClient._all_containers = None
+    entityd.docker.client.DockerClient._running_containers = None

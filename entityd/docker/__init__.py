@@ -45,7 +45,7 @@ class BaseDocker(metaclass=abc.ABCMeta):
         """Register the Docker Entity."""
         cls = self.__class__
         config.addentity(self.name, cls.__module__ + "." + cls.__name__)
-        log.info('Adding docker entity name {} ({})'.format(
+        log.debug('Adding docker entity name {} ({})'.format(
             self.name, cls.__module__ + "." + cls.__name__))
 
     @entityd.pm.hookimpl

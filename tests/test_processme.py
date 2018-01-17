@@ -155,10 +155,6 @@ def cpuusage_interval(monkeypatch):
                                           interval=0.1))
 
 
-def test_no_docker_client(no_docker_client, procent):   # pylint: disable=unused-argument
-    assert procent._docker_client is None
-
-
 def test_configure(procent, config):
     procent.entityd_configure(config)
     assert procent in (x.obj for x in config.entities['Process'])

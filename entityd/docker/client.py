@@ -13,6 +13,8 @@ class DockerClient:
     """Helper class to cache and get Docker DockerClient."""
     _client = None
     _client_info = None
+    _all_containers = None
+    _running_containers = None
 
     @classmethod
     def get_client(cls):
@@ -39,8 +41,12 @@ class DockerClient:
     @entityd.pm.hookimpl
     def entityd_collection_after(self, session):  # pylint: disable=unused-argument
         """Clear the client_info before the entityd collection starts."""
-        # NB: This is weird
         DockerClient._client_info = None
+
+    @entityd.pm.hookimpl
+    def entityd_collection_before(self, session):  # pylint: disable=unused-argument
+        DockerClient._all_containers = None
+        DockerClient._running_containers = None
 
     @classmethod
     def info(cls):
@@ -72,3 +78,16 @@ class DockerClient:
                 if node_id == manager['NodeID']:
                     return True
         return False
+
+    @classmethod
+    def all_containers(cls):
+        if cls._all_containers is None:
+            cls._all_containers = list(
+                cls.get_client().containers.list(all=True))
+        return cls._all_containers
+
+    @classmethod
+    def running_containers(cls):
+        if cls._running_containers is None:
+            cls._running_containers = list(cls.get_client().containers.list())
+        return cls._running_containers

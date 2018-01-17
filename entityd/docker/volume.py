@@ -87,7 +87,7 @@ class DockerVolumeMount(BaseDocker):
         daemon_id = DockerClient.info()['ID']
         volumes = {volume.name: volume for volume in client.volumes.list()}
         containers = {container.id: container for
-                      container in client.containers.list(all=True)}
+                      container in DockerClient.all_containers()}
 
         for container in containers.values():
             for mount in container.attrs['Mounts']:

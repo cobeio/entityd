@@ -77,8 +77,7 @@ class DockerContainerGroup(HostEntity):
         if not DockerClient.client_available():
             return
 
-        client = DockerClient.get_client()
-        for container in client.containers.list():
+        for container in DockerClient.running_containers():
             if container.status != "running":
                 continue
 

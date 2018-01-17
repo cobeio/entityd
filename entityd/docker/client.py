@@ -42,9 +42,6 @@ class DockerClient:
     def entityd_collection_after(self, session):  # pylint: disable=unused-argument
         """Clear the client_info before the entityd collection starts."""
         DockerClient._client_info = None
-
-    @entityd.pm.hookimpl
-    def entityd_collection_before(self, session):  # pylint: disable=unused-argument
         DockerClient._all_containers = None
         DockerClient._running_containers = None
 
@@ -81,6 +78,7 @@ class DockerClient:
 
     @classmethod
     def all_containers(cls):
+        """Returns all docker containers."""
         if cls._all_containers is None:
             cls._all_containers = list(
                 cls.get_client().containers.list(all=True))
@@ -88,6 +86,7 @@ class DockerClient:
 
     @classmethod
     def running_containers(cls):
+        """Returns all running docker containers."""
         if cls._running_containers is None:
             cls._running_containers = list(cls.get_client().containers.list())
         return cls._running_containers

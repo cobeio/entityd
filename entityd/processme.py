@@ -1,16 +1,14 @@
 """Plugin providing the Process Monitored Entity."""
 import argparse
-
 import functools
 import threading
 
 import act
-import entityd.docker.client
 import logbook
+import syskit
 import zmq
 
-import syskit
-
+import entityd.docker.client
 import entityd.pm
 
 
@@ -310,8 +308,10 @@ class ProcessEntity:
         """
         if not entityd.docker.client.DockerClient.client_available():
             return {}
-        containerids = {container.id for container in
-                        entityd.docker.client.DockerClient.running_containers()}
+        containerids = {
+            container.id for container in
+            entityd.docker.client.DockerClient.running_containers()
+        }
         containers = {}
         for pid in pids:
             try:

@@ -1,10 +1,13 @@
 """This module contains the entity types for Docker Volumes."""
+import logbook
+
+from docker.errors import NotFound
 
 from entityd import EntityUpdate
 from entityd.docker import BaseDocker, get_ueid
 from entityd.docker.client import DockerClient
 
-
+log = logbook.Logger(__name__)
 class DockerVolume(BaseDocker):
     """An entity for the docker volume."""
     name = "Docker:Volume"
@@ -86,9 +89,12 @@ class DockerVolumeMount(BaseDocker):
         client = DockerClient.get_client()
         daemon_id = DockerClient.info()['ID']
         volumes = {volume.name: volume for volume in client.volumes.list()}
-        containers = {container.id: container for
-                      container in client.containers.list(all=True)}
-
+        try:
+            containers = {container.id: container for
+                          container in client.containers.list(all=True)}
+        except NotFound as err:
+            log.exception('Docker error: {}'.format(err))
+            return
         for container in containers.values():
             for mount in container.attrs['Mounts']:
                 mount_name = mount.get('Name')

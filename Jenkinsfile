@@ -16,7 +16,7 @@ runPipeline name: "entityd",
             cmd: "jenkins-pytest",
             timeoutMins: 5,
             retries: 3,
-            resultsFolder: "/entityd/results"
+            resultsFolder: "/opt/cobe-agent/src/results"
         ],
         [
             name:"Linting Tests",
@@ -24,6 +24,6 @@ runPipeline name: "entityd",
             image:"entityd-test",
             cmd: "pylint",
             timeoutMins: 5,
-            resultsFolder: "/entityd/results"]
+            resultsFolder: "/opt/cobe-agent/src/results"]
     ],
     publishImages: ["entityd", "kubectl-entityd"]

@@ -119,8 +119,8 @@ def patched_entitygen(request, monkeypatch, pm, session, host_entity_plugin):  #
 
     procgen = entityd.processme.ProcessEntity()
     pm.register(procgen, 'entityd.processme.ProcessEntity')
-    procgen.entityd_sessionstart(session)
     request.addfinalizer(procgen.entityd_sessionfinish)
+    procgen.entityd_sessionstart(session)
     mock_apache_process = entityd.EntityUpdate('Process')
     mock_apache_process.attrs.set('pid', 123, traits={'entity:id'})
     mock_apache_process.attrs.set('ppid', 1, traits={'entity:id'})
@@ -206,8 +206,8 @@ def test_find_entity(request, entitygen):
     procgen = entityd.processme.ProcessEntity()
     entitygen.session.pluginmanager.register(procgen,
                                              'entityd.processme.ProcessEntity')
-    procgen.entityd_sessionstart(entitygen.session)
     request.addfinalizer(procgen.entityd_sessionfinish)
+    procgen.entityd_sessionstart(entitygen.session)
     entities = entitygen.entityd_find_entity('Apache', None)
     count = 0
     for entity in entities:
@@ -320,8 +320,8 @@ def test_relations(monkeypatch, request, tmpdir, pm, session, kvstore,  # pylint
 
     hostgen = entityd.hostme.HostEntity()
     pm.register(hostgen, name='entityd.hostme')
-    hostgen.entityd_sessionstart(session)
     request.addfinalizer(hostgen.entityd_sessionfinish)
+    hostgen.entityd_sessionstart(session)
     hosts = hostgen.entityd_find_entity('Host', None)
 
     # The process entity is patched to return mocked processes
@@ -372,8 +372,8 @@ def test_config_file_returned_separately(request, pm, session, kvstore,  # pylin
 
     hostgen = entityd.hostme.HostEntity()
     pm.register(hostgen, name='entityd.hostme')
-    hostgen.entityd_sessionstart(session)
     request.addfinalizer(hostgen.entityd_sessionfinish)
+    hostgen.entityd_sessionstart(session)
 
     conf_file = tmpdir.join('apache2.conf')
     with conf_file.open('w') as f:
@@ -399,8 +399,8 @@ def test_vhost_returned_separately(request, pm, session, kvstore,  # pylint: dis
 
     hostgen = entityd.hostme.HostEntity()
     pm.register(hostgen, name='entityd.hostme')
-    hostgen.entityd_sessionstart(session)
     request.addfinalizer(hostgen.entityd_sessionfinish)
+    hostgen.entityd_sessionstart(session)
 
     apache = next(gen.entityd_find_entity('Apache',
                                           attrs=None,

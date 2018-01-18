@@ -76,7 +76,12 @@ class DockerClient:
 
     @classmethod
     def all_containers(cls):
-        """Returns all docker containers."""
+        """Returns all docker containers.
+
+        This will return the same list of containers until
+        the end of the collection cycle. If there is a docker exception an
+        empty list will be returned.
+        """
         if cls._all_containers is None:
             try:
                 cls._all_containers = list(

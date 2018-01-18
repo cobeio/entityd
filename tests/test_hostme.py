@@ -58,8 +58,8 @@ def test_configure():
 def test_session_stored_on_start(request):
     session = pytest.Mock()
     he = entityd.hostme.HostEntity()
-    he.entityd_sessionstart(session)
     request.addfinalizer(he.entityd_sessionfinish)
+    he.entityd_sessionstart(session)
     assert he.session is session
 
 

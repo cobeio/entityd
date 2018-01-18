@@ -58,7 +58,7 @@ class MonitoredEntitySender:  # pylint: disable=too-many-instance-attributes
             key_receiver, _ = zmq.auth.load_certificate(
                 str(self.session.config.args.key_receiver))
             self._socket = self.context.socket(zmq.PUSH)
-            self._socket.SNDHWM = 500
+            self._socket.SNDHWM = 10000
             self._socket.LINGER = 0
             self._socket.CURVE_PUBLICKEY = key_public
             self._socket.CURVE_SECRETKEY = key_private

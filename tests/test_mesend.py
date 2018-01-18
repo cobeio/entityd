@@ -270,7 +270,7 @@ def test_send_unserializable(sender):
 
 def test_buffers_full(loghandler, sender):
     entity = {'uuid': 'abcdef'}
-    for _ in range(501):
+    for _ in range(10001):
         sender.entityd_send_entity(entity)
     assert loghandler.has_warning(
         re.compile(r'Could not send, message buffers are full'))

@@ -1,5 +1,5 @@
 import pytest
-from docker.errors import DockerException
+from docker.errors import DockerException, NotFound
 
 import entityd
 from entityd.docker.client import DockerClient
@@ -57,6 +57,32 @@ def test_docker_not_available(entity_class, monkeypatch):
     instance = entity_class()
 
     assert not list(instance.entityd_find_entity(entity_class.name))
+
+@pytest.fixture
+def docker_client_with_side_effect(monkeypatch):
+
+    def make_docker_client(client_info=None, containers=None, volumes=None):
+        get_client = pytest.MagicMock()
+        client_instance = get_client.return_value
+        client_instance.info.return_value = client_info or {'ID': 'foo'}
+        client_instance.containers.list.side_effect =\
+            NotFound('Mocked exception')
+        client_instance.volumes.list.return_value = iter(volumes or [])
+
+        monkeypatch.setattr(DockerClient, 'get_client', get_client)
+
+    return make_docker_client
+
+
+def test_container_not_found(running_container,
+                             docker_client_with_side_effect):
+    containers = [running_container]
+    docker_client_with_side_effect(
+        client_info={'ID': 'foo'},
+        containers=containers,
+    )
+    dockerVolumeMount = DockerVolumeMount()
+    assert len(list(dockerVolumeMount.generate_updates())) == 0
 
 
 def test_attrs_raises_exception(entity_class):

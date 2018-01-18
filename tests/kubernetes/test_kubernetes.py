@@ -67,6 +67,29 @@ def test_sessionstart_no_cluster_ueid():
         kubernetes.entityd_sessionstart(session)
 
 
+def test_sessionstart_no_cluster_ueid_mk2():
+    def entityd_find_entity(name, attrs):    # pylint: disable=unused-argument
+        return [[]]
+    hooks = types.SimpleNamespace(entityd_find_entity=entityd_find_entity)
+    pluginmanager = types.SimpleNamespace(hooks=hooks)
+    session = types.SimpleNamespace(pluginmanager=pluginmanager)
+    with pytest.raises(LookupError):
+        kubernetes.entityd_sessionstart(session)
+
+
+def test_sessionstart_multiple_clusters():
+    def foo():
+        return entityd.entityupdate.EntityUpdate('Foo', ueid='a' * 32)
+
+    def entityd_find_entity(name, attrs):    # pylint: disable=unused-argument
+        return [[],[foo()]]
+
+    hooks = types.SimpleNamespace(entityd_find_entity=entityd_find_entity)
+    pluginmanager = types.SimpleNamespace(hooks=hooks)
+    session = types.SimpleNamespace(pluginmanager=pluginmanager)
+    kubernetes.entityd_sessionstart(session)
+
+
 class TestFindEntity:
 
     @pytest.fixture
@@ -615,7 +638,6 @@ class TestProbes:
     def test_missing_attribute(self, cluster, raw_pods_resource, miss_attr):
         pod_resource = raw_pods_resource[0]
         del(pod_resource['spec']['containers'][0]['livenessProbe'][miss_attr])
-        print(str(pod_resource['spec']['containers'][0]))
         pod = kube.PodItem(cluster, pod_resource)
         cluster.pods.__iter__.return_value = iter([pod])
         cluster.pods.fetch.return_value = pod

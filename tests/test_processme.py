@@ -144,8 +144,9 @@ def syskit_user_error(monkeypatch):
 @pytest.fixture
 def no_docker_client(monkeypatch):
     """Mock out DockerClient to test no docker client being available."""
-    monkeypatch.setattr(docker, 'DockerClient',
-                        pytest.Mock(side_effect=docker.errors.DockerException))
+    monkeypatch.setattr(
+        'entityd.docker.client.docker.DockerClient',
+        pytest.MagicMock(side_effect=docker.errors.DockerException))
 
 
 @pytest.fixture
@@ -153,6 +154,23 @@ def cpuusage_interval(monkeypatch):
     monkeypatch.setattr(entityd.processme, "CpuUsage",
                         functools.partial(entityd.processme.CpuUsage,
                                           interval=0.1))
+
+
+@pytest.fixture(autouse=True)
+def mock_docker_client(monkeypatch, request):
+    if 'enable_docker_client' in request.keywords:
+        return
+
+    get_client = pytest.MagicMock()
+    client_instance = get_client.return_value
+    client_instance.info.return_value = {'ID': 'foo'}
+    client_instance.containers.list.return_value = iter([])
+    client_instance.volumes.list.return_value = iter([])
+
+    monkeypatch.setattr(
+        entityd.docker.client.DockerClient, "get_client", get_client)
+
+    return client_instance
 
 
 def test_configure(procent, config):
@@ -205,6 +223,7 @@ def test_entities_have_core_attributes(procent, session, kvstore): # pylint: dis
 
 
 @pytest.mark.non_container
+@pytest.mark.enable_docker_client
 def test_container_entity_has_containerid_attribute(container,
                                                     procent, session, kvstore):  # pylint: disable=unused-argument
     procent.entityd_sessionstart(session)
@@ -218,6 +237,7 @@ def test_container_entity_has_containerid_attribute(container,
 
 
 @pytest.mark.non_container
+@pytest.mark.enable_docker_client
 def test_get_process_containers_handles_missing_process(container,
                                                         session, procent):
     procent.entityd_sessionstart(session)
@@ -349,6 +369,7 @@ def test_root_process_has_host_parent(procent, session, kvstore, monkeypatch):  
 
 
 @pytest.mark.non_container
+@pytest.mark.enable_docker_client
 def test_find_single_container_parent(container_entities):
     count = 0
     for entity in container_entities.entities:
@@ -682,6 +703,11 @@ class TestCpuUsage:
         request.addfinalizer(cpuusage.stop)
         req = context.socket(zmq.PAIR)
         req.connect('inproc://cpuusage')
+
+        def fin():
+            req.close(linger=0)
+
+        request.addfinalizer(fin)
         pid = os.getpid()
         while True:
             req.send_pyobj(None)

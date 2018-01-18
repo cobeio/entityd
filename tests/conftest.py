@@ -246,4 +246,3 @@ def clear_docker_client():
     entityd.docker.client.DockerClient._client = None
     entityd.docker.client.DockerClient._client_info = None
     entityd.docker.client.DockerClient._all_containers = None
-    entityd.docker.client.DockerClient._running_containers = None

@@ -1,4 +1,4 @@
-FROM python:3.4-alpine3.4
+FROM eu.gcr.io/cobesaas/python:3.4-alpine-pypi as build
 RUN apk update
 RUN apk add build-base
 RUN apk add libffi-dev
@@ -21,7 +21,7 @@ RUN /opt/cobe-agent/bin/pip3 install -e src/
 
 # Final image; only run-time dependencies.
 FROM python:3.4-alpine3.4
-COPY --from=0 /opt/cobe-agent/ /opt/cobe-agent/
+COPY --from=build /opt/cobe-agent/ /opt/cobe-agent/
 ENV PATH $PATH:/opt/cobe-agent/bin
 RUN apk add --no-cache libzmq
 RUN apk add --no-cache curl

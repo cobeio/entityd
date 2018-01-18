@@ -124,10 +124,12 @@ def test_attrs_must_be_none(mock_postgres):
             name='PostgreSQL', attrs={'not': None}, include_ondemand=False)
 
 
-def test_host_stored_and_returned(pm, session, kvstore, mock_postgres):  # pylint: disable=unused-argument
+def test_host_stored_and_returned(request, pm, session,
+                                  kvstore, mock_postgres):  # pylint: disable=unused-argument
     hostgen = entityd.hostme.HostEntity()
     pm.register(hostgen, name='entityd.hostme')
     hostgen.entityd_sessionstart(session)
+    request.addfinalizer(hostgen.entityd_sessionfinish)
 
     entities = mock_postgres.entityd_find_entity(
         name='PostgreSQL', attrs=None, include_ondemand=False)

@@ -311,7 +311,7 @@ def test_apache_not_found(patched_entitygen, monkeypatch):
         next(entities)
 
 
-def test_relations(monkeypatch, tmpdir, pm, session, kvstore,  # pylint: disable=unused-argument
+def test_relations(monkeypatch, request, tmpdir, pm, session, kvstore,  # pylint: disable=unused-argument
                    fileme, patched_entitygen):
     gen = patched_entitygen
 
@@ -321,6 +321,7 @@ def test_relations(monkeypatch, tmpdir, pm, session, kvstore,  # pylint: disable
     hostgen = entityd.hostme.HostEntity()
     pm.register(hostgen, name='entityd.hostme')
     hostgen.entityd_sessionstart(session)
+    request.addfinalizer(hostgen.entityd_sessionfinish)
     hosts = hostgen.entityd_find_entity('Host', None)
 
     # The process entity is patched to return mocked processes
@@ -364,7 +365,7 @@ def test_relations(monkeypatch, tmpdir, pm, session, kvstore,  # pylint: disable
     assert entity.parents._relations == set(host.ueid for host in hosts)
 
 
-def test_config_file_returned_separately(pm, session, kvstore,  # pylint: disable=unused-argument
+def test_config_file_returned_separately(request, pm, session, kvstore,  # pylint: disable=unused-argument
                                          patched_entitygen, fileme, tmpdir,
                                          monkeypatch):
     gen = patched_entitygen
@@ -372,6 +373,7 @@ def test_config_file_returned_separately(pm, session, kvstore,  # pylint: disabl
     hostgen = entityd.hostme.HostEntity()
     pm.register(hostgen, name='entityd.hostme')
     hostgen.entityd_sessionstart(session)
+    request.addfinalizer(hostgen.entityd_sessionfinish)
 
     conf_file = tmpdir.join('apache2.conf')
     with conf_file.open('w') as f:
@@ -391,13 +393,15 @@ def test_config_file_returned_separately(pm, session, kvstore,  # pylint: disabl
     assert [e for e in entities if e.metype == 'Apache']
 
 
-def test_vhost_returned_separately(pm, session, kvstore,  # pylint: disable=unused-argument
+def test_vhost_returned_separately(request, pm, session, kvstore,  # pylint: disable=unused-argument
                                    patched_entitygen):
     gen = patched_entitygen
 
     hostgen = entityd.hostme.HostEntity()
     pm.register(hostgen, name='entityd.hostme')
     hostgen.entityd_sessionstart(session)
+    request.addfinalizer(hostgen.entityd_sessionfinish)
+
     apache = next(gen.entityd_find_entity('Apache',
                                           attrs=None,
                                           include_ondemand=False))

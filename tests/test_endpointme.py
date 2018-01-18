@@ -70,7 +70,7 @@ def test_find_entity_with_attrs(endpoint_gen):
         endpoint_gen.entityd_find_entity('Endpoint', {})
 
 
-def test_endpoints_for_process(pm, session, host_entity_plugin,  # pylint: disable=unused-argument
+def test_endpoints_for_process(request, pm, session, host_entity_plugin,  # pylint: disable=unused-argument
                                kvstore, local_socket, remote_socket):  # pylint: disable=unused-argument
     # conn is required to keep the connection from being GC'd
     conn = local_socket.accept()  # pylint: disable=unused-variable
@@ -84,6 +84,7 @@ def test_endpoints_for_process(pm, session, host_entity_plugin,  # pylint: disab
     pm.hooks.entityd_plugin_registered(pluginmanager=pm,
                                        name='entityd.endpointme')
     pm.hooks.entityd_sessionstart(session=session)
+    request.addfinalizer(pm.hooks.entityd_sessionfinish)
 
     entities = endpoint_plugin.endpoints_for_process(os.getpid())
     count = 0
@@ -130,7 +131,8 @@ def test_endpoints_for_process(pm, session, host_entity_plugin,  # pylint: disab
     pm.hooks.entityd_sessionfinish()
 
 
-def test_unix_socket(pm, session, host_entity_plugin, kvstore, unix_socket):  # pylint: disable=unused-argument
+def test_unix_socket(request, pm, session,
+                     host_entity_plugin, kvstore, unix_socket):  # pylint: disable=unused-argument
     """Unix sockets should not be returned"""
     pm.register(entityd.processme.ProcessEntity(),
                 name='entityd.processme')
@@ -141,6 +143,7 @@ def test_unix_socket(pm, session, host_entity_plugin, kvstore, unix_socket):  # 
     pm.hooks.entityd_plugin_registered(pluginmanager=pm,
                                        name='entityd.endpointme')
     pm.hooks.entityd_sessionstart(session=session)
+    request.addfinalizer(pm.hooks.entityd_sessionfinish)
 
     entities = endpoint_plugin.endpoints_for_process(os.getpid())
     count = 0
@@ -151,7 +154,7 @@ def test_unix_socket(pm, session, host_entity_plugin, kvstore, unix_socket):  # 
     pm.hooks.entityd_sessionfinish()
 
 
-def test_get_entities(pm, session, host_entity_plugin, kvstore):  # pylint: disable=unused-argument
+def test_get_entities(request, pm, session, host_entity_plugin, kvstore):  # pylint: disable=unused-argument
     endpoint_gen = entityd.endpointme.EndpointEntity()
     endpoint_gen.session = session
 
@@ -159,6 +162,7 @@ def test_get_entities(pm, session, host_entity_plugin, kvstore):  # pylint: disa
     pm.hooks.entityd_plugin_registered(pluginmanager=pm,
                                        name='entityd.processme')
     pm.hooks.entityd_sessionstart(session=endpoint_gen.session)
+    request.addfinalizer(pm.hooks.entityd_sessionfinish)
 
     entities = endpoint_gen.entityd_find_entity(name='Endpoint', attrs=None)
 
@@ -174,7 +178,7 @@ def test_get_entities(pm, session, host_entity_plugin, kvstore):  # pylint: disa
     pm.hooks.entityd_sessionfinish()
 
 
-def test_get_entities_with_relocated_procfs(pm, session, tmpdir,
+def test_get_entities_with_relocated_procfs(request, pm, session, tmpdir,
                                             host_entity_plugin, kvstore):  # pylint: disable=unused-argument
     endpoint_gen = entityd.endpointme.EndpointEntity()
     session.config.args.procpath = str(tmpdir)
@@ -188,11 +192,13 @@ def test_get_entities_with_relocated_procfs(pm, session, tmpdir,
     pm.hooks.entityd_plugin_registered(pluginmanager=pm,
                                        name='entityd.endpointme')
     pm.hooks.entityd_sessionstart(session=session)
+    request.addfinalizer(pm.hooks.entityd_sessionfinish)
+
     entities = endpoint_gen.entityd_find_entity(name='Endpoint', attrs=None)
     assert not list(entities)
 
 
-def test_endpoint_for_deleted_process(pm, session, host_entity_plugin,  # pylint: disable=unused-argument
+def test_endpoint_for_deleted_process(request, pm, session, host_entity_plugin,  # pylint: disable=unused-argument
                                       kvstore, local_socket, conn):  # pylint: disable=unused-argument
     endpoint_gen = entityd.endpointme.EndpointEntity()
     endpoint_gen.session = session
@@ -201,6 +207,7 @@ def test_endpoint_for_deleted_process(pm, session, host_entity_plugin,  # pylint
     pm.hooks.entityd_plugin_registered(pluginmanager=pm,
                                        name='entityd.processme')
     pm.hooks.entityd_sessionstart(session=endpoint_gen.session)
+    request.addfinalizer(pm.hooks.entityd_sessionfinish)
 
     proc = entityd.EntityUpdate('Process')
     proc.set_not_exists()

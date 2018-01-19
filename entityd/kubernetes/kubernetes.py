@@ -145,13 +145,6 @@ def entityd_find_entity(name, attrs=None,
         return generate_updates(globals()[ENTITIES_PROVIDED[name]], session)
 
 
-@entityd.pm.hookimpl
-def entityd_sessionstart(session):
-    """Determine the Cluster UEID."""
-    global _CLUSTER_UEID  # pylint: disable=global-statement
-    _CLUSTER_UEID = get_cluster_ueid(session)
-
-
 def get_cluster_ueid(session):
     """Get the Kubernetes Cluster UEID.
 
@@ -159,11 +152,15 @@ def get_cluster_ueid(session):
 
     :returns: A :class:`cobe.UEID` for the Cluster.
     """
+    global _CLUSTER_UEID  # pylint: disable=global-statement
+    if _CLUSTER_UEID:
+        return _CLUSTER_UEID
     results = session.pluginmanager.hooks.entityd_find_entity(
         name='Kubernetes:Cluster', attrs=None)
     for result in results:
         if result:
             for cluster_entity in result:
+                _CLUSTER_UEID = cluster_entity.ueid
                 return cluster_entity.ueid
     raise LookupError('Could not find the Cluster UEID')
 
@@ -254,7 +251,7 @@ def apply_meta_update(meta, update, session):
         update.parents.add(namespace_group_ueid)
     else:
         update.attrs.delete('kubernetes:meta:namespace')
-    update.attrs.set('cluster', str(_CLUSTER_UEID),
+    update.attrs.set('cluster', str(get_cluster_ueid(session)),
                      traits={'entity:id', 'entity:ueid'})
     update.attrs.set('kubernetes:meta:version', meta.version)
     update.attrs.set(
@@ -286,7 +283,7 @@ def namespace_update(namespace, update, session):
     apply_meta_update(namespace.meta, update, session)
     update.attrs.set(
         'phase', namespace.phase.value, traits={'kubernetes:namespace-phase'})
-    update.parents.add(_CLUSTER_UEID)
+    update.parents.add(get_cluster_ueid(session))
 
 
 def generate_pods(cluster, session):

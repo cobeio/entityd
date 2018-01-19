@@ -46,38 +46,42 @@ def test_entityd_configure(pm, config):
         assert plugin in entity_plugins
 
 
-def test_sessionstart():
+def test_get_cluster_ueid():
+    kubernetes._CLUSTER_UEID = None
     entity = entityd.entityupdate.EntityUpdate('Foo', ueid='a' * 32)
     def entityd_find_entity(name, attrs):    # pylint: disable=unused-argument
         return [[entity]]
     hooks = types.SimpleNamespace(entityd_find_entity=entityd_find_entity)
     pluginmanager = types.SimpleNamespace(hooks=hooks)
     session = types.SimpleNamespace(pluginmanager=pluginmanager)
-    kubernetes.entityd_sessionstart(session)
-    assert str(kubernetes._CLUSTER_UEID) == 'a' * 32
+    cluster_ueid = kubernetes.get_cluster_ueid(session)
+    assert str(cluster_ueid) == 'a' * 32
 
 
-def test_sessionstart_no_cluster_ueid():
+def test_no_cluster_ueid():
+    kubernetes._CLUSTER_UEID = None
     def entityd_find_entity(name, attrs):    # pylint: disable=unused-argument
         return []
     hooks = types.SimpleNamespace(entityd_find_entity=entityd_find_entity)
     pluginmanager = types.SimpleNamespace(hooks=hooks)
     session = types.SimpleNamespace(pluginmanager=pluginmanager)
     with pytest.raises(LookupError):
-        kubernetes.entityd_sessionstart(session)
+        _ = kubernetes.get_cluster_ueid(session)
 
 
-def test_sessionstart_no_cluster_ueid_mk2():
+def test_no_cluster_ueid_mk2():
+    kubernetes._CLUSTER_UEID = None
     def entityd_find_entity(name, attrs):    # pylint: disable=unused-argument
         return [[]]
     hooks = types.SimpleNamespace(entityd_find_entity=entityd_find_entity)
     pluginmanager = types.SimpleNamespace(hooks=hooks)
     session = types.SimpleNamespace(pluginmanager=pluginmanager)
     with pytest.raises(LookupError):
-        kubernetes.entityd_sessionstart(session)
+        _ = kubernetes.get_cluster_ueid(session)
 
 
-def test_sessionstart_multiple_clusters():
+def test_cluster_ueid_clusters():
+    kubernetes._CLUSTER_UEID = None
     def foo():
         return entityd.entityupdate.EntityUpdate('Foo', ueid='a' * 32)
 
@@ -87,7 +91,8 @@ def test_sessionstart_multiple_clusters():
     hooks = types.SimpleNamespace(entityd_find_entity=entityd_find_entity)
     pluginmanager = types.SimpleNamespace(hooks=hooks)
     session = types.SimpleNamespace(pluginmanager=pluginmanager)
-    kubernetes.entityd_sessionstart(session)
+    cluster_ueid = kubernetes.get_cluster_ueid(session)
+    assert str(cluster_ueid) == 'a' * 32
 
 
 class TestFindEntity:

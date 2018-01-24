@@ -196,11 +196,11 @@ class TestApplyMetaUpdate:
         kubernetes.apply_meta_update(meta, update, session)
         assert update.attrs.get('kubernetes:meta:name').value == 'star'
         assert update.attrs.get(
-            'kubernetes:meta:name').traits == {'entity:id'}
+            'kubernetes:meta:name').traits == {'entity:id', 'index'}
         assert update.attrs.get(
             'kubernetes:meta:namespace').value == 'andromeda'
         assert update.attrs.get(
-            'kubernetes:meta:namespace').traits == {'entity:id'}
+            'kubernetes:meta:namespace').traits == {'entity:id', 'index'}
         assert update.attrs.get('kubernetes:meta:version').value == '1234'
         assert update.attrs.get('kubernetes:meta:version').traits == set()
         assert update.attrs.get(
@@ -300,12 +300,12 @@ class TestNamespaces:
         assert namespaces[0].label == 'namespace-1'
         assert namespaces[0].attrs.get('phase').value == 'Active'
         assert namespaces[0].attrs.get(
-            'phase').traits == {'kubernetes:namespace-phase'}
+            'phase').traits == {'kubernetes:namespace-phase', 'index'}
         assert namespaces[1].metype == 'Kubernetes:Namespace'
         assert namespaces[1].label == 'namespace-2'
         assert namespaces[1].attrs.get('phase').value == 'Terminating'
         assert namespaces[1].attrs.get(
-            'phase').traits == {'kubernetes:namespace-phase'}
+            'phase').traits == {'kubernetes:namespace-phase', 'index'}
         assert meta_update.call_count == 2
         assert meta_update.call_args_list[0][0] == (
             namespace_resources[0].meta, namespaces[0], None)
@@ -361,20 +361,22 @@ class TestPods:
         assert pods[0].attrs.get('kubernetes:kind').value == 'Pod'
         assert pods[0].attrs.get('kubernetes:kind').traits == set()
         assert pods[0].attrs.get('phase').value == 'Running'
-        assert pods[0].attrs.get('phase').traits == {'kubernetes:pod-phase'}
+        assert pods[0].attrs.get('phase').traits == \
+            {'kubernetes:pod-phase', 'index'}
         assert pods[0].attrs.get('start_time').value == '2015-01-14T17:01:37Z'
         assert pods[0].attrs.get('start_time').traits == {'chrono:rfc3339'}
         assert pods[0].attrs.get('ip').value == '10.120.0.5'
-        assert pods[0].attrs.get('ip').traits == {'ipaddr:v4'}
+        assert pods[0].attrs.get('ip').traits == {'ipaddr:v4', 'index'}
         assert list(pods[0].parents) == []
         assert pods[1].metype == 'Kubernetes:Pod'
         assert pods[1].label == 'pod-2'
         assert pods[1].attrs.get('phase').value == 'Running'
-        assert pods[1].attrs.get('phase').traits == {'kubernetes:pod-phase'}
+        assert pods[1].attrs.get('phase').traits == \
+             {'kubernetes:pod-phase', 'index'}
         assert pods[1].attrs.get('start_time').value == '2016-01-14T17:01:37Z'
         assert pods[1].attrs.get('start_time').traits == {'chrono:rfc3339'}
         assert pods[1].attrs.get('ip').value == '10.120.0.7'
-        assert pods[1].attrs.get('ip').traits == {'ipaddr:v4'}
+        assert pods[1].attrs.get('ip').traits == {'ipaddr:v4', 'index'}
         assert meta_update.call_count == 2
         assert meta_update.call_args_list[0][0] == (
             pod_resources[0].meta, pods[0], None)
@@ -425,7 +427,7 @@ class TestPods:
         assert pods[0].metype == 'Kubernetes:Pod'
         assert pods[0].label == 'pod-1'
         assert pods[0].attrs.get('message').value == 'Once upon a time ...'
-        assert pods[0].attrs.get('message').traits == set()
+        assert pods[0].attrs.get('message').traits == {'index'}
         assert meta_update.call_count == 1
         assert meta_update.call_args_list[0][0] == (
             pod_resources[0].meta, pods[0], None)
@@ -451,7 +453,7 @@ class TestPods:
         assert pods[0].metype == 'Kubernetes:Pod'
         assert pods[0].label == 'pod-1'
         assert pods[0].attrs.get('reason').value == 'ItsWorking'
-        assert pods[0].attrs.get('reason').traits == set()
+        assert pods[0].attrs.get('reason').traits == {'index'}
         assert meta_update.call_count == 1
         assert meta_update.call_args_list[0][0] == (
             pod_resources[0].meta, pods[0], None)
@@ -476,7 +478,7 @@ class TestPods:
         assert pods[0].metype == 'Kubernetes:Pod'
         assert pods[0].label == 'pod-1'
         assert pods[0].attrs.get('ip').value == '2001:db8::8:800:200c:417a'
-        assert pods[0].attrs.get('ip').traits == {'ipaddr:v6'}
+        assert pods[0].attrs.get('ip').traits == {'ipaddr:v6', 'index'}
         assert meta_update.call_count == 1
         assert meta_update.call_args_list[0][0] == (
             pod_resources[0].meta, pods[0], None)
@@ -1063,7 +1065,7 @@ class TestContainers:
         assert containers[0].attrs.get('id').value == (
             'docker://3a542701e9896f6a4e526cc69e6'
             '191b221cf29e1cabb43edf3b47fe5b33a7a59')
-        assert containers[0].attrs.get('id').traits == {'entity:id'}
+        assert containers[0].attrs.get('id').traits == {'entity:id', 'index'}
         assert containers[0].attrs.get('name').value == 'container-1'
         assert containers[0].attrs.get('name').traits == set()
         assert containers[0].attrs.get('kubernetes:kind').value == 'Container'
@@ -1075,10 +1077,10 @@ class TestContainers:
         assert containers[0].attrs.get('image:id').value == (
             'docker://33688d2af35f810373734d5928f'
             '3e7c579e2569aa80ed80580436f1fd90e53c6')
-        assert containers[0].attrs.get('image:id').traits == set()
+        assert containers[0].attrs.get('image:id').traits == {'index'}
         assert containers[0].attrs.get('image:name').value == (
             'repository/user/image:tag')
-        assert containers[0].attrs.get('image:name').traits == set()
+        assert containers[0].attrs.get('image:name').traits == {'index'}
         assert containers[0].attrs.get(
             'resources:requests:memory').value == req_mem
         assert containers[0].attrs.get(
@@ -1156,7 +1158,7 @@ class TestContainers:
         cluster.pods.fetch.return_value = pod
         container = list(kubernetes.entityd_find_entity('Kubernetes:Container'))[0]
         assert container.attrs.get('state:reason').value == 'FooBar'
-        assert container.attrs.get('state:reason').traits == set()
+        assert container.attrs.get('state:reason').traits == {'index'}
         assert container.attrs.deleted() == {
             'state:started-at',
             'state:exit-code',
@@ -1189,13 +1191,13 @@ class TestContainers:
         assert container.attrs.get(
             'state:finished-at').traits == {'chrono:rfc3339'}
         assert container.attrs.get('state:reason').value == 'ItsDeadJim'
-        assert container.attrs.get('state:reason').traits == set()
+        assert container.attrs.get('state:reason').traits == {'index'}
         assert container.attrs.get('state:exit-code').value == 0
         assert container.attrs.get('state:exit-code').traits == set()
         assert container.attrs.get('state:signal').value == 15
         assert container.attrs.get('state:signal').traits == set()
         assert container.attrs.get('state:message').value == '...'
-        assert container.attrs.get('state:message').traits == set()
+        assert container.attrs.get('state:message').traits == {'index'}
         assert container.attrs.deleted() == set()
 
     def test_no_ip_attribute(self, cluster, raw_pod_resource):

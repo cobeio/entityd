@@ -183,8 +183,8 @@ class HostEntity:                    # pylint: disable=too-many-instance-attribu
 
         hostname = socket.gethostname()
         update.label = hostname
-        update.attrs.set('hostname', hostname)
-        update.attrs.set('fqdn', socket.getfqdn())
+        update.attrs.set('hostname', hostname, {'index'})
+        update.attrs.set('fqdn', socket.getfqdn(), {'index'})
         update.attrs.set('bootid', self.bootid, {'entity:id'})
         update.attrs.set('uptime', int(syskit.uptime()),
                          {'time:duration', 'unit:seconds', 'metric:counter'})
@@ -202,8 +202,8 @@ class HostEntity:                    # pylint: disable=too-many-instance-attribu
                          {'unit:bytes', 'metric:gauge'})
         update.attrs.set('used', (memorystats.total - free) * 1024,
                          {'unit:bytes', 'metric:gauge'})
-        update.attrs.set('os', platform.system())
-        update.attrs.set('osversion', platform.release())
+        update.attrs.set('os', platform.system(), {'index'})
+        update.attrs.set('osversion', platform.release(), {'index'})
         self._add_cputime_attrs(update)
         yield update
 

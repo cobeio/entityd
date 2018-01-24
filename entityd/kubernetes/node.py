@@ -143,7 +143,7 @@ class NodeEntity:
         update.attrs.set('kubernetes:kind', 'Node')
         update.attrs.set(
             'bootid', node.raw['status']['nodeInfo']['bootID'], {'entity:id'})
-        update.attrs.set('kubernetes:meta:name', node_name)
+        update.attrs.set('kubernetes:meta:name', node_name, {'index'})
         update.attrs.set('kubernetes:meta:version', meta.version)
         update.attrs.set('kubernetes:meta:created',
                          meta.created.strftime(
@@ -179,11 +179,11 @@ class NodeEntity:
         update.attrs.set('kind', value='Unschedulable', traits=[])
         update.attrs.set('message',
                          value='The node has been cordoned '
-                         'and is unschedulable.', traits=[])
+                         'and is unschedulable.', traits={'index'})
         update.attrs.set('hints',
                          value='Uncordon this node '
                                'to make it schedulable.',
-                         traits=[])
+                         traits={'index'})
         update.attrs.set('importance', 2, traits=[])
         update.attrs.set('urgency', 2, traits=[])
         update.attrs.set('certainty', 10, traits=[])

@@ -202,7 +202,7 @@ def test_service_entities_ipv4(service, entities_ipv4, cluster_ipv4,
     assert entity.attrs.get(
         'kubernetes:load-balancer-ingress').value == '146.145.27.27'
     assert entity.attrs.get(
-        'kubernetes:load-balancer-ingress').traits == {'ipaddr:v4'}
+        'kubernetes:load-balancer-ingress').traits == {'ipaddr:v4', 'index'}
     assert len(list(entity.children)) == 2
     assert len(list(entity.parents)) == 2
     assert cobe.UEID('ff290adeb112ae377e8fca009ca4fd9f') in entity.parents
@@ -221,7 +221,7 @@ def test_service_entities_ipv6(entities_ipv6):
         'kubernetes:load-balancer-ingress'
     ).value == '2001:db8:85a3::8a2e:370:7334'
     assert entity.attrs.get(
-        'kubernetes:load-balancer-ingress').traits == {'ipaddr:v6'}
+        'kubernetes:load-balancer-ingress').traits == {'ipaddr:v6', 'index'}
 
 
 def test_service_entities_hostname(entities_hostname):
@@ -231,7 +231,7 @@ def test_service_entities_hostname(entities_hostname):
         'kubernetes:load-balancer-ingress'
     ).value == 'derreck'
     assert entity.attrs.get(
-        'kubernetes:load-balancer-ingress').traits == set()
+        'kubernetes:load-balancer-ingress').traits == {'index'}
 
 
 def test_missing_attributes_handled(service, cluster_ipv4):

@@ -409,7 +409,7 @@ class DockerSecret:
             if self._swarm_ueid is not None:
                 return getattr(self, self._TYPES[name])()
             else:
-                log.info('Not collecting Docker secrets on non-manager node')
+                log.debug('Not collecting Docker secrets on non-manager node')
 
     @entityd.pm.hookimpl
     def entityd_configure(self, config):

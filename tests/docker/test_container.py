@@ -48,7 +48,6 @@ def test_emit_entities(monkeypatch, docker_container,
     assert len(entities_containers) == 2
     assert len(entities_labels) == 2
 
-
     for entity, container in zip(entities_containers, containers):
         assert daemon_ueid in entity.parents
         assert entity.exists == container.should_exist

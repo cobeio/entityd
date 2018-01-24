@@ -1,16 +1,14 @@
 """Plugin providing the Process Monitored Entity."""
 import argparse
-
 import functools
 import threading
 
 import act
-import docker
 import logbook
+import syskit
 import zmq
 
-import syskit
-
+import entityd.docker.client
 import entityd.pm
 
 
@@ -143,12 +141,6 @@ class ProcessEntity:
         self.cpu_usage_thread = None
         self.cpu_usage_sock = None
         self.procpath = '/proc' # Default; set by args in sessionstart
-        try:
-            self._docker_client = docker.DockerClient(
-                base_url='unix://var/run/docker.sock',
-                timeout=3, version='auto')
-        except docker.errors.DockerException:
-            self._docker_client = None
 
     @staticmethod
     @entityd.pm.hookimpl
@@ -314,10 +306,12 @@ class ProcessEntity:
 
             {<process pid>: <container ID>, ...}.
         """
-        if not self._docker_client:
+        if not entityd.docker.client.DockerClient.client_available():
             return {}
-        containerids = {container.id for container in
-                        self._docker_client.containers.list()}
+        containerids = {
+            container.id for container in
+            entityd.docker.client.DockerClient.running_containers()
+        }
         containers = {}
         for pid in pids:
             try:

@@ -119,8 +119,8 @@ def patched_entitygen(request, monkeypatch, pm, session, host_entity_plugin):  #
 
     procgen = entityd.processme.ProcessEntity()
     pm.register(procgen, 'entityd.processme.ProcessEntity')
-    procgen.entityd_sessionstart(session)
     request.addfinalizer(procgen.entityd_sessionfinish)
+    procgen.entityd_sessionstart(session)
     mock_apache_process = entityd.EntityUpdate('Process')
     mock_apache_process.attrs.set('pid', 123, traits={'entity:id'})
     mock_apache_process.attrs.set('ppid', 1, traits={'entity:id'})
@@ -206,8 +206,8 @@ def test_find_entity(request, entitygen):
     procgen = entityd.processme.ProcessEntity()
     entitygen.session.pluginmanager.register(procgen,
                                              'entityd.processme.ProcessEntity')
-    procgen.entityd_sessionstart(entitygen.session)
     request.addfinalizer(procgen.entityd_sessionfinish)
+    procgen.entityd_sessionstart(entitygen.session)
     entities = entitygen.entityd_find_entity('Apache', None)
     count = 0
     for entity in entities:
@@ -311,7 +311,7 @@ def test_apache_not_found(patched_entitygen, monkeypatch):
         next(entities)
 
 
-def test_relations(monkeypatch, tmpdir, pm, session, kvstore,  # pylint: disable=unused-argument
+def test_relations(monkeypatch, request, tmpdir, pm, session, kvstore,  # pylint: disable=unused-argument
                    fileme, patched_entitygen):
     gen = patched_entitygen
 
@@ -320,6 +320,7 @@ def test_relations(monkeypatch, tmpdir, pm, session, kvstore,  # pylint: disable
 
     hostgen = entityd.hostme.HostEntity()
     pm.register(hostgen, name='entityd.hostme')
+    request.addfinalizer(hostgen.entityd_sessionfinish)
     hostgen.entityd_sessionstart(session)
     hosts = hostgen.entityd_find_entity('Host', None)
 
@@ -364,13 +365,14 @@ def test_relations(monkeypatch, tmpdir, pm, session, kvstore,  # pylint: disable
     assert entity.parents._relations == set(host.ueid for host in hosts)
 
 
-def test_config_file_returned_separately(pm, session, kvstore,  # pylint: disable=unused-argument
+def test_config_file_returned_separately(request, pm, session, kvstore,  # pylint: disable=unused-argument
                                          patched_entitygen, fileme, tmpdir,
                                          monkeypatch):
     gen = patched_entitygen
 
     hostgen = entityd.hostme.HostEntity()
     pm.register(hostgen, name='entityd.hostme')
+    request.addfinalizer(hostgen.entityd_sessionfinish)
     hostgen.entityd_sessionstart(session)
 
     conf_file = tmpdir.join('apache2.conf')
@@ -391,13 +393,15 @@ def test_config_file_returned_separately(pm, session, kvstore,  # pylint: disabl
     assert [e for e in entities if e.metype == 'Apache']
 
 
-def test_vhost_returned_separately(pm, session, kvstore,  # pylint: disable=unused-argument
+def test_vhost_returned_separately(request, pm, session, kvstore,  # pylint: disable=unused-argument
                                    patched_entitygen):
     gen = patched_entitygen
 
     hostgen = entityd.hostme.HostEntity()
     pm.register(hostgen, name='entityd.hostme')
+    request.addfinalizer(hostgen.entityd_sessionfinish)
     hostgen.entityd_sessionstart(session)
+
     apache = next(gen.entityd_find_entity('Apache',
                                           attrs=None,
                                           include_ondemand=False))

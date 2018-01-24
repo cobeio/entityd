@@ -55,12 +55,12 @@ def test_configure():
                                              'entityd.hostme.HostEntity')
 
 
-def test_session_stored_on_start():
+def test_session_stored_on_start(request):
     session = pytest.Mock()
     he = entityd.hostme.HostEntity()
+    request.addfinalizer(he.entityd_sessionfinish)
     he.entityd_sessionstart(session)
     assert he.session is session
-    he.entityd_sessionfinish()
 
 
 def test_find_entity_with_attrs():

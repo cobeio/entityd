@@ -3,13 +3,6 @@ import pytest
 from entityd.docker.client import DockerClient
 
 
-@pytest.fixture(autouse=True)
-def clear_client():
-    yield
-    DockerClient._client = None
-    DockerClient._client_info = None
-
-
 @pytest.fixture
 def running_container():
     network_id = 'aaaa'
@@ -39,6 +32,7 @@ def running_container():
             'Source': '/var/lib/docker/volumes/volume1/_data',
             'Type': 'volume'
         }],
+        'Image': 'image_id',
     }
     image = pytest.MagicMock(id='image_id', tags=['debian:latest'])
     container = pytest.Mock(
@@ -90,6 +84,7 @@ def finished_container():
             'Source': '/var/lib/docker/volumes/volume1/_data',
             'Type': 'volume',
         }],
+        'Image': 'image_id',
     }
     image = pytest.MagicMock(id='image_id', tags=['debian:latest'])
     container = pytest.Mock(

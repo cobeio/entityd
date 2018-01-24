@@ -13,6 +13,7 @@ class DockerClient:
     """Helper class to cache and get Docker DockerClient."""
     _client = None
     _client_info = None
+    _all_containers = None
 
     @classmethod
     def get_client(cls):
@@ -39,8 +40,8 @@ class DockerClient:
     @entityd.pm.hookimpl
     def entityd_collection_after(self, session):  # pylint: disable=unused-argument
         """Clear the client_info before the entityd collection starts."""
-        # NB: This is weird
         DockerClient._client_info = None
+        DockerClient._all_containers = None
 
     @classmethod
     def info(cls):
@@ -72,3 +73,32 @@ class DockerClient:
                 if node_id == manager['NodeID']:
                     return True
         return False
+
+    @classmethod
+    def all_containers(cls):
+        """Returns all docker containers.
+
+        This will return the same list of containers until
+        the end of the collection cycle. If there is a docker exception an
+        empty list will be returned.
+        """
+        if cls._all_containers is None:
+            try:
+                cls._all_containers = list(
+                    cls.get_client().containers.list(all=True))
+            except docker.errors.DockerException as error:
+                # We set the list to be an empty list so further calls to
+                # this function get the same result until the end of this
+                # collection cycle
+                log.debug(
+                    "DockerException caught when getting containers {}.",
+                    error
+                )
+                cls._all_containers = []
+
+        return cls._all_containers
+
+    @classmethod
+    def running_containers(cls):
+        """Returns all running docker containers."""
+        return [x for x in cls.all_containers() if x.status == "running"]

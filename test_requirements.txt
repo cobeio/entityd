@@ -1,6 +1,6 @@
 -r requirements.txt # install from requirements.txt first
---extra-index-url http://jenkins-srv.clockhouse:8888/
---trusted-host jenkins-srv.clockhouse
+--index https://earth.abilisoft.com/pypi/simple/
+--extra-index-url https://pypi.python.org/simple/
 pytest
 pytest-cov
 pytest-logbook
@@ -8,4 +8,3 @@ pylint==1.5.4
 astroid==1.4.4
 invoke
 pylint-abilisoft
-flaky

@@ -240,14 +240,13 @@ def apply_meta_update(meta, update, session):
     :param kube.ObjectMeta meta: the meta object to set attributes for.
     :param entityd.EntityUpdate update: the update to apply the attributes to.
     """
-    update.attrs.set('kubernetes:meta:name', meta.name, traits={'entity:id'})
+    update.attrs.set('kubernetes:meta:name', meta.name, {'entity:id', 'index'})
     update.attrs.set('kubernetes:meta:labels', dict(meta.labels))
     if meta.namespace:
         update.attrs.set('kubernetes:meta:namespace',
-                         meta.namespace, traits={'entity:id'})
-
-        namespace_group_ueid = entityd.kubernetes.NamespaceGroup.get_ueid(
-            meta.namespace, session)
+                         meta.namespace, {'entity:id', 'index'})
+        namespace_group_ueid = \
+            entityd.kubernetes.NamespaceGroup.get_ueid(meta.namespace, session)
         update.parents.add(namespace_group_ueid)
     else:
         update.attrs.delete('kubernetes:meta:namespace')
@@ -282,7 +281,10 @@ def namespace_update(namespace, update, session):
     update.label = namespace.meta.name
     apply_meta_update(namespace.meta, update, session)
     update.attrs.set(
-        'phase', namespace.phase.value, traits={'kubernetes:namespace-phase'})
+        'phase',
+        namespace.phase.value,
+        {'kubernetes:namespace-phase', 'index'},
+    )
     update.parents.add(get_cluster_ueid(session))
 
 
@@ -306,14 +308,14 @@ def pod_update(pod, update, session):
     apply_meta_update(pod.meta, update, session)
     update.attrs.set('kubernetes:kind', 'Pod')
     update.attrs.set(
-        'phase', pod.phase.value, traits={'kubernetes:pod-phase'})
+        'phase', pod.phase.value, {'kubernetes:pod-phase', 'index'})
     update.attrs.set('start_time',
                      pod.start_time.strftime(
                          entityd.kubernetes.RFC_3339_FORMAT),
                      traits={'chrono:rfc3339'})
     try:
         update.attrs.set('ip', str(pod.ip),
-                         traits={'ipaddr:v{}'.format(pod.ip.version)})
+                         {'ipaddr:v{}'.format(pod.ip.version), 'index'})
     except kube.StatusError:
         update.attrs.delete('ip')
     for attribute in ('message', 'reason'):
@@ -322,7 +324,7 @@ def pod_update(pod, update, session):
         except kube.StatusError:
             pass
         else:
-            update.attrs.set(attribute, value)
+            update.attrs.set(attribute, value, {'index'})
     return update
 
 
@@ -452,18 +454,18 @@ def container_update(container, pod, update, session):
     :param entityd.EntityUpdate update: the update to set the attributes on.
     """
     update.label = container.name
-    update.attrs.set('id', container.id, traits={'entity:id'})
+    update.attrs.set('id', container.id, {'entity:id', 'index'})
     update.attrs.set('name', container.name)
     update.attrs.set('kubernetes:kind', 'Container')
     update.attrs.set('manager', 'Docker')
     update.attrs.set('ready', container.ready)
-    update.attrs.set('image:id', container.image_id)
-    update.attrs.set('image:name', container.image)
-    update.attrs.set('restart-count',
-                     container.restart_count, traits={'metric:counter'})
+    update.attrs.set('image:id', container.image_id, {'index'})
+    update.attrs.set('image:name', container.image, {'index'})
+    update.attrs.set('restart-count', container.restart_count,
+                     {'metric:counter', 'index:numeric'})
     for state in ('running', 'waiting', 'terminated'):
         if getattr(container.state, state):
-            update.attrs.set('state', state)
+            update.attrs.set('state', state, {'index'})
     if container.state.running or container.state.terminated:
         update.attrs.set(
             'state:started-at',
@@ -474,7 +476,7 @@ def container_update(container, pod, update, session):
     else:
         update.attrs.delete('state:started-at')
     if container.state.waiting or container.state.terminated:
-        update.attrs.set('state:reason', container.state.reason)
+        update.attrs.set('state:reason', container.state.reason, {'index'})
     else:
         update.attrs.delete('state:reason')
     if container.state.terminated:
@@ -484,7 +486,8 @@ def container_update(container, pod, update, session):
         except kube.StatusError:
             update.attrs.delete('state:signal')
         try:
-            update.attrs.set('state:message', container.state.message)
+            update.attrs.set(
+                'state:message', container.state.message, {'index'})
         except kube.StatusError:
             update.attrs.delete('state:message')
         update.attrs.set(
@@ -954,7 +957,7 @@ METRICS_FILESYSTEM = [
     Metric(
         'type',
         ('type',),
-        {},
+        {'index'},
     ),
     Metric(
         'capacity:total',

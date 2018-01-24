@@ -40,13 +40,13 @@ class ServiceEntity(entityd.kubernetes.BasePlugin):
             for point in resource.loadbalancer_ingress:
                 if isinstance(point, ipaddress.IPv4Address):
                     update.attrs.set('kubernetes:load-balancer-ingress',
-                                     str(point), traits={'ipaddr:v4'})
+                                     str(point), {'ipaddr:v4', 'index'})
                 elif isinstance(point, ipaddress.IPv6Address):
                     update.attrs.set('kubernetes:load-balancer-ingress',
-                                     str(point), traits={'ipaddr:v6'})
+                                     str(point), {'ipaddr:v6', 'index'})
                 elif isinstance(point, str):
                     update.attrs.set(
-                        'kubernetes:load-balancer-ingress', point)
+                        'kubernetes:load-balancer-ingress', point, {'index'})
         except kube.StatusError:
             update.attrs.delete('kubernetes:load-balancer-ingress')
         return update

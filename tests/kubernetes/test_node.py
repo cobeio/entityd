@@ -383,9 +383,9 @@ def test_cordoned_node_entity(entities):
             assert entity.attrs.get('kind').value == 'Unschedulable'
             assert entity.attrs.get('kind').traits == set()
             assert entity.attrs.get('message').value
-            assert entity.attrs.get('message').traits == set()
+            assert entity.attrs.get('message').traits == {'index'}
             assert entity.attrs.get('hints').value
-            assert entity.attrs.get('hints').traits == set()
+            assert entity.attrs.get('hints').traits == {'index'}
             assert entity.attrs.get('importance').value
             assert entity.attrs.get('importance').traits == set()
             assert entity.attrs.get('urgency').value

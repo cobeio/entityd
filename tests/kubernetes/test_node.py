@@ -429,7 +429,7 @@ def test_not_ready_node_entity(notready_node,
                 'entity:id',
                 'entity:ueid',
             }
-            assert entity.attrs.get('start')
+            assert entity.attrs.get('start').value
             assert attrs.get('start').traits == {'chrono:rfc3339'}
             assert entity.attrs.get('kind').value == 'NotReady'
             assert entity.attrs.get('kind').traits == set()

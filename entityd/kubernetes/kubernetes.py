@@ -25,6 +25,7 @@ ENTITIES_PROVIDED = {
     'Kubernetes:Namespace': 'generate_namespaces',
     'Kubernetes:Pod': 'generate_pods',
     'Kubernetes:Pod:Probe': 'generate_probes',
+    'Observation': 'generate_probe_observations',
 }
 Point = collections.namedtuple('Point', ('timestamp', 'data'))
 Point.__doc__ = """Container statistics at a point in time.
@@ -351,15 +352,16 @@ def generate_probes(cluster, session):
             else:
                 update = yield
                 update.label = 'Liveness:'
-                update.attrs.set('kubernetes:pod', pod.meta.name,
-                                 traits={'entity:id'},
+                update.attrs.set('pod',
+                                 str(pod_update.ueid),
+                                 traits={'entity:id', 'entity:ueid'},
                                 )
-                update.attrs.set('kubernetes:probe:type', 'Liveness probe',
+                update.attrs.set('kubernetes:probe:type',
+                                 'Liveness probe',
                                  traits={'entity:id'},
                                 )
                 populate_probe_update(update, liveness_probe, pod_ip)
                 update.children.add(pod_update)
-
             try:
                 readiness_probe =\
                     pod.raw['spec']['containers'][0]['readinessProbe']
@@ -368,10 +370,12 @@ def generate_probes(cluster, session):
             else:
                 update = yield
                 update.label = 'Readiness:'
-                update.attrs.set('kubernetes:pod', pod.meta.name,
-                                 traits={'entity:id'},
+                update.attrs.set('pod',
+                                 str(pod_update.ueid),
+                                 traits={'entity:id', 'entity:ueid'},
                                 )
-                update.attrs.set('kubernetes:probe:type', 'Readiness probe',
+                update.attrs.set('kubernetes:probe:type',
+                                 'Readiness probe',
                                  traits={'entity:id'},
                                 )
                 populate_probe_update(update, readiness_probe, pod_ip)
@@ -411,6 +415,101 @@ def populate_probe_update(update, probe, pod_ip):
     elif tcp_socket:
         update.label += 'port=' + str(tcp_socket['port'])
         update.attrs.set('tcpSocket:port', tcp_socket['port'])
+
+
+def generate_probe_observations(cluster, session): # pylint: disable=unused-argument
+    """Generate updates for probe related observations.
+
+    :returns: a generator of :class:`entityd.EntityUpdate`s.
+    """
+    events_info = cluster.proxy.get('api/v1/events/')
+    event_items = events_info.get('items')
+    for event in event_items:
+        involved_object = event['involvedObject']
+        if involved_object['kind'] == 'Pod' and\
+                        event['reason'] == 'Unhealthy' and\
+                        event['type'] == 'Warning':
+            if event['message'].startswith('Liveness probe failed'):
+                probe_type = 'Liveness probe'
+            elif event['message'].startswith('Readiness probe failed'):
+                probe_type = 'Readiness probe'
+            else:
+                return
+            pod_name = involved_object['name']
+            try:
+                pod_ueid = create_pod_ueid(pod_name, cluster)
+            except LookupError as err:
+                log.info(err)
+                return
+            probe_ueid = create_probe_ueid(pod_ueid, probe_type)
+            update = yield
+            meta = event['metadata']
+            count = event['count']
+            update.label = str(count) + ' probe failure(s)'
+            update.attrs.set('kubernetes:event:name',
+                             meta['name'],
+                             traits={'entity:id'},
+                            )
+            update.attrs.set('kubernetes:event:firstTimestamp',
+                             event['firstTimestamp'],
+                             traits={'chrono:rfc3339'},
+                            )
+            update.attrs.set('kubernetes:event:lastTimestamp',
+                             event['lastTimestamp'],
+                             traits={'chrono:rfc3339'},
+                            )
+            update.attrs.set('kubernetes:event:count', event['count'])
+            update.attrs.set('kind', value=probe_type + ' failure', traits=[])
+            update.attrs.set('message', value=event['message'], traits=[])
+            update.attrs.set('hints',
+                             value='See message for details.',
+                             traits=[],
+                            )
+            update.attrs.set('importance', 3, traits=[])
+            update.attrs.set('urgency', 2, traits=[])
+            update.attrs.set('certainty', 10, traits=[])
+            update.children.add(pod_ueid)
+            update.children.add(probe_ueid)
+
+
+def create_pod_ueid(pod_name, cluster):
+    """Create the ueid for a pod.
+
+    :param str podname: Pod's name.
+    :param str namespace: Pod's namespace.
+
+    :returns: A :class:`cobe.UEID` for the pod.
+    """
+    for pod in cluster.pods:
+        if pod_name == pod.meta.name:
+            update = entityd.EntityUpdate('Kubernetes:Pod')
+            update.attrs.set('kubernetes:meta:name', pod_name,
+                             traits={'entity:id'})
+            update.attrs.set(
+                'kubernetes:meta:namespace', pod.meta.namespace,
+                traits={'entity:id'})
+            update.attrs.set(
+                'cluster', _CLUSTER_UEID, traits={'entity:id'})
+            return update.ueid
+    raise LookupError("Pod {} not found in the cluster".format(pod_name))
+
+
+def create_probe_ueid(pod_ueid, probe_type):
+    """Create the ueid for a probe.
+
+    :param pod_ueid: The UEID of the pod associated with the probe.
+    :type pod_ueid: cobe.UEID
+    :param str probe_type: 'Liveness probe' or 'Readiness probe'
+
+    :returns: A :class:`cobe.UEID` for the probe.
+    """
+    update = entityd.EntityUpdate('Kubernetes:Pod:Probe')
+    update.attrs.set('pod',
+                     str(pod_ueid),
+                     traits={'entity:id', 'entity:ueid'},
+                    )
+    update.attrs.set('kubernetes:probe:type', probe_type, traits={'entity:id'})
+    return update.ueid
 
 
 def generate_containers(cluster, session):

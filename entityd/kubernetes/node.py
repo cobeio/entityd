@@ -116,6 +116,16 @@ class NodeEntity:
                         self.create_cordoned_observation(str(node_entity.ueid))
                     observation_entity.children.add(node_entity)
                     yield observation_entity
+                for condition in list(node.raw['status']['conditions']):
+                    if condition['type'] == 'Ready'\
+                            and condition['status'] != 'True':
+                        observation_entity = \
+                            self.create_not_ready_observation(
+                                node,
+                                str(node_entity.ueid),
+                            )
+                        observation_entity.children.add(node_entity)
+                        yield observation_entity
                 yield node_entity
         except requests.ConnectionError:
             if not self._logged_k8s_unreachable:
@@ -125,7 +135,7 @@ class NodeEntity:
             self._logged_k8s_unreachable = False
 
     def create_entity(self, node, nodepods):
-        """Generator of Kubernetes Node Entities."""
+        """Creator of Kubernetes Node Entities."""
         meta = node.meta
         node_name = meta.name
         update = entityd.EntityUpdate('Host')
@@ -150,7 +160,7 @@ class NodeEntity:
         return update
 
     def create_cordoned_observation(self, ueid):
-        """Generator of Cordoned Node Observation Entities."""
+        """Creator of Cordoned Node Observation Entities."""
         update = entityd.EntityUpdate('Observation')
         update.label = "Node is cordoned"
         update.attrs.set('kubernetes:node',
@@ -177,4 +187,37 @@ class NodeEntity:
         update.attrs.set('importance', 2, traits=[])
         update.attrs.set('urgency', 2, traits=[])
         update.attrs.set('certainty', 10, traits=[])
+        return update
+
+    def create_not_ready_observation(self, node, ueid):
+        """Creator of Not Ready Node Observation Entities."""
+        update = entityd.EntityUpdate('Observation')
+        update.label = 'Node is not ready'
+        update.attrs.set('kubernetes:node',
+                         ueid,
+                         traits={'entity:id', 'entity:ueid'},
+                        )
+        update.attrs.set('observation-type', 'notready', traits={'entity:id'})
+        update.attrs.set('start',
+                         datetime.datetime.now().strftime(
+                             entityd.kubernetes.RFC_3339_FORMAT),
+                         traits={'chrono:rfc3339'},
+                        )
+        update.attrs.set('kind', value='NotReady', traits=[])
+        update.attrs.set('message',
+                         value='The node is not ready.',
+                         traits=[],
+                        )
+        update.attrs.set('hints',
+                         value="Check the node's condition"
+                               "attributes to discover why.",
+                         traits=[],
+                        )
+        update.attrs.set('importance', 6, traits=[])
+        update.attrs.set('urgency', 6, traits=[])
+        update.attrs.set('certainty', 10, traits=[])
+        for condition in node.raw['status']['conditions']:
+            update.attrs.set('condition:' + condition['type'],
+                             list(condition),
+                            )
         return update

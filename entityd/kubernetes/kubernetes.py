@@ -161,11 +161,11 @@ def get_cluster_ueid(session):
     """
     results = session.pluginmanager.hooks.entityd_find_entity(
         name='Kubernetes:Cluster', attrs=None)
-    if results:
-        for cluster_entity in results[0]:
-            return cluster_entity.ueid
-    else:
-        raise LookupError('Could not find the Cluster UEID')
+    for result in results:
+        if result:
+            for cluster_entity in result:
+                return cluster_entity.ueid
+    raise LookupError('Could not find the Cluster UEID')
 
 
 def generate_updates(generator_function, session):
@@ -345,7 +345,7 @@ def generate_probes(cluster, session):
         except LookupError:
             pass
         else:
-            pod_ip = pod.raw['status']['podIP']
+            pod_ip = pod.raw['status'].get('podIP')
             try:
                 liveness_probe = \
                     pod.raw['spec']['containers'][0]['livenessProbe']
@@ -404,7 +404,7 @@ def populate_probe_update(update, probe, pod_ip):
     elif http_get:
         path = http_get.get('path')
         scheme = http_get.get('scheme')
-        if path and scheme:
+        if path and scheme and pod_ip:
             update.label += scheme + "://" + pod_ip + path
         if path:
             update.attrs.set('httpGet:path', path)

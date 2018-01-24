@@ -85,6 +85,29 @@ def inactive_node():
 
 
 @pytest.fixture
+def manager_node_no_labels():
+    node = pytest.MagicMock()
+    node.ip_address = '192.168.2.23'
+    node.attrs = {
+        'ID': 'aaaa',
+        'Description': {'Hostname': 'bbbb'},
+        'ManagerStatus': {
+            'Addr': '192.168.2.23:2377',
+            'Leader': True,
+            'Reachability': 'reachable'},
+        'Spec': {
+            'Availability': 'active',
+            'Role': 'manager'},
+        'Status': {
+            'Addr': node.ip_address,
+            'State': 'ready'},
+        'Version': {
+            'Index': 9}
+    }
+    return node
+
+
+@pytest.fixture
 def nodes(monkeypatch):
     def make_client(client_info, nodes):
         get_client = pytest.MagicMock()
@@ -101,18 +124,7 @@ def test_docker_not_available(monkeypatch):
                         pytest.MagicMock(side_effect=DockerException))
     docker_node = DockerNode()
 
-    assert not list(docker_node.entityd_find_entity(docker_node.name))
-
-
-def test_attrs_raises_exception():
-    with pytest.raises(LookupError):
-        docker_daemon = DockerNode()
-        docker_daemon.entityd_find_entity(DockerNode.name, attrs="foo")
-
-
-def test_not_provided():
-    docker_daemon = DockerNode()
-    assert docker_daemon.entityd_find_entity('foo') is None
+    assert not list(docker_node.entityd_emit_entities())
 
 
 def test_get_ueid():
@@ -133,9 +145,7 @@ def test_find_entities_no_swarm(session, docker_node, nodes):
     testing_nodes = []
     nodes(client_info, testing_nodes)
 
-    docker_node.entityd_configure(session.config)
-    entities = docker_node.entityd_find_entity(DockerNode.name)
-    entities = list(entities)
+    entities = list(docker_node.entityd_emit_entities())
     assert len(entities) == 0
 
 
@@ -154,18 +164,15 @@ def test_find_entities_with_swarm(session, docker_node, manager_node, nodes,
     testing_nodes = [manager_node, worker_node, inactive_node]
     nodes(client_info, testing_nodes)
 
-    docker_node.entityd_configure(session.config)
-    entities = docker_node.entityd_find_entity(DockerNode.name)
-    entities = list(entities)
-    assert len(entities) == 3
+    entities = list(docker_node.entityd_emit_entities())
+    node_entities = [x for x in entities if x.metype == DockerNode.name]
+    assert len(node_entities) == 3
 
-    for entity, node in zip(entities, testing_nodes) :
+    for entity, node in zip(node_entities, testing_nodes) :
         assert (entity.attrs.get('id').value == node.attrs['ID'])
         assert (entity.attrs.get('role').value == node.attrs['Spec']['Role'])
         assert (entity.attrs.get(
             'availability').value == node.attrs['Spec']['Availability'])
-        assert (entity.attrs.get(
-            'labels').value == node.attrs['Spec']['Labels'])
         assert (entity.attrs.get(
             'state').value == node.attrs['Status']['State'])
         assert (entity.attrs.get(
@@ -189,10 +196,39 @@ def test_find_entities_with_swarm(session, docker_node, manager_node, nodes,
         assert entity.attrs.get('id').traits == {'entity:id'}
         assert entity.attrs.get('role').traits == set()
         assert entity.attrs.get('availability').traits == set()
-        assert entity.attrs.get('labels').traits == set()
         assert entity.attrs.get('state').traits == set()
         assert entity.attrs.get('address').traits == set()
         assert entity.attrs.get('version').traits == set()
         assert entity.attrs.get('manager:reachability').traits == set()
         assert entity.attrs.get('manager:leader').traits == set()
         assert entity.attrs.get('manager:address').traits == set()
+
+    group_entities = [x for x in entities if x.metype == 'Group']
+    assert len(group_entities) == 3
+
+    for entity in group_entities:
+        assert entity.attrs.get('kind').value == 'label:foo'
+        assert entity.attrs.get('id').value == 'bar'
+        assert entity.attrs.get('kind').traits == {'entity:id'}
+        assert entity.attrs.get('id').traits == {'entity:id'}
+
+
+def test_find_entities_missing_labels(session,
+                                      docker_node,
+                                      manager_node_no_labels,
+                                      nodes,
+                                      worker_node,
+                                      inactive_node):
+    client_info = {
+        'ID': 'foo',
+        'Name': 'bar',
+        'Swarm': {
+            'LocalNodeState': 'active',
+            'NodeID': 'aaaa',
+            'RemoteManagers': [{'NodeID': 'aaaa'}],
+        },
+    }
+
+    testing_nodes = [manager_node_no_labels, worker_node, inactive_node]
+    nodes(client_info, testing_nodes)
+    assert list(docker_node.entityd_emit_entities())

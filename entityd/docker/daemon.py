@@ -5,8 +5,10 @@ will be generated
 """
 
 import entityd
+import entityd.groups
 from entityd.docker.client import DockerClient
 from entityd.mixins import HostEntity
+
 
 
 class DockerDaemon(HostEntity):
@@ -14,19 +16,9 @@ class DockerDaemon(HostEntity):
     name = 'Docker:Daemon'
 
     @entityd.pm.hookimpl
-    def entityd_configure(self, config):
-        """Register the Process Monitored Entity."""
-        config.addentity(self.name, 'entityd.docker.daemon.DockerDaemon')
-
-    @entityd.pm.hookimpl
-    def entityd_find_entity(self, name, attrs=None,
-                            include_ondemand=False):  # pylint: disable=unused-argument
-        """Find the docker daemon entity."""
-
-        if name == self.name:
-            if attrs is not None:
-                raise LookupError('Attribute based filtering not supported')
-            return self.generate_updates()
+    def entityd_emit_entities(self):
+        """Generate all Docker daemon entity updates."""
+        yield from self._generate_daemon()
 
     @classmethod
     def get_ueid(cls, docker_daemon_id):
@@ -35,8 +27,8 @@ class DockerDaemon(HostEntity):
         entity.attrs.set('id', docker_daemon_id, traits={'entity:id'})
         return entity.ueid
 
-    def generate_updates(self):
-        """Generates the entity updates for the docker daemon."""
+    def _generate_daemon(self):
+        """Generates the entity update for the docker daemon."""
         if DockerClient.client_available():
             client_info = DockerClient.info()
 
@@ -56,5 +48,21 @@ class DockerDaemon(HostEntity):
                 node_ueid = entityd.docker.get_ueid(
                     'DockerNode', client_info['Swarm']['NodeID'])
                 update.parents.add(node_ueid)
-
+            yield from self._generate_label_entities(client_info['Labels'],
+                                                     update)
             yield update
+
+    def _generate_label_entities(self, labels, update):
+        """Generate update for a Docker label."""
+        if labels:
+            label_dict = {}
+            for label in labels:
+                args = label.split('=')
+                if len(args) == 2:
+                    label_dict[args[0]] = args[1]
+                else:
+                    label_dict[args[0]] = ''
+            for group in entityd.groups.labels(label_dict):
+                group.children.add(update)
+                yield group
+

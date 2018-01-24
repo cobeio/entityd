@@ -27,7 +27,6 @@ class DockerContainer:
         """Generate entity update objects for each container."""
         if not DockerClient.client_available():
             return
-
         client = DockerClient.get_client()
         daemon_id = client.info()['ID']
         daemon_ueid = entityd.docker.get_ueid('DockerDaemon', daemon_id)

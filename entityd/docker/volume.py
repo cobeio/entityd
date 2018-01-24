@@ -1,5 +1,6 @@
 """This module contains the entity types for Docker Volumes."""
 
+import entityd.groups
 from entityd import EntityUpdate
 from entityd.docker import BaseDocker, get_ueid
 from entityd.docker.client import DockerClient
@@ -23,7 +24,6 @@ class DockerVolume(BaseDocker):
         update.label = volume.attrs['Name']
         update.attrs.set('daemon-id', daemon_id, traits={'entity:id'})
         update.attrs.set('name', volume.attrs['Name'], traits={'entity:id'})
-        update.attrs.set('labels', volume.attrs.get('Labels'))
         update.attrs.set('options', volume.attrs.get('Options'))
         update.attrs.set('driver', volume.attrs.get('Driver'))
         update.attrs.set('mount-point', volume.attrs.get('Mountpoint'))
@@ -41,10 +41,13 @@ class DockerVolume(BaseDocker):
 
         for volume in client.volumes.list():
             update = self.populate_volume_fields(volume, client_info['ID'])
-
             daemon_ueid = get_ueid('DockerDaemon', client_info['ID'])
             update.parents.add(daemon_ueid)
-
+            labels = volume.attrs.get('Labels')
+            if labels:
+                for group in entityd.groups.labels(labels):
+                    group.children.add(update)
+                    yield group
             yield update
 
 

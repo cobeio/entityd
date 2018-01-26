@@ -25,7 +25,7 @@ ENTITIES_PROVIDED = {
     'Kubernetes:Namespace': 'generate_namespaces',
     'Kubernetes:Pod': 'generate_pods',
     'Kubernetes:Pod:Probe': 'generate_probes',
-    'Observation': 'generate_probe_observations',
+    # 'Observation': 'generate_probe_observations',
 }
 Point = collections.namedtuple('Point', ('timestamp', 'data'))
 Point.__doc__ = """Container statistics at a point in time.

@@ -41,7 +41,7 @@ def test_entityd_configure(pm, config):
         'Kubernetes:Pod',
         'Kubernetes:Namespace',
         'Kubernetes:Pod:Probe',
-        'Observation',
+        # 'Observation',
     }
     for entity_plugins in config.entities.values():
         assert plugin in entity_plugins
@@ -670,6 +670,7 @@ class TestProbes:
         assert not probes
 
 
+@pytest.mark.xfail
 @pytest.mark.usefixtures("cluster_ueid")
 class TestProbeObservations:
 

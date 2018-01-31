@@ -319,7 +319,7 @@ class ProcessEntity:
                     for containerid in containerids:
                         if containerid in fp.readline():
                             containers[pid] = containerid
-            except FileNotFoundError:
+            except (FileNotFoundError, ProcessLookupError):
                 continue
         return containers
 

@@ -212,7 +212,7 @@ def test_entities_have_core_attributes(
         if not entity.exists:
             continue
         for attr in 'binary pid starttime ppid host cputime utime stime vsz ' \
-                    'rss uid euid suid username gid sgid egid sessionid ' \
+                    'rss uid euid suid gid sgid egid sessionid ' \
                     'command'.split():
             assert entity.attrs.get(attr)
         count += 1
